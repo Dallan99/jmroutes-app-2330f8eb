@@ -15,6 +15,7 @@ import { listarRiscoSemanal, semanaAtual } from "./meli/risk.js";
 import { enviarRiscoRostering } from "./pipeline/risk.js";
 import { CircuitBreaker } from "./state/breaker.js";
 import { registrarExecucao, type Execucao } from "./telemetry/report.js";
+import { descobrirIndicadoresMonitoramento } from "./meli/monitoring-discovery.js";
 
 let encerrando = false;
 
@@ -62,6 +63,39 @@ async function main() {
     intervalo_s: cfg.syncIntervalSeconds,
     dry_run: cfg.dryRun,
   });
+
+  if (cfg.discoveryOnly) {
+    const base = cfg.bases.find((item) => item.baseCode === cfg.discoveryBaseCode) ?? null;
+
+    if (!base) {
+      throw new ConfigError(`A base de descoberta ${cfg.discoveryBaseCode ?? "—"} não está disponível na configuração atual.`);
+    }
+
+    const sessao = await abrirSessaoAdminML(configParaBase(cfg, base));
+    if (sessao.status !== "ok") {
+      logger.warn("Descoberta não executada: sessão AdminML indisponível.", {
+        base: base.baseCode,
+        motivo: sessao.motivo,
+      });
+      return;
+    }
+
+    try {
+      await descobrirIndicadoresMonitoramento(sessao.page, {
+        baseCode: base.baseCode,
+        serviceCenterId: base.serviceCenterId,
+        siteId: base.siteId,
+      });
+    } finally {
+      await sessao.fechar();
+    }
+
+    logger.info("Descoberta do Monitoramento Last Mile concluída; worker encerrado sem persistência.", {
+      base: base.baseCode,
+      dry_run: true,
+    });
+    return;
+  }
 
   const breakers = new Map(cfg.bases.map((b) => [b.baseCode, new CircuitBreaker()]));
   const estados = new Map(cfg.bases.map((b) => [b.baseCode, novoEstadoIncremental()]));

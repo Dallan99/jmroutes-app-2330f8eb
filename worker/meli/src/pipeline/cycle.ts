@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { ADMINML, type WorkerConfig } from "../config.js";
 import { logger, mensagemSegura } from "../logger.js";
 import { jitter, listarRotas, sleep, type MeliTransport, type RotaLista } from "../meli/list.js";
+import { consultarResumosMetricasRotas } from "../meli/metrics-summaries.js";
 import { obterDetalheRota } from "../meli/detail.js";
 import {
   novoEstadoIncremental,
@@ -140,6 +141,29 @@ export async function executarCiclo(deps: CicloDeps): Promise<CicloResultado> {
       dryRun,
       protocoloLotesIndisponivel: false,
     };
+  }
+
+  // A consulta consolidada usa a mesma sessão Playwright e é mantida separada
+  // da lista/detalhe de rotas. Falhas nessa leitura não interrompem o ciclo de
+  // sincronização já existente.
+  const metricas = await consultarResumosMetricasRotas(transport, {
+    serviceCenterId: cfg.serviceCenterId,
+    serviceCenterIds: cfg.serviceCenterIds,
+    siteId: cfg.siteId,
+    dormir,
+  });
+  if (metricas.ok) {
+    logger.info("Resumos de métricas do Monitoramento Last Mile consultados.", {
+      base: cfg.baseCode,
+      serviceCenters: metricas.valor.map((item) => item.serviceCenterId),
+      total_respostas: metricas.valor.length,
+    });
+  } else {
+    logger.warn("Consulta de resumos de métricas não concluída; seguindo com o ciclo de rotas.", {
+      base: cfg.baseCode,
+      motivo: metricas.motivo,
+      status: metricas.status ?? null,
+    });
   }
 
   const lista = await listarRotas(transport, {

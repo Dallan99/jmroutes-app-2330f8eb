@@ -14,7 +14,7 @@ import type { MeliResposta, MeliTransport } from "../meli/list.js";
 // A) AdminML
 // ------------------------------------------------------------------
 export type AdminMLSessao =
-  | { status: "ok"; transport: MeliTransport; fechar: () => Promise<void> }
+  | { status: "ok"; transport: MeliTransport; page: Page; fechar: () => Promise<void> }
   | { status: "aguardando_autenticacao"; motivo: string };
 
 function toHeaders(res: { headers(): Record<string, string> }): Record<string, string> {
@@ -107,6 +107,7 @@ export async function abrirSessaoAdminML(cfg: WorkerConfig): Promise<AdminMLSess
   return {
     status: "ok",
     transport: transportDePagina(page),
+    page,
     fechar: async () => {
       await context.close().catch(() => undefined);
       await browser.close().catch(() => undefined);

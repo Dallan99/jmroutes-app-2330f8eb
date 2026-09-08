@@ -3,6 +3,15 @@
 export const WORKER_VERSAO = "0.4.0-dashboard-geral";
 export const STORAGE_STATE_AAD = "meli-storage-state:v1";
 
+export type BaseJm = {
+  baseCode: string;
+  serviceCenterId: string;
+  /** Estações adicionais que pertencem à mesma base operacional. */
+  serviceCenterIds?: readonly string[];
+  siteId: string;
+  nome: string;
+};
+
 export const BASES_JM = [
   { baseCode: "SSP3", serviceCenterId: "SSP3", siteId: "MLB", nome: "Campinas" },
   { baseCode: "SSP38", serviceCenterId: "SSP38", siteId: "MLB", nome: "Itupeva" },
@@ -21,14 +30,21 @@ export const BASES_JM = [
   { baseCode: "SSC2", serviceCenterId: "SSC2", siteId: "MLB", nome: "Biguaçu" },
   { baseCode: "SSP4", serviceCenterId: "SSP4", siteId: "MLB", nome: "Cravinhos" },
   { baseCode: "SSP7", serviceCenterId: "SSP7", siteId: "MLB", nome: "Lapa" },
-] as const;
+] as const satisfies readonly BaseJm[];
+
+/**
+ * Retorna todas as estações válidas da base, preservando a estação principal
+ * mesmo quando ela também estiver em serviceCenterIds.
+ */
+export function obterServiceCentersDaBase(base: Pick<BaseJm, "serviceCenterId" | "serviceCenterIds">): string[] {
+  return [...new Set([base.serviceCenterId, ...(base.serviceCenterIds ?? [])].map((id) => id.trim()).filter(Boolean))];
+}
 
 export const PILOTO = { BASE_CODE: "ESP16", SERVICE_CENTER_ID: "SSP15", SITE_ID: "MLB", NOME: "Guarujá" } as const;
-export type BaseJm = (typeof BASES_JM)[number];
-
 export const ADMINML = {
   HOST: "envios.adminml.com",
   LIST_URL: "https://envios.adminml.com/logistics/api/monitoring/get-routes-list",
+  METRICS_SUMMARIES_URL: "https://envios.adminml.com/logistics/api/monitoring/get-routes-metrics-summaries",
   DETAIL_URL: "https://envios.adminml.com/logistics/api/monitoring-route/route-detail",
   PAGE_SIZE: 50,
   MAX_PAGINAS: 40,
@@ -42,6 +58,8 @@ export type WorkerConfig = {
   writeBaseCodes: string[];
   baseCode: string;
   serviceCenterId: string;
+  /** Todas as estações operacionais da base, sem duplicação. */
+  serviceCenterIds: string[];
   siteId: string;
   jmrBaseUrl: string;
   supabaseUrl: string;
@@ -60,6 +78,12 @@ export type WorkerConfig = {
    * compatível com o banco antes da migration.
    */
   protocoloLotes: boolean;
+  /**
+   * Modo de descoberta do Monitoramento Last Mile. Apenas observa chamadas
+   * reais da tela AdminML, sem enviar ou persistir qualquer dado.
+   */
+  discoveryOnly: boolean;
+  discoveryBaseCode: string | null;
 };
 
 export class ConfigError extends Error {}
@@ -92,6 +116,18 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
   const dryRun = (env["DRY_RUN"] ?? "").trim().toLowerCase() === "true";
   const protocoloLotes = (env["SYNC_PROTOCOL_LOTES"] ?? "").trim().toLowerCase() === "true";
+  const discoveryOnly = (env["DISCOVERY_ONLY"] ?? "").trim().toLowerCase() === "true";
+  const discoveryBaseCode = (env["DISCOVERY_BASE_CODE"] ?? "").trim().toUpperCase() || null;
+
+  if (discoveryOnly && !dryRun) {
+    throw new ConfigError("DISCOVERY_ONLY exige DRY_RUN=true.");
+  }
+  if (discoveryOnly && !discoveryBaseCode) {
+    throw new ConfigError("DISCOVERY_ONLY exige DISCOVERY_BASE_CODE para limitar o teste a uma única base.");
+  }
+  if (discoveryBaseCode && !BASES_JM.some((base) => base.baseCode === discoveryBaseCode)) {
+    throw new ConfigError(`DISCOVERY_BASE_CODE não permitida: ${discoveryBaseCode}`);
+  }
   const passwordBase64 = (env["WORKER_PASSWORD_BASE64"] ?? "").trim();
   const workerPassword = passwordBase64
     ? Buffer.from(passwordBase64, "base64").toString("utf8")
@@ -112,6 +148,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     writeBaseCodes,
     baseCode: primeira.baseCode,
     serviceCenterId: primeira.serviceCenterId,
+    serviceCenterIds: obterServiceCentersDaBase(primeira),
     siteId: primeira.siteId,
     jmrBaseUrl: req(env, "JMR_BASE_URL").replace(/\/+$/, ""),
     supabaseUrl: req(env, "SUPABASE_URL").replace(/\/+$/, ""),
@@ -126,9 +163,18 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     syncIntervalSeconds,
     dryRun,
     protocoloLotes,
+    discoveryOnly,
+    discoveryBaseCode,
   };
 }
 
 export function configParaBase(cfg: WorkerConfig, base: BaseJm): WorkerConfig {
-  return { ...cfg, bases: [base], baseCode: base.baseCode, serviceCenterId: base.serviceCenterId, siteId: base.siteId };
+  return {
+    ...cfg,
+    bases: [base],
+    baseCode: base.baseCode,
+    serviceCenterId: base.serviceCenterId,
+    serviceCenterIds: obterServiceCentersDaBase(base),
+    siteId: base.siteId,
+  };
 }
