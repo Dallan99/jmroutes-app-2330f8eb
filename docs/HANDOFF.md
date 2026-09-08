@@ -24,8 +24,8 @@ Java, Redis ou Postgres próprio.
 | --- | --- | --- |
 | Ibiúna | ESP15 | SSP20 |
 | Guarujá | ESP16 | SSP15 |
-| São Lourenço | ESP17 | SSP56 |
-| Franco da Rocha | ESP18 | SSP25 |
+| Embu Guaçu | ESP17 | SSP56 |
+| Atibaia | ESP18 | SSP25 |
 
 ## 4. Ingestão Meli — estado atual
 
@@ -91,15 +91,16 @@ Fluxo implementado: rota Meli sincronizada → associação à base por
 ## 10. Checkpoint — Dashboard Geral (2026-09-08)
 
 - Regra confirmada: somente códigos `ESP` são XPT; `SSP` e `SSC` são Services.
-- 17 unidades ativas: 4 XPTs e 13 Services.
+- 15 unidades ativas na planilha oficial: 4 XPTs e 11 Services.
 - A resposta real de `get-routes-list` contém, por rota, `facilityId`,
   `serviceCenterId`, tipo/status e os contadores `total`, `totalBags`, `pending`,
   `notDelivered` e `delivered`. Não é necessário abrir detalhes de pacotes para
   reproduzir o quadro superior do Monitoramento Last Mile.
 - O worker filtra pela unidade operacional real (`facilityId`) e envia o resumo
   para `/api/public/meli/importar-monitoramento`.
-- O Dashboard Geral lê `meli_monitoramento_snapshots`; o Dashboard XPTs existente
-  permanece independente.
+- O Dashboard Geral lê `meli_monitoramento_snapshots` e apresenta veículos,
+  pacotes, entregas, DC, sinistro, insucessos normais, PNR e as três performances
+  da planilha; o Dashboard XPTs existente permanece independente.
 - Migrations remotas registradas/aplicadas: `20260908142535`, `20260908162145`,
   `20260908221127` e `20260908221509`.
 - Validação: build do site passou; worker com 29 testes, typecheck e build verdes.

@@ -21,7 +21,7 @@ $bases = @(
   @{ Name = 'Grupo 1'; Code = 'SSP3,SSP38,SSP5,SSP17,SSP37'; Delay = 0; Label = 'GRUPO-1' },
   @{ Name = 'Grupo 2'; Code = 'ESP15,SSP20,SSP6,SSP45'; Delay = 20; Label = 'GRUPO-2' },
   @{ Name = 'Grupo 3'; Code = 'ESP16,SSP15,SSP23,SSC2'; Delay = 40; Label = 'GRUPO-3' },
-  @{ Name = 'Grupo 4'; Code = 'ESP17,ESP18,SSP4,SSP7'; Delay = 60; Label = 'GRUPO-4' }
+  @{ Name = 'Grupo 4'; Code = 'ESP17,ESP18'; Delay = 60; Label = 'GRUPO-4' }
 )
 
 foreach ($base in $bases) {

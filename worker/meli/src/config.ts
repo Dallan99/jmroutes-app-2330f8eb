@@ -18,18 +18,16 @@ export const BASES_JM = [
   { baseCode: "ESP15", serviceCenterId: "SSP20", siteId: "MLB", nome: "Ibiúna" },
   { baseCode: "SSP5", serviceCenterId: "SSP5", siteId: "MLB", nome: "Mega Barueri" },
   { baseCode: "SSP20", serviceCenterId: "SSP20", siteId: "MLB", nome: "Sorocaba" },
-  { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "São Lourenço" },
+  { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "XPT Embu Guaçu" },
   { baseCode: "ESP16", serviceCenterId: "SSP15", siteId: "MLB", nome: "Guarujá" },
   { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "ABC" },
-  { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Franco da Rocha" },
+  { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Atibaia" },
   { baseCode: "SSP6", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
   { baseCode: "SSP45", serviceCenterId: "SSP45", siteId: "MLB", nome: "Itaquera" },
   { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "Santos" },
   { baseCode: "SSP37", serviceCenterId: "SSP37", siteId: "MLB", nome: "Campinas" },
   { baseCode: "SSP23", serviceCenterId: "SSP23", siteId: "MLB", nome: "Suzano" },
   { baseCode: "SSC2", serviceCenterId: "SSC2", siteId: "MLB", nome: "Biguaçu" },
-  { baseCode: "SSP4", serviceCenterId: "SSP4", siteId: "MLB", nome: "Cravinhos" },
-  { baseCode: "SSP7", serviceCenterId: "SSP7", siteId: "MLB", nome: "Lapa" },
 ] as const satisfies readonly BaseJm[];
 
 /**

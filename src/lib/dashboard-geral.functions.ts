@@ -10,17 +10,17 @@ export type DashboardGeralBase = {
   uf: string | null;
   tipo: "SERVICE" | "XPT";
   status: "ok" | "sem_dados";
-  rotas_totais: number | null;
-  rotas_entrega: number | null;
-  rotas_coleta: number | null;
-  rotas_mistas: number | null;
-  rotas_em_andamento: number | null;
+  veiculos: number | null;
   pacotes: number | null;
-  sacas: number | null;
-  pendentes: number | null;
-  com_falhas: number | null;
-  bem_sucedidos: number | null;
+  entregues: number | null;
+  dc_cancelado: number | null;
+  sinistros: number | null;
+  insucessos: number | null;
+  pnr: number | null;
   source_updated_at: string | null;
+  performance_logistics: number | null;
+  performance_sem_dc: number | null;
+  performance_sem_dc_sinistro: number | null;
 };
 
 export type DashboardGeralResponse = {

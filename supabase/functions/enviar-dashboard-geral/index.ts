@@ -8,20 +8,21 @@ import { withSupabase } from "@supabase/server";
 
 type Linha = Record<string, number | string | null>;
 const n = (v: unknown) => Number(v ?? 0).toLocaleString("pt-BR");
+const pct = (v: unknown) => v == null ? "—" : `${Number(v).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%`;
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 function htmlRelatorio(data: string, snapshot: { bases?: Linha[]; totais?: Linha }) {
   const linhas = (snapshot.bases ?? []).map((b) => `<tr>
-    <td>${esc(b.nome)}<br><small>${esc(b.codigo)}</small></td><td>${n(b.rotas_totais)}</td><td>${n(b.rotas_entrega)}</td>
-    <td>${n(b.rotas_coleta)}</td><td>${n(b.rotas_mistas)}</td><td>${n(b.rotas_em_andamento)}</td><td>${n(b.pacotes)}</td>
-    <td>${n(b.sacas)}</td><td>${n(b.pendentes)}</td><td>${n(b.com_falhas)}</td><td>${n(b.bem_sucedidos)}</td></tr>`).join("");
+    <td>${esc(b.nome)}<br><small>${esc(b.codigo)}</small></td><td>${n(b.veiculos)}</td><td>${n(b.pacotes)}</td>
+    <td>${n(b.entregues)}</td><td>${n(b.dc_cancelado)}</td><td>${n(b.sinistros)}</td><td>${n(b.insucessos)}</td>
+    <td>${n(b.pnr)}</td><td>${pct(b.performance_logistics)}</td><td>${pct(b.performance_sem_dc)}</td><td>${pct(b.performance_sem_dc_sinistro)}</td></tr>`).join("");
   const t = snapshot.totais ?? {};
   return `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#101828">
     <h2>JMRoutes — Fechamento geral ${esc(data)}</h2>
     <p>Relatório fechado automaticamente à meia-noite (horário de São Paulo).</p>
     <table style="border-collapse:collapse;width:100%;font-size:12px" border="1" cellpadding="6">
-      <thead style="background:#071b45;color:white"><tr><th>Base</th><th>Rotas</th><th>Entrega</th><th>Coleta</th><th>Mistas</th><th>Em andamento</th><th>Pacotes</th><th>Sacas</th><th>Pendentes</th><th>Falhas</th><th>Bem-sucedidos</th></tr></thead>
-      <tbody>${linhas}</tbody><tfoot style="font-weight:bold;background:#f2f4f7"><tr><td>Consolidado</td><td>${n(t.rotas_totais)}</td><td>${n(t.rotas_entrega)}</td><td>${n(t.rotas_coleta)}</td><td>${n(t.rotas_mistas)}</td><td>${n(t.rotas_em_andamento)}</td><td>${n(t.pacotes)}</td><td>${n(t.sacas)}</td><td>${n(t.pendentes)}</td><td>${n(t.com_falhas)}</td><td>${n(t.bem_sucedidos)}</td></tr></tfoot>
+      <thead style="background:#071b45;color:white"><tr><th>Base</th><th>Veículos</th><th>Pacotes</th><th>Entregas</th><th>DC</th><th>Sinistro</th><th>Insucessos normais</th><th>PNR</th><th>Logistics</th><th>S/DC</th><th>S/DC+Sinistro</th></tr></thead>
+      <tbody>${linhas}</tbody><tfoot style="font-weight:bold;background:#f2f4f7"><tr><td>Consolidado</td><td>${n(t.veiculos)}</td><td>${n(t.pacotes)}</td><td>${n(t.entregues)}</td><td>${n(t.dc_cancelado)}</td><td>${n(t.sinistros)}</td><td>${n(t.insucessos)}</td><td>${n(t.pnr)}</td><td>${pct(t.performance_logistics)}</td><td>${pct(t.performance_sem_dc)}</td><td>${pct(t.performance_sem_dc_sinistro)}</td></tr></tfoot>
     </table></body></html>`;
 }
 
