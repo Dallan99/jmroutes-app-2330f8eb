@@ -13,4 +13,14 @@ describe("rota do dashboard geral", () => {
     expect(rota).toContain('import { DashboardPage } from "./dashboard"');
     expect(rota).toContain("component: DashboardPage");
   });
+
+  it("preserva a rota solicitada quando o usuário precisa fazer login", () => {
+    const rotaAutenticada = readFileSync(
+      resolve(process.cwd(), "src/routes/_authenticated/route.tsx"),
+      "utf8",
+    );
+
+    expect(rotaAutenticada).toContain("beforeLoad: async ({ location })");
+    expect(rotaAutenticada).toContain("search: { next: location.href }");
+  });
 });
