@@ -47,6 +47,12 @@ export type WorkerConfig = {
    * compatível com o banco antes da migration.
    */
   protocoloLotes: boolean;
+  /**
+   * Modo de descoberta do Monitoramento Last Mile. Apenas observa chamadas
+   * reais da tela AdminML, sem enviar ou persistir qualquer dado.
+   */
+  discoveryOnly: boolean;
+  discoveryBaseCode: string | null;
 };
 
 export class ConfigError extends Error {}
@@ -79,6 +85,18 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 
   const dryRun = (env["DRY_RUN"] ?? "").trim().toLowerCase() === "true";
   const protocoloLotes = (env["SYNC_PROTOCOL_LOTES"] ?? "").trim().toLowerCase() === "true";
+  const discoveryOnly = (env["DISCOVERY_ONLY"] ?? "").trim().toLowerCase() === "true";
+  const discoveryBaseCode = (env["DISCOVERY_BASE_CODE"] ?? "").trim().toUpperCase() || null;
+
+  if (discoveryOnly && !dryRun) {
+    throw new ConfigError("DISCOVERY_ONLY exige DRY_RUN=true.");
+  }
+  if (discoveryOnly && !discoveryBaseCode) {
+    throw new ConfigError("DISCOVERY_ONLY exige DISCOVERY_BASE_CODE para limitar o teste a uma única base.");
+  }
+  if (discoveryBaseCode && !BASES_JM.some((base) => base.baseCode === discoveryBaseCode)) {
+    throw new ConfigError(`DISCOVERY_BASE_CODE não permitida: ${discoveryBaseCode}`);
+  }
   const passwordBase64 = (env["WORKER_PASSWORD_BASE64"] ?? "").trim();
   const workerPassword = passwordBase64
     ? Buffer.from(passwordBase64, "base64").toString("utf8")
@@ -113,6 +131,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     syncIntervalSeconds,
     dryRun,
     protocoloLotes,
+    discoveryOnly,
+    discoveryBaseCode,
   };
 }
 
