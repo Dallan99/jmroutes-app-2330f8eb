@@ -39,7 +39,23 @@ export const Route = createFileRoute("/api/public/meli/importar-monitoramento")(
     if (!papel) return json({ ok:false,codigo:"sem_permissao" },403,origin);
     const d = parsed.data;
     const dataOperacional = dataEmSaoPaulo(d.coletado_em);
-    const { error } = await supabaseAdmin.from("meli_monitoramento_snapshots").upsert({ ...d,data_operacional:dataOperacional,updated_at:new Date().toISOString() },{onConflict:"base_codigo,data_operacional"});
+    const { error } = await (supabaseAdmin as any).rpc("meli_registrar_monitoramento_snapshot", {
+      p_data_operacional: dataOperacional,
+      p_base_codigo: d.base_codigo,
+      p_facility_id: d.facility_id,
+      p_service_center_id: d.service_center_id,
+      p_rotas_totais: d.rotas_totais,
+      p_rotas_entrega: d.rotas_entrega,
+      p_rotas_coleta: d.rotas_coleta,
+      p_rotas_mistas: d.rotas_mistas,
+      p_rotas_em_andamento: d.rotas_em_andamento,
+      p_pacotes: d.pacotes,
+      p_sacas: d.sacas,
+      p_pendentes: d.pendentes,
+      p_com_falhas: d.com_falhas,
+      p_bem_sucedidos: d.bem_sucedidos,
+      p_coletado_em: d.coletado_em,
+    });
     if (error) return json({ ok:false,codigo:"falha_persistencia" },500,origin);
     return json({ ok:true,base_codigo:d.base_codigo },200,origin);
   } } },
