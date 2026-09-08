@@ -181,7 +181,8 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const allow = (item: NavItem) => !item.roles || item.roles.some((r) => roles.includes(r));
+  const allow = (item: NavItem) =>
+    !rolesCarregadas || !item.roles || item.roles.some((r) => roles.includes(r));
 
   const renderGroup = (label: string, items: NavItem[]) => {
     const visible = items.filter(allow);
