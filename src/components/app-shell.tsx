@@ -88,7 +88,8 @@ type Role = "admin" | "supervisor" | "gerente" | "operador";
 const NAV_OPERACIONAL: NavItem[] = [
   { title: "Modo coletor", to: "/coletor", icon: Smartphone },
   { title: "Bases", to: "/bases", icon: Boxes },
-  { title: "Dashboard", to: "/dashboard", icon: LayoutDashboard, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Dashboard Geral", to: "/dashboard-geral", icon: LayoutDashboard, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Dashboard XPTs", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
   { title: "Painel Operacional", to: "/painel-operacional", icon: TrendingUp },
   { title: "Recebimento", to: "/triagem", icon: PackageSearch },
   { title: "Expedição", to: "/expedicao", icon: Truck },
@@ -190,7 +191,7 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
         <SidebarGroupContent>
           <SidebarMenu>
             {visible.map((item) => {
-              const active = pathname.startsWith(item.to);
+              const active = pathname === item.to || (item.to !== "/dashboard" && pathname.startsWith(`${item.to}/`));
               return (
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
