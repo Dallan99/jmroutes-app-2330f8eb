@@ -25,6 +25,7 @@ import { Route as AuthenticatedColetorRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedContagemRouteImport } from './routes/_authenticated/contagem'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDashboardGeralRouteImport } from './routes/_authenticated/dashboard-geral'
 import { Route as AuthenticatedDevolucoesRouteImport } from './routes/_authenticated/devolucoes'
 import { Route as AuthenticatedExpedicaoRouteImport } from './routes/_authenticated/expedicao'
 import { Route as AuthenticatedGerencialRouteImport } from './routes/_authenticated/gerencial'
@@ -136,6 +137,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDashboardGeralRoute =
+  AuthenticatedDashboardGeralRouteImport.update({
+    id: '/dashboard-geral',
+    path: '/dashboard-geral',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDevolucoesRoute = AuthenticatedDevolucoesRouteImport.update({
   id: '/devolucoes',
   path: '/devolucoes',
@@ -305,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contagem': typeof AuthenticatedContagemRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dashboard-geral': typeof AuthenticatedDashboardGeralRoute
   '/devolucoes': typeof AuthenticatedDevolucoesRoute
   '/expedicao': typeof AuthenticatedExpedicaoRoute
   '/gerencial': typeof AuthenticatedGerencialRoute
@@ -350,6 +358,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contagem': typeof AuthenticatedContagemRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/dashboard-geral': typeof AuthenticatedDashboardGeralRoute
   '/devolucoes': typeof AuthenticatedDevolucoesRoute
   '/expedicao': typeof AuthenticatedExpedicaoRoute
   '/gerencial': typeof AuthenticatedGerencialRoute
@@ -397,6 +406,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contagem': typeof AuthenticatedContagemRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/dashboard-geral': typeof AuthenticatedDashboardGeralRoute
   '/_authenticated/devolucoes': typeof AuthenticatedDevolucoesRoute
   '/_authenticated/expedicao': typeof AuthenticatedExpedicaoRoute
   '/_authenticated/gerencial': typeof AuthenticatedGerencialRoute
@@ -444,6 +454,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contagem'
     | '/dashboard'
+    | '/dashboard-geral'
     | '/devolucoes'
     | '/expedicao'
     | '/gerencial'
@@ -489,6 +500,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contagem'
     | '/dashboard'
+    | '/dashboard-geral'
     | '/devolucoes'
     | '/expedicao'
     | '/gerencial'
@@ -535,6 +547,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes'
     | '/_authenticated/contagem'
     | '/_authenticated/dashboard'
+    | '/_authenticated/dashboard-geral'
     | '/_authenticated/devolucoes'
     | '/_authenticated/expedicao'
     | '/_authenticated/gerencial'
@@ -697,6 +710,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard-geral': {
+      id: '/_authenticated/dashboard-geral'
+      path: '/dashboard-geral'
+      fullPath: '/dashboard-geral'
+      preLoaderRoute: typeof AuthenticatedDashboardGeralRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/devolucoes': {
@@ -906,6 +926,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContagemRoute: typeof AuthenticatedContagemRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDashboardGeralRoute: typeof AuthenticatedDashboardGeralRoute
   AuthenticatedDevolucoesRoute: typeof AuthenticatedDevolucoesRoute
   AuthenticatedExpedicaoRoute: typeof AuthenticatedExpedicaoRoute
   AuthenticatedGerencialRoute: typeof AuthenticatedGerencialRoute
@@ -933,6 +954,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContagemRoute: AuthenticatedContagemRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDashboardGeralRoute: AuthenticatedDashboardGeralRoute,
   AuthenticatedDevolucoesRoute: AuthenticatedDevolucoesRoute,
   AuthenticatedExpedicaoRoute: AuthenticatedExpedicaoRoute,
   AuthenticatedGerencialRoute: AuthenticatedGerencialRoute,

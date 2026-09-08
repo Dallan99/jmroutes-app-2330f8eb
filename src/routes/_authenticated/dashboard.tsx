@@ -46,7 +46,7 @@ function fmtDuration(ms: number | null | undefined) {
   return `${h}h ${m % 60}m`;
 }
 
-function DashboardPage() {
+export function DashboardPage() {
   const qc = useQueryClient();
   const [verInternos, setVerInternos] = useState(false);
   const sync = useMeliSync();
