@@ -137,7 +137,7 @@ function AppShellContent() {
   const rolesCarregadas = perfilQuery.isSuccess;
   const roles = (perfilQuery.data?.roles ?? []) as Array<Role>;
   const { modoColetor, sairModoColetor } = useCollectorMode();
-  const modoColetorAtivo = appColetorInstalado || (modoColetor && pathname !== "/dashboard");
+  const modoColetorAtivo = appColetorInstalado || (modoColetor && ROTAS_APP_COLETOR.has(pathname));
   useInactivityLogout();
 
   useEffect(() => {
@@ -153,7 +153,9 @@ function AppShellContent() {
       navigate({ to: "/coletor", replace: true });
       return;
     }
-    if (!appColetorInstalado && pathname === "/dashboard" && modoColetor) sairModoColetor();
+    if (!appColetorInstalado && modoColetor && !ROTAS_APP_COLETOR.has(pathname)) {
+      sairModoColetor();
+    }
   }, [appColetorInstalado, modoColetor, navigate, pathname, sairModoColetor]);
 
   if (pathname.startsWith("/motorista")) return <Outlet />;
