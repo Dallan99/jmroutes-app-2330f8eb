@@ -1,5 +1,8 @@
 import type { Page, Request, Response } from "playwright";
+import { obterServiceCentersDaBase, type BaseJm } from "../config.js";
+import { consultarResumosMetricasRotas, type ResumoMetricasServiceCenter } from "./metrics-summaries.js";
 import { logger, mensagemSegura } from "../logger.js";
+import type { MeliTransport } from "./list.js";
 
 const MAX_LEAVES = 180;
 const MAX_DEPTH = 8;
@@ -158,14 +161,49 @@ export async function descobrirIndicadoresMonitoramento(page: Page, base: Descob
     page.off("response", onResponse);
   }
 
-  const evidencias = [...chamadas.values()];
-  logger.info("EVIDÊNCIA_SANITIZADA_MONITORAMENTO_LAST_MILE", {
-    modo: "somente_leitura",
-    dry_run: true,
-    base: base.baseCode,
-    serviceCenterId_esperado: base.serviceCenterId,
-    siteId_esperado: base.siteId,
-    chamadas: evidencias,
-    observacao: "Campos numéricos preservam os nomes reais dos caminhos JSON; identificadores, dados pessoais, cookies, tokens e cabeçalhos não são registrados.",
+  // A observação é intencionalmente mantida apenas em memória: o modo de
+  // descoberta não registra payloads, filtros, identificadores pessoais ou
+  // evidências de rede. Os resultados consolidados são emitidos pelo chamador
+  // exclusivamente no formato seguro por estação.
+  void chamadas;
+}
+
+export type ResultadoDescobertaMonitoramento = {
+  metricas: ResumoMetricasServiceCenter[];
+  chamadasPorEstacao: number;
+};
+
+/**
+ * Faz uma leitura estritamente de teste dos cards consolidados do Monitoramento
+ * Last Mile. A chamada usa a sessão Playwright já autenticada, não percorre
+ * route-detail, não autentica no JMRoutes e não persiste nenhuma informação.
+ */
+export async function coletarIndicadoresMonitoramento(
+  page: Page,
+  transport: MeliTransport,
+  base: BaseJm,
+): Promise<ResultadoDescobertaMonitoramento> {
+  await descobrirIndicadoresMonitoramento(page, {
+    baseCode: base.baseCode,
+    serviceCenterId: base.serviceCenterId,
+    siteId: base.siteId,
   });
+
+  const serviceCenterIds = obterServiceCentersDaBase(base);
+  const resposta = await consultarResumosMetricasRotas(transport, {
+    baseCode: base.baseCode,
+    baseNome: base.nome,
+    serviceCenterId: base.serviceCenterId,
+    serviceCenterIds,
+    siteId: base.siteId,
+  });
+
+  if (!resposta.ok) {
+    throw new Error(`Leitura consolidada não concluída: ${resposta.motivo}`);
+  }
+
+  return {
+    metricas: resposta.valor,
+    chamadasPorEstacao: 1,
+  };
 }
