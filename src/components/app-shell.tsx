@@ -240,14 +240,12 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {rolesCarregadas && (
-          modoColetor ? renderGroup("Coletor", NAV_COLETOR) : (
-            <>
-              {renderGroup("Operação", NAV_OPERACIONAL)}
-              {renderGroup("Gestão", NAV_GESTAO)}
-              {renderGroup("Administração", NAV_ADMIN)}
-            </>
-          )
+        {modoColetor ? renderGroup("Coletor", NAV_COLETOR) : (
+          <>
+            {renderGroup("Operação", NAV_OPERACIONAL)}
+            {renderGroup("Gestão", NAV_GESTAO)}
+            {renderGroup("Administração", NAV_ADMIN)}
+          </>
         )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
