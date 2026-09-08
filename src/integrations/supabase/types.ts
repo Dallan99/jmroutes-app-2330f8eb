@@ -1493,6 +1493,7 @@ export type Database = {
           rotas_totais: number | null
           sacas: number | null
           service_center_id: string
+          updated_at: string
         }
         Insert: {
           base_codigo: string
@@ -1516,6 +1517,7 @@ export type Database = {
           rotas_totais?: number | null
           sacas?: number | null
           service_center_id: string
+          updated_at?: string
         }
         Update: {
           base_codigo?: string
@@ -1539,6 +1541,7 @@ export type Database = {
           rotas_totais?: number | null
           sacas?: number | null
           service_center_id?: string
+          updated_at?: string
         }
         Relationships: []
       }
