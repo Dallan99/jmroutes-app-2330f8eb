@@ -100,6 +100,7 @@ const NAV_OPERACIONAL: NavItem[] = [
 const NAV_GESTAO: NavItem[] = [
   { title: "Histórico", to: "/historico", icon: History, roles: ["admin", "supervisor", "gerente"] },
   { title: "Gerencial", to: "/gerencial", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Integração Meli", to: "/integracao-meli", icon: PackageSearch, roles: ["admin", "supervisor", "gerente"] },
   { title: "Área de Risco", to: "/meli-risco", icon: ShieldAlert, roles: ["admin", "supervisor", "gerente"] },
 ];
 const NAV_ADMIN: NavItem[] = [
