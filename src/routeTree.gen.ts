@@ -50,6 +50,7 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as ApiMeliOauthCallbackRouteImport } from './routes/api/meli/oauth/callback'
 import { Route as ApiPublicMeliCicloRouteImport } from './routes/api/public/meli/ciclo'
+import { Route as ApiPublicMeliImportarMonitoramentoRouteImport } from './routes/api/public/meli/importar-monitoramento'
 import { Route as ApiPublicMeliImportarMotoristasRouteImport } from './routes/api/public/meli/importar-motoristas'
 import { Route as ApiPublicMeliImportarRiscoRouteImport } from './routes/api/public/meli/importar-risco'
 import { Route as ApiPublicMeliImportarRotaBrutaRouteImport } from './routes/api/public/meli/importar-rota-bruta'
@@ -271,6 +272,12 @@ const ApiPublicMeliCicloRoute = ApiPublicMeliCicloRouteImport.update({
   path: '/api/public/meli/ciclo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMeliImportarMonitoramentoRoute =
+  ApiPublicMeliImportarMonitoramentoRouteImport.update({
+    id: '/api/public/meli/importar-monitoramento',
+    path: '/api/public/meli/importar-monitoramento',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMeliImportarMotoristasRoute =
   ApiPublicMeliImportarMotoristasRouteImport.update({
     id: '/api/public/meli/importar-motoristas',
@@ -337,6 +344,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/meli/oauth/callback': typeof ApiMeliOauthCallbackRoute
   '/api/public/meli/ciclo': typeof ApiPublicMeliCicloRoute
+  '/api/public/meli/importar-monitoramento': typeof ApiPublicMeliImportarMonitoramentoRoute
   '/api/public/meli/importar-motoristas': typeof ApiPublicMeliImportarMotoristasRoute
   '/api/public/meli/importar-risco': typeof ApiPublicMeliImportarRiscoRoute
   '/api/public/meli/importar-rota-bruta': typeof ApiPublicMeliImportarRotaBrutaRoute
@@ -383,6 +391,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/meli/oauth/callback': typeof ApiMeliOauthCallbackRoute
   '/api/public/meli/ciclo': typeof ApiPublicMeliCicloRoute
+  '/api/public/meli/importar-monitoramento': typeof ApiPublicMeliImportarMonitoramentoRoute
   '/api/public/meli/importar-motoristas': typeof ApiPublicMeliImportarMotoristasRoute
   '/api/public/meli/importar-risco': typeof ApiPublicMeliImportarRiscoRoute
   '/api/public/meli/importar-rota-bruta': typeof ApiPublicMeliImportarRotaBrutaRoute
@@ -431,6 +440,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/meli/oauth/callback': typeof ApiMeliOauthCallbackRoute
   '/api/public/meli/ciclo': typeof ApiPublicMeliCicloRoute
+  '/api/public/meli/importar-monitoramento': typeof ApiPublicMeliImportarMonitoramentoRoute
   '/api/public/meli/importar-motoristas': typeof ApiPublicMeliImportarMotoristasRoute
   '/api/public/meli/importar-risco': typeof ApiPublicMeliImportarRiscoRoute
   '/api/public/meli/importar-rota-bruta': typeof ApiPublicMeliImportarRotaBrutaRoute
@@ -479,6 +489,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/meli/oauth/callback'
     | '/api/public/meli/ciclo'
+    | '/api/public/meli/importar-monitoramento'
     | '/api/public/meli/importar-motoristas'
     | '/api/public/meli/importar-risco'
     | '/api/public/meli/importar-rota-bruta'
@@ -525,6 +536,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/meli/oauth/callback'
     | '/api/public/meli/ciclo'
+    | '/api/public/meli/importar-monitoramento'
     | '/api/public/meli/importar-motoristas'
     | '/api/public/meli/importar-risco'
     | '/api/public/meli/importar-rota-bruta'
@@ -572,6 +584,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/meli/oauth/callback'
     | '/api/public/meli/ciclo'
+    | '/api/public/meli/importar-monitoramento'
     | '/api/public/meli/importar-motoristas'
     | '/api/public/meli/importar-risco'
     | '/api/public/meli/importar-rota-bruta'
@@ -592,6 +605,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiMeliOauthCallbackRoute: typeof ApiMeliOauthCallbackRoute
   ApiPublicMeliCicloRoute: typeof ApiPublicMeliCicloRoute
+  ApiPublicMeliImportarMonitoramentoRoute: typeof ApiPublicMeliImportarMonitoramentoRoute
   ApiPublicMeliImportarMotoristasRoute: typeof ApiPublicMeliImportarMotoristasRoute
   ApiPublicMeliImportarRiscoRoute: typeof ApiPublicMeliImportarRiscoRoute
   ApiPublicMeliImportarRotaBrutaRoute: typeof ApiPublicMeliImportarRotaBrutaRoute
@@ -887,6 +901,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMeliCicloRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meli/importar-monitoramento': {
+      id: '/api/public/meli/importar-monitoramento'
+      path: '/api/public/meli/importar-monitoramento'
+      fullPath: '/api/public/meli/importar-monitoramento'
+      preLoaderRoute: typeof ApiPublicMeliImportarMonitoramentoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/meli/importar-motoristas': {
       id: '/api/public/meli/importar-motoristas'
       path: '/api/public/meli/importar-motoristas'
@@ -1006,6 +1027,8 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiMeliOauthCallbackRoute: ApiMeliOauthCallbackRoute,
   ApiPublicMeliCicloRoute: ApiPublicMeliCicloRoute,
+  ApiPublicMeliImportarMonitoramentoRoute:
+    ApiPublicMeliImportarMonitoramentoRoute,
   ApiPublicMeliImportarMotoristasRoute: ApiPublicMeliImportarMotoristasRoute,
   ApiPublicMeliImportarRiscoRoute: ApiPublicMeliImportarRiscoRoute,
   ApiPublicMeliImportarRotaBrutaRoute: ApiPublicMeliImportarRotaBrutaRoute,

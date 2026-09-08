@@ -18,8 +18,10 @@ foreach ($legacyTask in $legacyTasks) {
 }
 
 $bases = @(
-  @{ Name = 'Grupo 1'; Code = 'ESP15,ESP17'; Delay = 0; Label = 'GRUPO-1' },
-  @{ Name = 'Grupo 2'; Code = 'ESP16,ESP18'; Delay = 30; Label = 'GRUPO-2' }
+  @{ Name = 'Grupo 1'; Code = 'SSP3,SSP38,SSP5,SSP17,SSP37'; Delay = 0; Label = 'GRUPO-1' },
+  @{ Name = 'Grupo 2'; Code = 'ESP15,SSP20,SSP6,SSP45'; Delay = 20; Label = 'GRUPO-2' },
+  @{ Name = 'Grupo 3'; Code = 'ESP16,SSP15,SSP23,SSC2'; Delay = 40; Label = 'GRUPO-3' },
+  @{ Name = 'Grupo 4'; Code = 'ESP17,ESP18,SSP4,SSP7'; Delay = 60; Label = 'GRUPO-4' }
 )
 
 foreach ($base in $bases) {
@@ -47,4 +49,4 @@ foreach ($base in $bases) {
   Start-ScheduledTask -TaskName $taskName
 }
 
-Write-Host 'Início automático instalado: dois workers paralelos, com duas bases em cada.' -ForegroundColor Green
+Write-Host 'Início automático instalado: quatro workers cobrindo todas as bases do Dashboard Geral.' -ForegroundColor Green

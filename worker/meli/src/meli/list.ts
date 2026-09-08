@@ -107,7 +107,25 @@ export type RotaLista = {
   routeId: string;
   status?: string | null;
   substatus?: string | null;
+  facilityId?: string | null;
+  serviceCenterId?: string | null;
+  type?: string | null;
+  isDeliveryRoute?: boolean;
+  isPickupRoute?: boolean;
+  isDeliveryPickupRoute?: boolean;
+  counters?: {
+    total: number;
+    delivered: number;
+    notDelivered: number;
+    pending: number;
+    totalBags: number;
+  };
 };
+
+function numeroSeguro(valor: unknown): number {
+  const numero = Number(valor ?? 0);
+  return Number.isFinite(numero) && numero >= 0 ? numero : 0;
+}
 
 const BUCKET_KEYS = ["documents", "content", "results", "routes", "data", "elements"];
 
@@ -138,6 +156,31 @@ export function extrairRotasDaLista(body: unknown): RotaLista[] {
           routeId: key,
           status: typeof obj["status"] === "string" ? (obj["status"] as string) : null,
           substatus: typeof obj["substatus"] === "string" ? (obj["substatus"] as string) : null,
+          facilityId:
+            typeof obj["facilityId"] === "string"
+              ? obj["facilityId"]
+              : typeof obj["facility_id"] === "string"
+                ? obj["facility_id"]
+                : null,
+          serviceCenterId:
+            typeof obj["serviceCenterId"] === "string"
+              ? obj["serviceCenterId"]
+              : typeof obj["service_center_id"] === "string"
+                ? obj["service_center_id"]
+                : null,
+          type: typeof obj["type"] === "string" ? obj["type"] : null,
+          isDeliveryRoute: obj["isDeliveryRoute"] === true,
+          isPickupRoute: obj["isPickupRoute"] === true,
+          isDeliveryPickupRoute: obj["isDeliveryPickupRoute"] === true,
+          counters: obj["counters"] && typeof obj["counters"] === "object"
+            ? {
+                total: numeroSeguro((obj["counters"] as Record<string, unknown>)["total"]),
+                delivered: numeroSeguro((obj["counters"] as Record<string, unknown>)["delivered"]),
+                notDelivered: numeroSeguro((obj["counters"] as Record<string, unknown>)["notDelivered"]),
+                pending: numeroSeguro((obj["counters"] as Record<string, unknown>)["pending"]),
+                totalBags: numeroSeguro((obj["counters"] as Record<string, unknown>)["totalBags"]),
+              }
+            : undefined,
         });
       }
     }

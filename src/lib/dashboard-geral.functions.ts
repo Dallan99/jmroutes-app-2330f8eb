@@ -10,25 +10,24 @@ export type DashboardGeralBase = {
   uf: string | null;
   tipo: "SERVICE" | "XPT";
   status: "ok" | "sem_dados";
-  veiculos: number | null;
+  rotas_totais: number | null;
+  rotas_entrega: number | null;
+  rotas_coleta: number | null;
+  rotas_mistas: number | null;
+  rotas_em_andamento: number | null;
   pacotes: number | null;
-  entregues: number | null;
-  dc_cancelado: number | null;
-  sinistros: number | null;
-  insucessos: number | null;
-  pnr: number | null;
-  origem: string | null;
+  sacas: number | null;
+  pendentes: number | null;
+  com_falhas: number | null;
+  bem_sucedidos: number | null;
   source_updated_at: string | null;
-  performance_logistics: number | null;
-  performance_sem_dc: number | null;
-  performance_sem_dc_sinistro: number | null;
 };
 
 export type DashboardGeralResponse = {
   status: "ok";
   data: string;
   bases: DashboardGeralBase[];
-  totais: Omit<DashboardGeralBase, "id" | "codigo" | "nome" | "cidade" | "uf" | "tipo" | "status" | "origem" | "source_updated_at"> & {
+  totais: Omit<DashboardGeralBase, "id" | "codigo" | "nome" | "cidade" | "uf" | "tipo" | "status" | "source_updated_at"> & {
     bases_com_dados: number;
   };
 };

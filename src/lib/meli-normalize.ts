@@ -426,7 +426,14 @@ export function normalizarPayloadMeli(payloadInput: AnyRec): {
 
   const routeId = s(payloadInput.id) ?? "";
   const cluster = s(payloadInput.cluster);
-  const facility = s(payloadInput.serviceCenterId);
+  // facilityId é a unidade operacional efetiva. serviceCenterId pode ser o
+  // Service pai compartilhado por uma operação direta e por um XPT.
+  const destinationFacility = asRec(payloadInput.destinationFacility);
+  const facility =
+    s(payloadInput.facilityId) ??
+    s(payloadInput.facility_id) ??
+    s(destinationFacility.destinationFacilityId) ??
+    s(payloadInput.serviceCenterId);
   const driver = asRec(payloadInput.driver);
   const vehicle = asRec(payloadInput.vehicle);
   const driverName =

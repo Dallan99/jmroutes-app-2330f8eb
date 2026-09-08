@@ -1,13 +1,26 @@
 // Configuração fechada das bases JM. Mantida em um único ponto para evitar
 // divergência entre a extensão, o worker local e futuros deploys.
-export const WORKER_VERSAO = "0.3.3-risco-pos-rotas";
+export const WORKER_VERSAO = "0.4.0-dashboard-geral";
 export const STORAGE_STATE_AAD = "meli-storage-state:v1";
 
 export const BASES_JM = [
+  { baseCode: "SSP3", serviceCenterId: "SSP3", siteId: "MLB", nome: "Campinas" },
+  { baseCode: "SSP38", serviceCenterId: "SSP38", siteId: "MLB", nome: "Itupeva" },
   { baseCode: "ESP15", serviceCenterId: "SSP20", siteId: "MLB", nome: "Ibiúna" },
+  { baseCode: "SSP5", serviceCenterId: "SSP5", siteId: "MLB", nome: "Mega Barueri" },
+  { baseCode: "SSP20", serviceCenterId: "SSP20", siteId: "MLB", nome: "Sorocaba" },
+  { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "São Lourenço" },
   { baseCode: "ESP16", serviceCenterId: "SSP15", siteId: "MLB", nome: "Guarujá" },
-  { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "Embu-Guaçu" },
+  { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "ABC" },
   { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Franco da Rocha" },
+  { baseCode: "SSP6", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
+  { baseCode: "SSP45", serviceCenterId: "SSP45", siteId: "MLB", nome: "Itaquera" },
+  { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "Santos" },
+  { baseCode: "SSP37", serviceCenterId: "SSP37", siteId: "MLB", nome: "Campinas" },
+  { baseCode: "SSP23", serviceCenterId: "SSP23", siteId: "MLB", nome: "Suzano" },
+  { baseCode: "SSC2", serviceCenterId: "SSC2", siteId: "MLB", nome: "Biguaçu" },
+  { baseCode: "SSP4", serviceCenterId: "SSP4", siteId: "MLB", nome: "Cravinhos" },
+  { baseCode: "SSP7", serviceCenterId: "SSP7", siteId: "MLB", nome: "Lapa" },
 ] as const;
 
 export const PILOTO = { BASE_CODE: "ESP16", SERVICE_CENTER_ID: "SSP15", SITE_ID: "MLB", NOME: "Guarujá" } as const;
@@ -62,7 +75,7 @@ function req(env: Record<string, string | undefined>, name: string): string {
  * Nunca registra senha/chave — apenas valida presença.
  */
 export function loadConfig(env: Record<string, string | undefined> = process.env): WorkerConfig {
-  const codigos = (env["BASE_CODES"] ?? env["BASE_CODE"] ?? "ESP15,ESP16,ESP17,ESP18")
+  const codigos = (env["BASE_CODES"] ?? env["BASE_CODE"] ?? BASES_JM.map((b) => b.baseCode).join(","))
     .toUpperCase().split(",").map((v) => v.trim()).filter(Boolean);
   const bases = Array.from(new Set(codigos)).map((codigo) => BASES_JM.find((b) => b.baseCode === codigo));
   const invalida = codigos.find((_, i) => !bases[i]);

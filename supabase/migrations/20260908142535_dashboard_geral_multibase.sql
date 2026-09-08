@@ -125,7 +125,7 @@ SELECT jsonb_build_object(
     'performance_logistics', CASE WHEN pacotes=0 THEN NULL ELSE round(100.0*entregues/pacotes,2) END,
     'performance_sem_dc', CASE WHEN pacotes=0 THEN NULL ELSE round(100.0*(entregues+dc_cancelado)/pacotes,2) END,
     'performance_sem_dc_sinistro', CASE WHEN pacotes=0 THEN NULL ELSE round(100.0*(entregues+dc_cancelado+sinistros)/pacotes,2) END
-  ) FROM totais)
+  ) FROM totais t)
 );
 $$;
 

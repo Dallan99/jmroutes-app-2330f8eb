@@ -3,15 +3,15 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("rota do dashboard geral", () => {
-  it("mantém /dashboard-geral ligado à tela principal do dashboard", () => {
+  it("mantém /dashboard-geral ligado à tela multibase própria", () => {
     const rota = readFileSync(
       resolve(process.cwd(), "src/routes/_authenticated/dashboard-geral.tsx"),
       "utf8",
     );
 
     expect(rota).toContain('createFileRoute("/_authenticated/dashboard-geral")');
-    expect(rota).toContain('import { DashboardPage } from "./dashboard"');
-    expect(rota).toContain("component: DashboardPage");
+    expect(rota).toContain('import { DashboardGeralOperacional } from "@/components/dashboard-geral-operacional"');
+    expect(rota).toContain("component: DashboardGeralOperacional");
   });
 
   it("preserva a rota solicitada quando o usuário precisa fazer login", () => {

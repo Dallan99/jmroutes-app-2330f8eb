@@ -29,6 +29,16 @@ describe("bloqueadores do build Meli", () => {
     });
   });
 
+  it("prioriza facilityId sobre o Service Center pai", () => {
+    const resultado = normalizarPayloadMeli({
+      id: "123",
+      facilityId: "ESP15",
+      serviceCenterId: "SSP20",
+      stops: [],
+    });
+    expect(resultado.payload.facility).toBe("ESP15");
+  });
+
   it("valida shipment e não devolve erro interno inesperado ao navegador", () => {
     expect(validarShipmentTesteInput.parse({ shipmentId: " 123456789 " })).toEqual({
       shipmentId: "123456789",
