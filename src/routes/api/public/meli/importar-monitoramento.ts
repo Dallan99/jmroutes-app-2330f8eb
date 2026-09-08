@@ -13,6 +13,14 @@ const schema = z.object({
   coletado_em: z.string().datetime(),
 }).refine((v) => v.base_codigo === v.facility_id, { message: "facility_divergente" });
 
+function dataEmSaoPaulo(iso: string): string {
+  const partes = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(iso));
+  const valor = (tipo: Intl.DateTimeFormatPartTypes) => partes.find((p) => p.type === tipo)?.value ?? "";
+  return `${valor("year")}-${valor("month")}-${valor("day")}`;
+}
+
 export const Route = createFileRoute("/api/public/meli/importar-monitoramento")({
   server: { handlers: { POST: async ({ request }) => {
     const origin = request.headers.get("origin");
@@ -30,7 +38,7 @@ export const Route = createFileRoute("/api/public/meli/importar-monitoramento")(
     const { data: papel } = await supabaseAdmin.from("user_roles").select("role").eq("user_id",usuario.userId).in("role",["admin","gerente","supervisor"]).limit(1).maybeSingle();
     if (!papel) return json({ ok:false,codigo:"sem_permissao" },403,origin);
     const d = parsed.data;
-    const dataOperacional = new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(d.coletado_em));
+    const dataOperacional = dataEmSaoPaulo(d.coletado_em);
     const { error } = await supabaseAdmin.from("meli_monitoramento_snapshots").upsert({ ...d,data_operacional:dataOperacional,updated_at:new Date().toISOString() },{onConflict:"base_codigo,data_operacional"});
     if (error) return json({ ok:false,codigo:"falha_persistencia" },500,origin);
     return json({ ok:true,base_codigo:d.base_codigo },200,origin);
