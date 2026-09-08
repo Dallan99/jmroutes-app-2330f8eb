@@ -3,19 +3,36 @@
 export const WORKER_VERSAO = "0.3.3-risco-pos-rotas";
 export const STORAGE_STATE_AAD = "meli-storage-state:v1";
 
+export type BaseJm = {
+  baseCode: string;
+  serviceCenterId: string;
+  /** Estações adicionais que pertencem à mesma base operacional. */
+  serviceCenterIds?: readonly string[];
+  siteId: string;
+  nome: string;
+};
+
 export const BASES_JM = [
   { baseCode: "ESP15", serviceCenterId: "SSP20", siteId: "MLB", nome: "Ibiúna" },
   { baseCode: "ESP16", serviceCenterId: "SSP15", siteId: "MLB", nome: "Guarujá" },
-  { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "Embu-Guaçu" },
+  // Embu-Guaçu opera nas duas estações e ambas precisam entrar na consulta.
+  { baseCode: "ESP17", serviceCenterId: "SSP56", serviceCenterIds: ["SSP34", "SSP56"], siteId: "MLB", nome: "Embu-Guaçu" },
   { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Franco da Rocha" },
-] as const;
+] as const satisfies readonly BaseJm[];
+
+/**
+ * Retorna todas as estações válidas da base, preservando a estação principal
+ * mesmo quando ela também estiver em serviceCenterIds.
+ */
+export function obterServiceCentersDaBase(base: Pick<BaseJm, "serviceCenterId" | "serviceCenterIds">): string[] {
+  return [...new Set([base.serviceCenterId, ...(base.serviceCenterIds ?? [])].map((id) => id.trim()).filter(Boolean))];
+}
 
 export const PILOTO = { BASE_CODE: "ESP16", SERVICE_CENTER_ID: "SSP15", SITE_ID: "MLB", NOME: "Guarujá" } as const;
-export type BaseJm = (typeof BASES_JM)[number];
-
 export const ADMINML = {
   HOST: "envios.adminml.com",
   LIST_URL: "https://envios.adminml.com/logistics/api/monitoring/get-routes-list",
+  METRICS_SUMMARIES_URL: "https://envios.adminml.com/logistics/api/monitoring/get-routes-metrics-summaries",
   DETAIL_URL: "https://envios.adminml.com/logistics/api/monitoring-route/route-detail",
   PAGE_SIZE: 50,
   MAX_PAGINAS: 40,
@@ -29,6 +46,8 @@ export type WorkerConfig = {
   writeBaseCodes: string[];
   baseCode: string;
   serviceCenterId: string;
+  /** Todas as estações operacionais da base, sem duplicação. */
+  serviceCenterIds: string[];
   siteId: string;
   jmrBaseUrl: string;
   supabaseUrl: string;
@@ -117,6 +136,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     writeBaseCodes,
     baseCode: primeira.baseCode,
     serviceCenterId: primeira.serviceCenterId,
+    serviceCenterIds: obterServiceCentersDaBase(primeira),
     siteId: primeira.siteId,
     jmrBaseUrl: req(env, "JMR_BASE_URL").replace(/\/+$/, ""),
     supabaseUrl: req(env, "SUPABASE_URL").replace(/\/+$/, ""),
@@ -137,5 +157,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
 }
 
 export function configParaBase(cfg: WorkerConfig, base: BaseJm): WorkerConfig {
-  return { ...cfg, bases: [base], baseCode: base.baseCode, serviceCenterId: base.serviceCenterId, siteId: base.siteId };
+  return {
+    ...cfg,
+    bases: [base],
+    baseCode: base.baseCode,
+    serviceCenterId: base.serviceCenterId,
+    serviceCenterIds: obterServiceCentersDaBase(base),
+    siteId: base.siteId,
+  };
 }
