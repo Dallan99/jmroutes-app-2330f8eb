@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarMonitoramentoPreservado, type MeliDashboardResult } from "../src/lib/meli-dashboard.functions";
+import { aplicarMonitoramentoPreservado, aplicarRotasRiscoPersistidas, type MeliDashboardResult } from "../src/lib/meli-dashboard.functions";
 
 describe("Dashboard Meli — maior leitura do dia", () => {
   it("não deixa uma base nem os cartões consolidados regredirem", () => {
@@ -69,5 +69,20 @@ describe("Dashboard Meli — maior leitura do dia", () => {
       com_falhas: 0, bem_sucedidos: 97, performance_logistics_max: 97,
     }]);
     expect(resultado.bases).toEqual([]);
+  });
+
+  it("inclui rota com selo de risco mesmo sem pacotes detalhados", () => {
+    const atual: MeliDashboardResult = {
+      status: "ok",
+      cards: { total: 100, nao_iniciado: 100, em_rota: 0, entregue: 0, insucesso: 0, cancelado: 0, desconhecido: 0, area_risco_pacotes: 0, elegiveis: 100, perc_entrega: 0, rotas: 1, rotas_risco: 0 },
+      bases: [{ base_id: "base-1", base_codigo: "SSP45", base_nome: "Itaquera", service_center: "SSP45", rotas: 1, rotas_risco: 0, rotas_risco_integral: 0, rotas_risco_parcial: 0, total: 100, pacotes_risco: 0, entregue: 0, em_rota: 0, insucesso: 0, perc_entrega: 0 }],
+      rotas: [],
+    };
+    const resultado = aplicarRotasRiscoPersistidas(atual, [{ id: "rota-1", route_id: "H2_AM1", base_id: "base-1", rota_area_risco: true, total_pacotes: 18 }]);
+
+    expect(resultado.cards).toMatchObject({ rotas_risco: 1, area_risco_pacotes: 18 });
+    expect(resultado.bases?.[0]).toMatchObject({ rotas_risco: 1, rotas_risco_integral: 1 });
+    expect(resultado.rotas?.[0]).toMatchObject({ nome_operacional: "H2_AM1", rota_area_risco: true, total: 18 });
+    expect(resultado.area_risco).toMatchObject({ rotas: 1, integrais: 1, pacotes: 18 });
   });
 });

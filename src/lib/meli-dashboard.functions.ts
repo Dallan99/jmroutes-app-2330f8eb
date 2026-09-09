@@ -377,6 +377,114 @@ export function aplicarMonitoramentoPreservado(
   return { ...resultado, bases, cards, motivos_insucesso };
 }
 
+type RotaRiscoPersistida = {
+  id: string;
+  route_id: string;
+  cluster?: string | null;
+  base_id?: string | null;
+  service_center_id?: string | null;
+  driver_name?: string | null;
+  vehicle_license?: string | null;
+  carrier?: string | null;
+  data_rota?: string | null;
+  last_synced_at?: string | null;
+  rota_area_risco?: boolean | null;
+  area_risco_parcial?: boolean | null;
+  total_pacotes?: number | null;
+  delivered_total?: number | null;
+  pending_total?: number | null;
+  occurrence_total?: number | null;
+};
+
+/** Inclui no painel rotas marcadas pelo Rostering mesmo quando ainda não há
+ * pacotes detalhados em meli_pacotes. O selo persistido na rota é a fonte de
+ * verdade para a classificação de risco. */
+export function aplicarRotasRiscoPersistidas(
+  resultado: MeliDashboardResult,
+  persistidas: RotaRiscoPersistida[],
+): MeliDashboardResult {
+  if (resultado.status !== "ok" || persistidas.length === 0) return resultado;
+
+  const basesOriginais = resultado.bases ?? [];
+  const basePorId = new Map(basesOriginais.filter((b) => b.base_id).map((b) => [b.base_id!, b]));
+  const rotasPorId = new Map((resultado.rotas ?? []).map((rota) => [rota.rota_id, rota]));
+
+  for (const rota of persistidas) {
+    const existente = rotasPorId.get(rota.id);
+    if (existente) {
+      rotasPorId.set(rota.id, {
+        ...existente,
+        rota_area_risco: Boolean(rota.rota_area_risco) || existente.rota_area_risco,
+        area_risco_parcial: Boolean(rota.area_risco_parcial) || existente.area_risco_parcial,
+      });
+      continue;
+    }
+    const base = rota.base_id ? basePorId.get(rota.base_id) : undefined;
+    const total = Number(rota.total_pacotes ?? 0);
+    const entregue = Number(rota.delivered_total ?? 0);
+    const emRota = Number(rota.pending_total ?? 0);
+    const insucesso = Number(rota.occurrence_total ?? 0);
+    rotasPorId.set(rota.id, {
+      rota_id: rota.id,
+      route_id: rota.route_id,
+      nome_operacional: String(rota.cluster ?? "").trim() || rota.route_id,
+      cluster: rota.cluster ?? null,
+      base_id: rota.base_id ?? null,
+      base_codigo: base?.base_codigo ?? null,
+      base_nome: base?.base_nome ?? null,
+      service_center: rota.service_center_id ?? base?.service_center ?? null,
+      driver_name: rota.driver_name ?? null,
+      vehicle_license: rota.vehicle_license ?? null,
+      carrier: rota.carrier ?? null,
+      data_rota: rota.data_rota ?? null,
+      last_synced_at: rota.last_synced_at ?? null,
+      rota_area_risco: Boolean(rota.rota_area_risco),
+      area_risco_parcial: Boolean(rota.area_risco_parcial),
+      total,
+      nao_iniciado: Math.max(0, total - entregue - emRota - insucesso),
+      em_rota: emRota,
+      entregue,
+      insucesso,
+      cancelado: 0,
+      pacotes_risco: Boolean(rota.rota_area_risco) ? total : 0,
+      perc_entrega: total > 0 ? Math.round(1000 * entregue / total) / 10 : 0,
+    });
+  }
+
+  const rotas = [...rotasPorId.values()];
+  const risco = rotas.filter((rota) => rota.rota_area_risco || rota.area_risco_parcial);
+  const bases = basesOriginais.map((base) => {
+    const daBase = base.base_id ? risco.filter((rota) => rota.base_id === base.base_id) : [];
+    return {
+      ...base,
+      rotas_risco: daBase.length,
+      rotas_risco_integral: daBase.filter((rota) => rota.rota_area_risco).length,
+      rotas_risco_parcial: daBase.filter((rota) => rota.area_risco_parcial && !rota.rota_area_risco).length,
+    };
+  });
+  const pacotes = risco.reduce((soma, rota) => soma + (rota.rota_area_risco ? rota.total : rota.pacotes_risco), 0);
+  const entregue = risco.reduce((soma, rota) => soma + rota.entregue, 0);
+  const emRota = risco.reduce((soma, rota) => soma + rota.em_rota, 0);
+  const insucesso = risco.reduce((soma, rota) => soma + rota.insucesso, 0);
+
+  return {
+    ...resultado,
+    rotas,
+    bases,
+    cards: resultado.cards ? { ...resultado.cards, rotas_risco: risco.length, area_risco_pacotes: pacotes } : resultado.cards,
+    area_risco: {
+      rotas: risco.length,
+      integrais: risco.filter((rota) => rota.rota_area_risco).length,
+      parciais: risco.filter((rota) => rota.area_risco_parcial && !rota.rota_area_risco).length,
+      pacotes,
+      entregue,
+      em_rota: emRota,
+      insucesso,
+      perc_conclusao: pacotes > 0 ? Math.round(1000 * entregue / pacotes) / 10 : 0,
+    },
+  };
+}
+
 export function meliDashboardQueryKey(filtros: MeliDashboardFiltros) {
   const normalizados = Object.fromEntries(
     Object.entries(filtros).filter(([, valor]) => valor !== null && valor !== undefined && valor !== ""),
@@ -419,11 +527,17 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
       return { status: "erro", erro: error.message };
     }
 
-    const resultado = res as MeliDashboardResult;
+    let resultado = res as MeliDashboardResult;
     if (!semFiltroDeDetalhe || resultado.status !== "ok") return resultado;
 
     const dataOperacional = data.data ?? resultado.data_operacional;
     if (!dataOperacional) return resultado;
+    const { data: rotasRisco } = await (context.supabase as any)
+      .from("meli_rotas")
+      .select("id,route_id,cluster,base_id,service_center_id,driver_name,vehicle_license,carrier,data_rota,last_synced_at,rota_area_risco,area_risco_parcial,total_pacotes,delivered_total,pending_total,occurrence_total")
+      .eq("data_rota", dataOperacional)
+      .or("rota_area_risco.eq.true,area_risco_parcial.eq.true");
+    resultado = aplicarRotasRiscoPersistidas(resultado, (rotasRisco ?? []) as RotaRiscoPersistida[]);
     const { data: snapshots } = await (context.supabase as any)
       .from("meli_monitoramento_snapshots")
       .select("base_codigo,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max")
