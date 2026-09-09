@@ -130,12 +130,11 @@ type RpcClient = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
-async function carregarUltimoSnapshotXpt(client: any, dataLimite: string): Promise<MeliDashboardResult | null> {
+async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string): Promise<MeliDashboardResult | null> {
   const { data: leituras, error } = await client
     .from("meli_monitoramento_snapshots")
     .select("base_codigo,data_operacional,service_center_id,rotas_totais,rotas_em_andamento,pacotes,pendentes,com_falhas,bem_sucedidos,coletado_em,performance_logistics_max")
     .lte("data_operacional", dataLimite)
-    .like("base_codigo", "ESP%")
     .order("data_operacional", { ascending: false })
     .order("coletado_em", { ascending: false })
     .limit(100);
@@ -146,17 +145,26 @@ async function carregarUltimoSnapshotXpt(client: any, dataLimite: string): Promi
   const dia = String(leituras[0].data_operacional);
   const snapshots = leituras.filter((linha: any) => String(linha.data_operacional) === dia);
   const codigos = snapshots.map((linha: any) => linha.base_codigo);
+  const { data: unidades } = await client
+    .from("meli_unidades_operacionais")
+    .select("id,codigo,nome,ordem")
+    .in("codigo", codigos)
+    .eq("ativo", true);
   const { data: cadastros } = await client.from("bases").select("id,codigo,nome").in("codigo", codigos);
+  const unidadePorCodigo = new Map((unidades ?? []).map((base: any) => [base.codigo, base]));
   const cadastroPorCodigo = new Map((cadastros ?? []).map((base: any) => [base.codigo, base]));
 
   const bases: MeliDashboardBase[] = snapshots.map((snapshot: any) => {
+    const unidade: any = unidadePorCodigo.get(snapshot.base_codigo);
     const cadastro: any = cadastroPorCodigo.get(snapshot.base_codigo);
     const total = Number(snapshot.pacotes ?? 0);
     const entregue = Number(snapshot.bem_sucedidos ?? 0);
     return {
+      // O filtro detalhado usa bases.id; o id da unidade operacional pertence
+      // a outro cadastro e não pode ser enviado como se fosse uma base.
       base_id: cadastro?.id ?? null,
       base_codigo: snapshot.base_codigo,
-      base_nome: cadastro?.nome ?? snapshot.base_codigo,
+      base_nome: unidade?.nome ?? cadastro?.nome ?? snapshot.base_codigo,
       service_center: snapshot.service_center_id ?? null,
       rotas: Number(snapshot.rotas_totais ?? 0),
       rotas_risco: 0,
@@ -170,8 +178,10 @@ async function carregarUltimoSnapshotXpt(client: any, dataLimite: string): Promi
       perc_entrega: Number(snapshot.performance_logistics_max ?? (total > 0 ? 100 * entregue / total : 0)),
       pm_nao_iniciadas: 0,
       pm_pacotes_fora: 0,
+      _ordem: Number(unidade?.ordem ?? 9999),
     };
-  });
+  }).sort((a: any, b: any) => a._ordem - b._ordem || String(a.base_codigo).localeCompare(String(b.base_codigo)))
+    .map(({ _ordem, ...base }: any) => base as MeliDashboardBase);
   const total = bases.reduce((soma, base) => soma + base.total, 0);
   const entregue = bases.reduce((soma, base) => soma + base.entregue, 0);
   const insucesso = bases.reduce((soma, base) => soma + base.insucesso, 0);
@@ -276,6 +286,20 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => filtroSchema.parse(d ?? {}))
   .handler(async ({ data, context }): Promise<MeliDashboardResult> => {
+    const semFiltroDeDetalhe = !data.base_id && !data.motorista && !data.rota && !data.status &&
+      !data.transportadora && !data.risco;
+    const dataSolicitada = data.data ?? new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+
+    // O quadro principal é multibase e deve ser leve: lê o último snapshot
+    // confirmado de todas as unidades. A consulta operacional completa fica
+    // reservada para filtros e detalhes, onde as rotas são necessárias.
+    if (semFiltroDeDetalhe) {
+      const resumo = await carregarUltimoSnapshotMultibase(context.supabase as any, dataSolicitada);
+      if (resumo) return resumo;
+    }
+
     const { data: res, error } = await (context.supabase as unknown as RpcClient).rpc(
       "meli_dashboard_operacional",
       {
@@ -288,14 +312,9 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
         p_risco: data.risco ?? null,
       },
     );
-    const semFiltroDeDetalhe = !data.base_id && !data.motorista && !data.rota && !data.status &&
-      !data.transportadora && !data.risco;
-    const dataSolicitada = data.data ?? new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date());
     if (error) {
       if (semFiltroDeDetalhe) {
-        const fallback = await carregarUltimoSnapshotXpt(context.supabase as any, dataSolicitada);
+        const fallback = await carregarUltimoSnapshotMultibase(context.supabase as any, dataSolicitada);
         if (fallback) return fallback;
       }
       return { status: "erro", erro: error.message };
