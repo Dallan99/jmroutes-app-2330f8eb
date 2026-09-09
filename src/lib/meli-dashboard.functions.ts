@@ -304,13 +304,10 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
       timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
     }).format(new Date());
 
-    // O quadro principal é multibase e deve ser leve: lê o último snapshot
-    // confirmado de todas as unidades. A consulta operacional completa fica
-    // reservada para filtros e detalhes, onde as rotas são necessárias.
-    if (semFiltroDeDetalhe) {
-      const resumo = await carregarUltimoSnapshotMultibase(context.supabase as any, dataSolicitada);
-      if (resumo) return resumo;
-    }
+    // A consulta operacional também traz os motivos de insucesso. Os snapshots
+    // são usados como proteção dos acumulados e como fallback, mas não podem
+    // substituir esta leitura antecipadamente — isso deixava o Modo TV sem os
+    // principais motivos mesmo havendo insucessos nas bases.
 
     const { data: res, error } = await (context.supabase as unknown as RpcClient).rpc(
       "meli_dashboard_operacional",
