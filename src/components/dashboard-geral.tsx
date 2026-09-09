@@ -61,6 +61,10 @@ export function DashboardGeral({
   const d = q.data?.status === "ok" ? q.data : undefined;
   const bases = (d?.bases ?? []).slice().sort((a, b) => (a.base_codigo ?? "").localeCompare(b.base_codigo ?? ""));
   const c = d?.cards;
+  const snapshotEm = d?.snapshot_at ? new Date(d.snapshot_at) : null;
+  const snapshotAtrasado = snapshotEm
+    ? Date.now() - snapshotEm.getTime() > 5 * 60_000
+    : false;
 
   const pmProgramadas = d?.pm_programadas ?? [];
   const [baseAberta, setBaseAberta] = useState<{ id: string | null; codigo: string; nome: string } | null>(null);
@@ -85,10 +89,19 @@ export function DashboardGeral({
       <Card className="p-4 md:p-5">
         <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">Painel Operacional</h2>
 
-        {d?.snapshot_fallback && d.snapshot_at && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Exibindo o último registro válido de {new Date(d.snapshot_at).toLocaleString("pt-BR")}.
-          </p>
+        {snapshotEm && (
+          <div
+            className={`mt-2 rounded-md border px-3 py-2 text-xs ${
+              snapshotAtrasado
+                ? "border-warning/40 bg-warning/10 text-warning-foreground"
+                : "border-border bg-muted/30 text-muted-foreground"
+            }`}
+          >
+            {snapshotAtrasado
+              ? "Coleta sem atualização. Mantendo o último registro válido"
+              : "Último registro válido"}{" "}
+            de {snapshotEm.toLocaleString("pt-BR")}.
+          </div>
         )}
 
 
