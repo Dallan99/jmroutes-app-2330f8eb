@@ -137,7 +137,7 @@ function AppShellContent() {
   const rolesCarregadas = perfilQuery.isSuccess;
   const roles = (perfilQuery.data?.roles ?? []) as Array<Role>;
   const { modoColetor, sairModoColetor } = useCollectorMode();
-  const modoColetorAtivo = appColetorInstalado || (modoColetor && ROTAS_APP_COLETOR.has(pathname));
+  const modoColetorAtivo = ROTAS_APP_COLETOR.has(pathname) && (appColetorInstalado || modoColetor);
   useInactivityLogout();
 
   useEffect(() => {
