@@ -36,7 +36,7 @@ $lines = @(
   'SITE_ID=MLB'
   'SYNC_INTERVAL_SECONDS=60'
   'SYNC_PROTOCOL_LOTES=false'
-  'DRY_RUN=true'
+  'DRY_RUN=false'
 )
 [IO.File]::WriteAllLines($envPath, $lines, (New-Object Text.UTF8Encoding $false))
 icacls $envPath /inheritance:r /grant:r "$env:USERNAME`:F" | Out-Null
@@ -48,5 +48,5 @@ try {
   if ($LASTEXITCODE -ne 0) { throw 'Autenticacao do AdminML nao foi concluida.' }
 } finally { Pop-Location }
 
-Write-Host 'Configuracao concluida em modo de teste (sem gravar dados).' -ForegroundColor Green
+Write-Host 'Configuracao concluida em modo de producao: os workers poderao gravar leituras no JMRoutes.' -ForegroundColor Green
 Read-Host 'Pressione ENTER para fechar'

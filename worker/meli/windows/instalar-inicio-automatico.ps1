@@ -11,6 +11,19 @@ if (-not (Test-Path (Join-Path $workerDir '.env.local'))) {
 if (-not (Test-Path (Join-Path $workerDir 'dist\index.js'))) {
   throw 'Worker não compilado. Execute npm run build antes de instalar.'
 }
+if (-not (Test-Path (Join-Path $workerDir 'dist\monitoring-worker.js'))) {
+  throw 'Worker do Dashboard Geral não compilado. Execute npm run build antes de instalar.'
+}
+
+$envPath = Join-Path $workerDir '.env.local'
+$envLines = @(Get-Content $envPath)
+$dryRunIndex = -1
+for ($i = 0; $i -lt $envLines.Count; $i++) {
+  if ($envLines[$i] -match '^DRY_RUN=') { $dryRunIndex = $i; break }
+}
+if ($dryRunIndex -ge 0) { $envLines[$dryRunIndex] = 'DRY_RUN=false' }
+else { $envLines += 'DRY_RUN=false' }
+[IO.File]::WriteAllLines($envPath, $envLines, (New-Object Text.UTF8Encoding $false))
 
 $legacyTasks = Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object TaskName -Like "$taskPrefix*"
 foreach ($legacyTask in $legacyTasks) {
