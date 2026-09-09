@@ -143,7 +143,15 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   // Se o dia solicitado ainda não tem uma leitura válida, usa o último dia
   // completo disponível. Nunca mistura dias diferentes no mesmo painel.
   const dia = String(leituras[0].data_operacional);
-  const snapshots = leituras.filter((linha: any) => String(linha.data_operacional) === dia);
+  // A consulta já vem da leitura mais recente para a mais antiga. Manter apenas
+  // a primeira por código evita cartões duplicados mesmo em bancos onde a
+  // restrição única ainda não tenha sido aplicada.
+  const snapshotPorBase = new Map<string, any>();
+  for (const linha of leituras.filter((item: any) => String(item.data_operacional) === dia)) {
+    const codigo = String(linha.base_codigo ?? "").trim().toUpperCase();
+    if (codigo && !snapshotPorBase.has(codigo)) snapshotPorBase.set(codigo, linha);
+  }
+  const snapshots = [...snapshotPorBase.values()];
   const codigos = snapshots.map((linha: any) => linha.base_codigo);
   const { data: unidades } = await client
     .from("meli_unidades_operacionais")

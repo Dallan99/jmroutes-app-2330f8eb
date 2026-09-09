@@ -11,7 +11,7 @@
 
 export const TV_FLAGS = {
   /** Visão "Operacional" (/tv/dashboard) — exibe a bipagem por base. */
-  visaoOperacional: true,
+  visaoOperacional: false,
   /** Visão "Gerencial" (/tv/gerencial) visível na navegação do Modo TV. */
   visaoGerencial: false,
   /** Visão "Meli" (/tv/meli) — única fonte com dados reais no momento. */
