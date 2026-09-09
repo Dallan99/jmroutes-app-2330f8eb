@@ -3352,6 +3352,19 @@ export type Database = {
         Args: { p_base_id: string; p_data: string }
         Returns: string
       }
+      gerencial_rotas_por_base: {
+        Args: { p_importacao_ids: string[] }
+        Returns: {
+          base_operacional_id: string
+          devolvido: number
+          importacao_id: string
+          motorista: string
+          nro_rota: string
+          placa: string
+          total: number
+          triado: number
+        }[]
+      }
       get_allowed_bases: { Args: { _user_id: string }; Returns: string[] }
       has_base_access: {
         Args: { _base_id: string; _user_id: string }
