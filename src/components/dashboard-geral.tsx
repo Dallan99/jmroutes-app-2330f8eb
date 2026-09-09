@@ -85,6 +85,12 @@ export function DashboardGeral({
       <Card className="p-4 md:p-5">
         <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">Painel Operacional</h2>
 
+        {d?.snapshot_fallback && d.snapshot_at && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Exibindo o último registro válido de {new Date(d.snapshot_at).toLocaleString("pt-BR")}.
+          </p>
+        )}
+
 
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

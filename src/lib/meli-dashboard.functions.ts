@@ -122,11 +122,91 @@ export type MeliDashboardResult = {
   };
   ultima_sincronizacao?: string | null;
   sincronizacao_por_base?: { base_id: string | null; base_codigo: string | null; last_synced_at: string | null }[];
+  snapshot_fallback?: boolean;
+  snapshot_at?: string | null;
 };
 
 type RpcClient = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
+
+async function carregarUltimoSnapshotXpt(client: any, dataLimite: string): Promise<MeliDashboardResult | null> {
+  const { data: leituras, error } = await client
+    .from("meli_monitoramento_snapshots")
+    .select("base_codigo,data_operacional,service_center_id,rotas_totais,rotas_em_andamento,pacotes,pendentes,com_falhas,bem_sucedidos,coletado_em,performance_logistics_max")
+    .lte("data_operacional", dataLimite)
+    .like("base_codigo", "ESP%")
+    .order("data_operacional", { ascending: false })
+    .order("coletado_em", { ascending: false })
+    .limit(100);
+  if (error || !leituras?.length) return null;
+
+  // Se o dia solicitado ainda não tem uma leitura válida, usa o último dia
+  // completo disponível. Nunca mistura dias diferentes no mesmo painel.
+  const dia = String(leituras[0].data_operacional);
+  const snapshots = leituras.filter((linha: any) => String(linha.data_operacional) === dia);
+  const codigos = snapshots.map((linha: any) => linha.base_codigo);
+  const { data: cadastros } = await client.from("bases").select("id,codigo,nome").in("codigo", codigos);
+  const cadastroPorCodigo = new Map((cadastros ?? []).map((base: any) => [base.codigo, base]));
+
+  const bases: MeliDashboardBase[] = snapshots.map((snapshot: any) => {
+    const cadastro: any = cadastroPorCodigo.get(snapshot.base_codigo);
+    const total = Number(snapshot.pacotes ?? 0);
+    const entregue = Number(snapshot.bem_sucedidos ?? 0);
+    return {
+      base_id: cadastro?.id ?? null,
+      base_codigo: snapshot.base_codigo,
+      base_nome: cadastro?.nome ?? snapshot.base_codigo,
+      service_center: snapshot.service_center_id ?? null,
+      rotas: Number(snapshot.rotas_totais ?? 0),
+      rotas_risco: 0,
+      rotas_risco_integral: 0,
+      rotas_risco_parcial: 0,
+      total,
+      pacotes_risco: 0,
+      entregue,
+      em_rota: Number(snapshot.pendentes ?? 0),
+      insucesso: Number(snapshot.com_falhas ?? 0),
+      perc_entrega: Number(snapshot.performance_logistics_max ?? (total > 0 ? 100 * entregue / total : 0)),
+      pm_nao_iniciadas: 0,
+      pm_pacotes_fora: 0,
+    };
+  });
+  const total = bases.reduce((soma, base) => soma + base.total, 0);
+  const entregue = bases.reduce((soma, base) => soma + base.entregue, 0);
+  const insucesso = bases.reduce((soma, base) => soma + base.insucesso, 0);
+  const pendentes = bases.reduce((soma, base) => soma + base.em_rota, 0);
+
+  return {
+    status: "ok",
+    data_operacional: dia,
+    cards: {
+      total,
+      nao_iniciado: pendentes,
+      em_rota: pendentes,
+      entregue,
+      insucesso,
+      cancelado: 0,
+      desconhecido: 0,
+      area_risco_pacotes: 0,
+      elegiveis: total,
+      perc_entrega: total > 0 ? Math.round(1000 * entregue / total) / 10 : 0,
+      rotas: bases.reduce((soma, base) => soma + base.rotas, 0),
+      rotas_risco: 0,
+      pm_nao_iniciadas: 0,
+      pm_pacotes_fora: 0,
+    },
+    bases,
+    rotas: [],
+    motivos_insucesso: [],
+    pm_programadas: [],
+    snapshot_fallback: true,
+    snapshot_at: snapshots.reduce<string | null>(
+      (maisRecente, linha: any) => !maisRecente || linha.coletado_em > maisRecente ? linha.coletado_em : maisRecente,
+      null,
+    ),
+  };
+}
 
 type MonitoramentoPreservado = {
   base_codigo: string;
@@ -208,11 +288,20 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
         p_risco: data.risco ?? null,
       },
     );
-    if (error) return { status: "erro", erro: error.message };
-
-    const resultado = res as MeliDashboardResult;
     const semFiltroDeDetalhe = !data.base_id && !data.motorista && !data.rota && !data.status &&
       !data.transportadora && !data.risco;
+    const dataSolicitada = data.data ?? new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+    if (error) {
+      if (semFiltroDeDetalhe) {
+        const fallback = await carregarUltimoSnapshotXpt(context.supabase as any, dataSolicitada);
+        if (fallback) return fallback;
+      }
+      return { status: "erro", erro: error.message };
+    }
+
+    const resultado = res as MeliDashboardResult;
     if (!semFiltroDeDetalhe || resultado.status !== "ok") return resultado;
 
     const dataOperacional = data.data ?? resultado.data_operacional;
