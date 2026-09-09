@@ -232,6 +232,17 @@ function BaseDetalheDialog({
   const fetchPacotes = useServerFn(meliDashboardPacotesRota);
   const fetchBase = useServerFn(meliDashboardOperacional);
 
+  // O resumo multibase é propositalmente leve e não carrega todas as rotas.
+  // Ao abrir um cartão, busca apenas o detalhe daquela base.
+  const detalhesQuery = useQuery({
+    queryKey: ["dashboard-detalhes-base", base?.id ?? base?.codigo, data],
+    queryFn: () => fetchBase({ data: { data, base_id: base!.id } }),
+    enabled: !!base?.id,
+  });
+  const rotasDetalhadas = detalhesQuery.data?.status === "ok"
+    ? (detalhesQuery.data.rotas ?? [])
+    : rotas;
+
   const pacotesQuery = useQuery({
     queryKey: ["dashboard-geral-pacotes", rotaSel?.rota_id],
     queryFn: () => fetchPacotes({ data: { rota_id: rotaSel!.rota_id, limit: 1000 } }),
@@ -241,17 +252,19 @@ function BaseDetalheDialog({
   /** Motivos reais de insucesso da base — só busca quando o card Falhas é aberto. */
   const motivosQuery = useQuery({
     queryKey: ["dashboard-geral-motivos", base?.id ?? base?.codigo, data],
-    queryFn: () => fetchBase({ data: { data, base_id: base?.id ?? null } }),
-    enabled: !!base && situacaoBase === "insucesso" && !rotaSel,
+    queryFn: () => fetchBase({ data: { data, base_id: base!.id } }),
+    enabled: !!base?.id && situacaoBase === "insucesso" && !rotaSel && !detalhesQuery.data,
   });
   const motivos =
-    motivosQuery.data?.status === "ok" ? (motivosQuery.data.motivos_insucesso ?? []) : [];
+    detalhesQuery.data?.status === "ok"
+      ? (detalhesQuery.data.motivos_insucesso ?? [])
+      : motivosQuery.data?.status === "ok" ? (motivosQuery.data.motivos_insucesso ?? []) : [];
 
   const filtradas = useMemo(() => {
     const t = busca.trim().toLowerCase();
     const porBusca = !t
-      ? rotas
-      : rotas.filter((r) =>
+      ? rotasDetalhadas
+      : rotasDetalhadas.filter((r) =>
           [r.nome_operacional, r.route_id, r.driver_name, r.vehicle_license]
             .filter(Boolean)
             .some((v) => String(v).toLowerCase().includes(t)),
@@ -261,11 +274,11 @@ function BaseDetalheDialog({
       .filter((r) => (r[situacaoBase] ?? 0) > 0)
       .slice()
       .sort((a, b) => (b[situacaoBase] ?? 0) - (a[situacaoBase] ?? 0));
-  }, [rotas, busca, situacaoBase]);
+  }, [rotasDetalhadas, busca, situacaoBase]);
 
   const totais = useMemo(
     () =>
-      rotas.reduce(
+      rotasDetalhadas.reduce(
         (acc, r) => ({
           total: acc.total + (r.total ?? 0),
           entregue: acc.entregue + (r.entregue ?? 0),
@@ -274,7 +287,7 @@ function BaseDetalheDialog({
         }),
         { total: 0, entregue: 0, em_rota: 0, insucesso: 0 },
       ),
-    [rotas],
+    [rotasDetalhadas],
   );
 
   const pacotes = pacotesQuery.data?.status === "ok" ? (pacotesQuery.data.pacotes ?? []) : [];
@@ -437,7 +450,14 @@ function BaseDetalheDialog({
                   </tr>
                 </thead>
                 <tbody>
-                  {filtradas.length === 0 && (
+                  {detalhesQuery.isLoading && (
+                    <tr>
+                      <td colSpan={9} className="py-6 text-center text-muted-foreground">
+                        Carregando detalhes das rotas...
+                      </td>
+                    </tr>
+                  )}
+                  {!detalhesQuery.isLoading && filtradas.length === 0 && (
                     <tr>
                       <td colSpan={9} className="py-6 text-center text-muted-foreground">
                         Nenhuma rota encontrada.
