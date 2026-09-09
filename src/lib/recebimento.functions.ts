@@ -339,11 +339,19 @@ export const meuPerfil = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const [{ data: profile }, { data: roles }, { data: extras }] = await Promise.all([
+    const [
+      { data: profile, error: profileErr },
+      { data: roles, error: rolesErr },
+      { data: extras, error: extrasErr },
+    ] = await Promise.all([
       supabase.from("profiles").select("id, nome, email, matricula, base_id, bases(codigo, nome)").eq("id", userId).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", userId),
       supabase.from("user_bases").select("base_id, bases(id, codigo, nome, cidade)").eq("user_id", userId),
     ]);
+    // Nunca engolir falha de leitura: sem isso, um erro vira "sem papéis" e a
+    // interface esconde silenciosamente os menus restritos.
+    const primeiroErro = profileErr ?? rolesErr ?? extrasErr;
+    if (primeiroErro) throw new Error(`Falha ao carregar perfil: ${primeiroErro.message}`);
     const rolesArr = (roles ?? []).map((r) => r.role);
     const acessoTotal = rolesArr.includes("admin") || rolesArr.includes("gerente");
     const basesPermitidasMap = new Map<string, { id: string; codigo: string; nome: string; cidade: string | null }>();
