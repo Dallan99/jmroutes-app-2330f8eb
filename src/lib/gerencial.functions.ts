@@ -547,7 +547,7 @@ export const rotasPorBase = createServerFn({ method: "POST" })
 
     // Agrupamento por base+rota
     const grupos = new Map<string, RotaBaseRow>();
-    for (const e of escalas) {
+    for (const e of agregados) {
       const baseId = importBaseMap.get(e.importacao_id ?? "") ?? e.base_operacional_id;
       if (!baseId) continue;
       const b = baseMap.get(baseId);
@@ -559,7 +559,7 @@ export const rotasPorBase = createServerFn({ method: "POST" })
         base_codigo: b.codigo,
         base_nome: b.nome,
         nro_rota: rota,
-        motorista: e.driver,
+        motorista: e.motorista,
         placa: e.placa,
         total: 0,
         recebido: 0,
@@ -568,10 +568,12 @@ export const rotasPorBase = createServerFn({ method: "POST" })
         pct: 0,
         status: "vazia" as const,
       };
-      cur.total++;
+      cur.motorista = cur.motorista ?? e.motorista;
+      cur.placa = cur.placa ?? e.placa;
+      cur.total += Number(e.total ?? 0);
       // Neste painel, "bipado" representa a leitura feita na Triagem.
-      if (e.triado) cur.recebido++;
-      if (e.devolvido) cur.devolvido++;
+      cur.recebido += Number(e.triado ?? 0);
+      cur.devolvido += Number(e.devolvido ?? 0);
       grupos.set(key, cur);
     }
 
