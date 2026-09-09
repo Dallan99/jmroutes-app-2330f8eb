@@ -165,7 +165,7 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   const { data: rotasRisco } = idsBase.length
     ? await client
         .from("meli_rotas")
-        .select("id,base_id,rota_area_risco,area_risco_parcial")
+        .select("id,route_id,cluster,base_id,service_center_id,driver_name,vehicle_license,carrier,data_rota,last_synced_at,rota_area_risco,area_risco_parcial,total_pacotes,delivered_total,pending_total,occurrence_total")
         .eq("data_rota", dia)
         .in("base_id", idsBase)
         .or("rota_area_risco.eq.true,area_risco_parcial.eq.true")
@@ -216,6 +216,42 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   const totalRotasRisco = bases.reduce((soma, base) => soma + base.rotas_risco, 0);
   const rotasRiscoIntegrais = bases.reduce((soma, base) => soma + base.rotas_risco_integral, 0);
   const rotasRiscoParciais = bases.reduce((soma, base) => soma + base.rotas_risco_parcial, 0);
+  const rotas: MeliDashboardRota[] = (rotasRisco ?? []).map((rota: any) => {
+    const cadastro: any = (cadastros ?? []).find((base: any) => base.id === rota.base_id);
+    const totalRota = Number(rota.total_pacotes ?? 0);
+    const entregueRota = Number(rota.delivered_total ?? 0);
+    const emRota = Number(rota.pending_total ?? 0);
+    const insucessoRota = Number(rota.occurrence_total ?? 0);
+    return {
+      rota_id: rota.id,
+      route_id: rota.route_id,
+      nome_operacional: String(rota.cluster ?? "").trim() || rota.route_id,
+      cluster: rota.cluster,
+      base_id: rota.base_id,
+      base_codigo: cadastro?.codigo ?? null,
+      base_nome: cadastro?.nome ?? null,
+      service_center: rota.service_center_id ?? null,
+      driver_name: rota.driver_name,
+      vehicle_license: rota.vehicle_license,
+      carrier: rota.carrier,
+      data_rota: rota.data_rota,
+      last_synced_at: rota.last_synced_at,
+      rota_area_risco: Boolean(rota.rota_area_risco),
+      area_risco_parcial: Boolean(rota.area_risco_parcial),
+      total: totalRota,
+      nao_iniciado: Math.max(0, totalRota - entregueRota - emRota - insucessoRota),
+      em_rota: emRota,
+      entregue: entregueRota,
+      insucesso: insucessoRota,
+      cancelado: 0,
+      pacotes_risco: totalRota,
+      perc_entrega: totalRota > 0 ? Math.round(1000 * entregueRota / totalRota) / 10 : 0,
+    };
+  });
+  const pacotesRisco = rotas.reduce((soma, rota) => soma + rota.pacotes_risco, 0);
+  const entreguesRisco = rotas.reduce((soma, rota) => soma + rota.entregue, 0);
+  const emRotaRisco = rotas.reduce((soma, rota) => soma + rota.em_rota, 0);
+  const insucessosRisco = rotas.reduce((soma, rota) => soma + rota.insucesso, 0);
 
   const snapshotAt = snapshots.reduce<string | null>(
     (maisRecente, linha: any) => !maisRecente || linha.coletado_em > maisRecente ? linha.coletado_em : maisRecente,
@@ -234,7 +270,7 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       insucesso,
       cancelado: 0,
       desconhecido: 0,
-      area_risco_pacotes: 0,
+      area_risco_pacotes: pacotesRisco,
       elegiveis: total,
       perc_entrega: total > 0 ? Math.round(1000 * entregue / total) / 10 : 0,
       rotas: bases.reduce((soma, base) => soma + base.rotas, 0),
@@ -243,7 +279,7 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       pm_pacotes_fora: 0,
     },
     bases,
-    rotas: [],
+    rotas,
     motivos_insucesso: insucesso > 0 ? [{
       codigo: "sem_detalhamento_adminml",
       descricao: "Aguardando detalhamento do motivo pelo AdminML",
@@ -258,11 +294,11 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       rotas: totalRotasRisco,
       integrais: rotasRiscoIntegrais,
       parciais: rotasRiscoParciais,
-      pacotes: 0,
-      entregue: 0,
-      em_rota: 0,
-      insucesso: 0,
-      perc_conclusao: 0,
+      pacotes: pacotesRisco,
+      entregue: entreguesRisco,
+      em_rota: emRotaRisco,
+      insucesso: insucessosRisco,
+      perc_conclusao: pacotesRisco > 0 ? Math.round(1000 * entreguesRisco / pacotesRisco) / 10 : 0,
     },
   };
 }
