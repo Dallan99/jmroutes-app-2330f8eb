@@ -339,11 +339,39 @@ export const meuPerfil = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const [{ data: profile }, { data: roles }, { data: extras }] = await Promise.all([
-      supabase.from("profiles").select("id, nome, email, matricula, base_id, bases(codigo, nome)").eq("id", userId).maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", userId),
-      supabase.from("user_bases").select("base_id, bases(id, codigo, nome, cidade)").eq("user_id", userId),
-    ]);
+
+    const carregar = async () =>
+      Promise.all([
+        supabase.from("profiles").select("id, nome, email, matricula, base_id, bases(codigo, nome)").eq("id", userId).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId),
+        supabase.from("user_bases").select("base_id, bases(id, codigo, nome, cidade)").eq("user_id", userId),
+      ]);
+
+    // "Could not query the database for the schema cache" é transitório (PostgREST
+    // recarregando o cache). Tentamos novamente antes de falhar.
+    const transitorio = (msg?: string) =>
+      !!msg && (msg.includes("schema cache") || msg.includes("Retrying"));
+
+    let profile: Awaited<ReturnType<typeof carregar>>[0]["data"] = null;
+    let roles: Awaited<ReturnType<typeof carregar>>[1]["data"] = null;
+    let extras: Awaited<ReturnType<typeof carregar>>[2]["data"] = null;
+    let primeiroErro: { message: string } | null = null;
+
+    for (let tentativa = 0; tentativa < 3; tentativa++) {
+      const [p, r, e] = await carregar();
+      profile = p.data;
+      roles = r.data;
+      extras = e.data;
+      primeiroErro = p.error ?? r.error ?? e.error ?? null;
+      if (!primeiroErro) break;
+      if (!transitorio(primeiroErro.message)) break;
+      await new Promise((resolve) => setTimeout(resolve, 400 * (tentativa + 1)));
+    }
+
+    // Nunca engolir falha de leitura: sem isso, um erro vira "sem papéis" e a
+    // interface esconde silenciosamente os menus restritos.
+    if (primeiroErro) throw new Error(`Falha ao carregar perfil: ${primeiroErro.message}`);
+
     const rolesArr = (roles ?? []).map((r) => r.role);
     const acessoTotal = rolesArr.includes("admin") || rolesArr.includes("gerente");
     const basesPermitidasMap = new Map<string, { id: string; codigo: string; nome: string; cidade: string | null }>();

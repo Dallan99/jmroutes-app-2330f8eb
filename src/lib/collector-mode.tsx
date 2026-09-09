@@ -23,9 +23,8 @@ export function CollectorModeProvider({ children }: { children: ReactNode }) {
   const [modoColetor, setModoColetor] = useState(false);
 
   useEffect(() => {
-    // O modo leitor pertence somente à aba/sessão que entrou pelo /coletor.
-    // Remove a preferência antiga persistente, que fazia o site normal reabrir
-    // no coletor mesmo quando o usuário acessava o Dashboard.
+    // O modo coletor pertence somente à aba/sessão que entrou pelo /coletor.
+    // Preferências antigas persistentes não devem reabrir o site normal no coletor.
     try {
       window.localStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -40,6 +39,8 @@ export function CollectorModeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const sairModoColetor = useCallback(() => {
+    // A saída precisa limpar a sessão da aba para não ocultar a sidebar normal
+    // durante a navegação seguinte.
     collectorStorage()?.removeItem(STORAGE_KEY);
     try {
       window.localStorage.removeItem(STORAGE_KEY);

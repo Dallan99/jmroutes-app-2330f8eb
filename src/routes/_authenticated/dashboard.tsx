@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard XPTs — JM Transportes" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — JM Transportes" }] }),
   component: DashboardPage,
 });
 
@@ -115,7 +115,7 @@ export function DashboardPage() {
       <header className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl md:text-3xl font-bold">Dashboard XPTs</h1>
+            <h1 className="font-display text-2xl md:text-3xl font-bold">Dashboard</h1>
             <p className="text-sm text-muted-foreground">
               Dados Meli sincronizados em{" "}
               <span className="font-semibold tabular-nums">{fmtDataHora(sync.ultimoSucessoGeral)}</span>

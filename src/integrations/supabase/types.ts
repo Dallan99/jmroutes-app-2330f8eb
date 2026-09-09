@@ -1426,6 +1426,125 @@ export type Database = {
         }
         Relationships: []
       }
+      meli_monitoramento_fechamentos: {
+        Row: {
+          base_codigo: string
+          created_at: string
+          data_operacional: string
+          facility_id: string
+          fechado_em: string
+          id: string
+          resumo_json: Json
+          service_center_id: string
+          snapshot_id: string | null
+        }
+        Insert: {
+          base_codigo: string
+          created_at?: string
+          data_operacional: string
+          facility_id: string
+          fechado_em?: string
+          id?: string
+          resumo_json: Json
+          service_center_id: string
+          snapshot_id?: string | null
+        }
+        Update: {
+          base_codigo?: string
+          created_at?: string
+          data_operacional?: string
+          facility_id?: string
+          fechado_em?: string
+          id?: string
+          resumo_json?: Json
+          service_center_id?: string
+          snapshot_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_monitoramento_fechamentos_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "meli_monitoramento_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meli_monitoramento_snapshots: {
+        Row: {
+          base_codigo: string
+          bem_sucedidos: number | null
+          coletado_em: string
+          com_falhas: number | null
+          created_at: string
+          data_operacional: string
+          facility_id: string
+          id: string
+          pacotes: number | null
+          payload_json: Json
+          pendentes: number | null
+          percentual_bem_sucedidos: number | null
+          percentual_falhas: number | null
+          percentual_pendentes: number | null
+          rotas_coleta: number | null
+          rotas_em_andamento: number | null
+          rotas_entrega: number | null
+          rotas_mistas: number | null
+          rotas_totais: number | null
+          sacas: number | null
+          service_center_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_codigo: string
+          bem_sucedidos?: number | null
+          coletado_em?: string
+          com_falhas?: number | null
+          created_at?: string
+          data_operacional: string
+          facility_id: string
+          id?: string
+          pacotes?: number | null
+          payload_json?: Json
+          pendentes?: number | null
+          percentual_bem_sucedidos?: number | null
+          percentual_falhas?: number | null
+          percentual_pendentes?: number | null
+          rotas_coleta?: number | null
+          rotas_em_andamento?: number | null
+          rotas_entrega?: number | null
+          rotas_mistas?: number | null
+          rotas_totais?: number | null
+          sacas?: number | null
+          service_center_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_codigo?: string
+          bem_sucedidos?: number | null
+          coletado_em?: string
+          com_falhas?: number | null
+          created_at?: string
+          data_operacional?: string
+          facility_id?: string
+          id?: string
+          pacotes?: number | null
+          payload_json?: Json
+          pendentes?: number | null
+          percentual_bem_sucedidos?: number | null
+          percentual_falhas?: number | null
+          percentual_pendentes?: number | null
+          rotas_coleta?: number | null
+          rotas_em_andamento?: number | null
+          rotas_entrega?: number | null
+          rotas_mistas?: number | null
+          rotas_totais?: number | null
+          sacas?: number | null
+          service_center_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meli_motoristas_catalogo: {
         Row: {
           ativo: boolean
@@ -1635,6 +1754,107 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meli_performance_diaria: {
+        Row: {
+          created_at: string
+          data_operacional: string
+          dc_cancelado: number
+          entregues: number
+          id: string
+          insucessos: number
+          origem: string
+          pacotes: number
+          payload: Json | null
+          pnr: number
+          sinistros: number
+          source_updated_at: string | null
+          unidade_id: string
+          updated_at: string
+          veiculos: number
+        }
+        Insert: {
+          created_at?: string
+          data_operacional: string
+          dc_cancelado?: number
+          entregues?: number
+          id?: string
+          insucessos?: number
+          origem?: string
+          pacotes?: number
+          payload?: Json | null
+          pnr?: number
+          sinistros?: number
+          source_updated_at?: string | null
+          unidade_id: string
+          updated_at?: string
+          veiculos?: number
+        }
+        Update: {
+          created_at?: string
+          data_operacional?: string
+          dc_cancelado?: number
+          entregues?: number
+          id?: string
+          insucessos?: number
+          origem?: string
+          pacotes?: number
+          payload?: Json | null
+          pnr?: number
+          sinistros?: number
+          source_updated_at?: string | null
+          unidade_id?: string
+          updated_at?: string
+          veiculos?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_performance_diaria_unidade_id_fkey"
+            columns: ["unidade_id"]
+            isOneToOne: false
+            referencedRelation: "meli_unidades_operacionais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meli_performance_fechamentos: {
+        Row: {
+          created_at: string
+          data_operacional: string
+          email_destinatarios: string[]
+          email_enviado_at: string | null
+          email_resposta: Json | null
+          email_status: string
+          email_tentativas: number
+          fechado_at: string
+          id: string
+          snapshot: Json
+        }
+        Insert: {
+          created_at?: string
+          data_operacional: string
+          email_destinatarios?: string[]
+          email_enviado_at?: string | null
+          email_resposta?: Json | null
+          email_status?: string
+          email_tentativas?: number
+          fechado_at?: string
+          id?: string
+          snapshot: Json
+        }
+        Update: {
+          created_at?: string
+          data_operacional?: string
+          email_destinatarios?: string[]
+          email_enviado_at?: string | null
+          email_resposta?: Json | null
+          email_status?: string
+          email_tentativas?: number
+          fechado_at?: string
+          id?: string
+          snapshot?: Json
+        }
+        Relationships: []
       }
       meli_rotas: {
         Row: {
@@ -2030,6 +2250,48 @@ export type Database = {
           },
         ]
       }
+      meli_unidades_operacionais: {
+        Row: {
+          ativo: boolean
+          cidade: string | null
+          codigo: string
+          created_at: string
+          id: string
+          nome: string
+          ordem: number
+          service_center_id: string | null
+          tipo: string
+          uf: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cidade?: string | null
+          codigo: string
+          created_at?: string
+          id?: string
+          nome: string
+          ordem?: number
+          service_center_id?: string | null
+          tipo: string
+          uf?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cidade?: string | null
+          codigo?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          ordem?: number
+          service_center_id?: string | null
+          tipo?: string
+          uf?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meli_worker_execucoes: {
         Row: {
           base_id: string
@@ -2097,8 +2359,8 @@ export type Database = {
       }
       motoristas: {
         Row: {
-          auth_user_id: string | null
           ativo: boolean
+          auth_user_id: string | null
           base_id: string | null
           cnh: string | null
           cpf: string | null
@@ -2111,8 +2373,8 @@ export type Database = {
           usuario: string | null
         }
         Insert: {
-          auth_user_id?: string | null
           ativo?: boolean
+          auth_user_id?: string | null
           base_id?: string | null
           cnh?: string | null
           cpf?: string | null
@@ -2125,8 +2387,8 @@ export type Database = {
           usuario?: string | null
         }
         Update: {
-          auth_user_id?: string | null
           ativo?: boolean
+          auth_user_id?: string | null
           base_id?: string | null
           cnh?: string | null
           cpf?: string | null
@@ -2144,13 +2406,6 @@ export type Database = {
             columns: ["base_id"]
             isOneToOne: false
             referencedRelation: "bases"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "motoristas_auth_user_id_fkey"
-            columns: ["auth_user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -3071,6 +3326,7 @@ export type Database = {
         Returns: boolean
       }
       inventario_global_access: { Args: { _user_id: string }; Returns: boolean }
+      meli_dashboard_geral: { Args: { p_data?: string }; Returns: Json }
       meli_dashboard_operacional: {
         Args: {
           p_base_id?: string
@@ -3125,6 +3381,10 @@ export type Database = {
       meli_devolucoes_sincronizar: {
         Args: { p_base_id?: string; p_data_ate?: string; p_data_de?: string }
         Returns: Json
+      }
+      meli_fechar_dashboard_geral: {
+        Args: { p_data?: string }
+        Returns: string
       }
       meli_importar_rota: {
         Args: { p_arquivo_nome?: string; p_payload: Json }
@@ -3373,12 +3633,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3402,11 +3662,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3427,11 +3687,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3452,11 +3712,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3469,11 +3729,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

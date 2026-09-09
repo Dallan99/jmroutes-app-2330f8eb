@@ -89,7 +89,7 @@ const NAV_OPERACIONAL: NavItem[] = [
   { title: "Modo coletor", to: "/coletor", icon: Smartphone },
   { title: "Bases", to: "/bases", icon: Boxes },
   { title: "Dashboard Geral", to: "/dashboard-geral", icon: LayoutDashboard, roles: ["admin", "supervisor", "gerente"] },
-  { title: "Dashboard XPTs", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Dashboard", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
   { title: "Painel Operacional", to: "/painel-operacional", icon: TrendingUp },
   { title: "Recebimento", to: "/triagem", icon: PackageSearch },
   { title: "Expedição", to: "/expedicao", icon: Truck },
@@ -100,6 +100,7 @@ const NAV_OPERACIONAL: NavItem[] = [
 const NAV_GESTAO: NavItem[] = [
   { title: "Histórico", to: "/historico", icon: History, roles: ["admin", "supervisor", "gerente"] },
   { title: "Gerencial", to: "/gerencial", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Integração Meli", to: "/integracao-meli", icon: PackageSearch, roles: ["admin", "supervisor", "gerente"] },
   { title: "Área de Risco", to: "/meli-risco", icon: ShieldAlert, roles: ["admin", "supervisor", "gerente"] },
 ];
 const NAV_ADMIN: NavItem[] = [
@@ -136,7 +137,7 @@ function AppShellContent() {
   const rolesCarregadas = perfilQuery.isSuccess;
   const roles = (perfilQuery.data?.roles ?? []) as Array<Role>;
   const { modoColetor, sairModoColetor } = useCollectorMode();
-  const modoColetorAtivo = appColetorInstalado || (modoColetor && pathname !== "/dashboard");
+  const modoColetorAtivo = ROTAS_APP_COLETOR.has(pathname) && (appColetorInstalado || modoColetor);
   useInactivityLogout();
 
   useEffect(() => {
@@ -152,7 +153,9 @@ function AppShellContent() {
       navigate({ to: "/coletor", replace: true });
       return;
     }
-    if (!appColetorInstalado && pathname === "/dashboard" && modoColetor) sairModoColetor();
+    if (!appColetorInstalado && modoColetor && !ROTAS_APP_COLETOR.has(pathname)) {
+      sairModoColetor();
+    }
   }, [appColetorInstalado, modoColetor, navigate, pathname, sairModoColetor]);
 
   if (pathname.startsWith("/motorista")) return <Outlet />;
@@ -180,7 +183,10 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const allow = (item: NavItem) => !item.roles || item.roles.some((r) => roles.includes(r));
+  // Itens restritos só aparecem depois que os papéis chegam, evitando o flash
+  // do menu completo seguido do "sumiço" dos itens.
+  const allow = (item: NavItem) =>
+    !item.roles || (rolesCarregadas && item.roles.some((r) => roles.includes(r)));
 
   const renderGroup = (label: string, items: NavItem[]) => {
     const visible = items.filter(allow);
@@ -239,14 +245,12 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {rolesCarregadas && (
-          modoColetor ? renderGroup("Coletor", NAV_COLETOR) : (
-            <>
-              {renderGroup("Operação", NAV_OPERACIONAL)}
-              {renderGroup("Gestão", NAV_GESTAO)}
-              {renderGroup("Administração", NAV_ADMIN)}
-            </>
-          )
+        {modoColetor ? renderGroup("Coletor", NAV_COLETOR) : (
+          <>
+            {renderGroup("Operação", NAV_OPERACIONAL)}
+            {renderGroup("Gestão", NAV_GESTAO)}
+            {renderGroup("Administração", NAV_ADMIN)}
+          </>
         )}
       </SidebarContent>
       <SidebarFooter className="border-t border-sidebar-border">
