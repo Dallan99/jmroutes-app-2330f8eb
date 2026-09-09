@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { DashboardGeralOperacional } from "@/components/dashboard-geral-operacional";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/dashboard-geral")({
-  head: () => ({ meta: [{ title: "Dashboard Geral — JM Transportes" }] }),
-  component: DashboardGeralOperacional,
+  beforeLoad: () => {
+    throw redirect({ to: "/dashboard" });
+  },
 });

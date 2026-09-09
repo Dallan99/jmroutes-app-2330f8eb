@@ -88,7 +88,6 @@ type Role = "admin" | "supervisor" | "gerente" | "operador";
 const NAV_OPERACIONAL: NavItem[] = [
   { title: "Modo coletor", to: "/coletor", icon: Smartphone },
   { title: "Bases", to: "/bases", icon: Boxes },
-  { title: "Dashboard Geral", to: "/dashboard-geral", icon: LayoutDashboard, roles: ["admin", "supervisor", "gerente"] },
   { title: "Dashboard", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
   { title: "Painel Operacional", to: "/painel-operacional", icon: TrendingUp },
   { title: "Recebimento", to: "/triagem", icon: PackageSearch },
