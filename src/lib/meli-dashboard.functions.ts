@@ -244,7 +244,12 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     },
     bases,
     rotas: [],
-    motivos_insucesso: [],
+    motivos_insucesso: insucesso > 0 ? [{
+      codigo: "sem_detalhamento_adminml",
+      descricao: "Aguardando detalhamento do motivo pelo AdminML",
+      cadastrado: true,
+      total: insucesso,
+    }] : [],
     pm_programadas: [],
     snapshot_fallback: true,
     snapshot_at: snapshotAt,
@@ -316,7 +321,19 @@ export function aplicarMonitoramentoPreservado(
       }
     : resultado.cards;
 
-  return { ...resultado, bases, cards };
+  const motivosAtuais = resultado.motivos_insucesso ?? [];
+  const totalMotivos = motivosAtuais.reduce((soma, motivo) => soma + Number(motivo.total ?? 0), 0);
+  const semDetalhamento = Math.max(0, Number(cards?.insucesso ?? 0) - totalMotivos);
+  const motivos_insucesso = semDetalhamento > 0
+    ? [...motivosAtuais, {
+        codigo: "sem_detalhamento_adminml",
+        descricao: "Aguardando detalhamento do motivo pelo AdminML",
+        cadastrado: true,
+        total: semDetalhamento,
+      }]
+    : motivosAtuais;
+
+  return { ...resultado, bases, cards, motivos_insucesso };
 }
 
 export function meliDashboardQueryKey(filtros: MeliDashboardFiltros) {

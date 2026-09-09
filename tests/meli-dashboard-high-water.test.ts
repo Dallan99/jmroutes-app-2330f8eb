@@ -30,6 +30,33 @@ describe("Dashboard Meli — maior leitura do dia", () => {
     expect(resultado.cards).toMatchObject({
       rotas: 10, total: 100, entregue: 97, insucesso: 1, perc_entrega: 97,
     });
+    expect(resultado.motivos_insucesso).toEqual([{
+      codigo: "sem_detalhamento_adminml",
+      descricao: "Aguardando detalhamento do motivo pelo AdminML",
+      cadastrado: true,
+      total: 1,
+    }]);
+  });
+
+  it("preserva os motivos reais e sinaliza somente a diferença sem detalhamento", () => {
+    const atual: MeliDashboardResult = {
+      status: "ok",
+      cards: { insucesso: 5 },
+      bases: [],
+      motivos_insucesso: [{ codigo: "endereco", descricao: "Endereço incorreto", cadastrado: true, total: 3 }],
+    };
+
+    const resultado = aplicarMonitoramentoPreservado(atual, []);
+
+    expect(resultado.motivos_insucesso).toEqual([
+      { codigo: "endereco", descricao: "Endereço incorreto", cadastrado: true, total: 3 },
+      {
+        codigo: "sem_detalhamento_adminml",
+        descricao: "Aguardando detalhamento do motivo pelo AdminML",
+        cadastrado: true,
+        total: 2,
+      },
+    ]);
   });
 
   it("não adiciona ao Dashboard bases que não pertencem ao resultado operacional", () => {
