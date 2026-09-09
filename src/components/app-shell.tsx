@@ -88,7 +88,6 @@ type Role = "admin" | "supervisor" | "gerente" | "operador";
 const NAV_OPERACIONAL: NavItem[] = [
   { title: "Modo coletor", to: "/coletor", icon: Smartphone },
   { title: "Bases", to: "/bases", icon: Boxes },
-  { title: "Dashboard Geral", to: "/dashboard-geral", icon: LayoutDashboard, roles: ["admin", "supervisor", "gerente"] },
   { title: "Dashboard", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
   { title: "Painel Operacional", to: "/painel-operacional", icon: TrendingUp },
   { title: "Recebimento", to: "/triagem", icon: PackageSearch },
@@ -183,6 +182,11 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Gestão nunca perde o menu completo: a sidebar simplificada do coletor só
+  // substitui os grupos normais para operador/coletor, e apenas após o perfil
+  // carregar (evita troca de menu no primeiro render).
+  const gestaoCompleta = roles.includes("admin") || roles.includes("gerente") || roles.includes("supervisor");
+  const usarMenuColetor = modoColetor && rolesCarregadas && !gestaoCompleta;
   // Itens restritos só aparecem depois que os papéis chegam, evitando o flash
   // do menu completo seguido do "sumiço" dos itens.
   const allow = (item: NavItem) =>
@@ -245,7 +249,7 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {modoColetor ? renderGroup("Coletor", NAV_COLETOR) : (
+        {usarMenuColetor ? renderGroup("Coletor", NAV_COLETOR) : (
           <>
             {renderGroup("Operação", NAV_OPERACIONAL)}
             {renderGroup("Gestão", NAV_GESTAO)}

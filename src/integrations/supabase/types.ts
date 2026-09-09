@@ -1486,6 +1486,9 @@ export type Database = {
           percentual_bem_sucedidos: number | null
           percentual_falhas: number | null
           percentual_pendentes: number | null
+          performance_logistics_max: number | null
+          performance_sem_dc_max: number | null
+          performance_sem_dc_sinistro_max: number | null
           rotas_coleta: number | null
           rotas_em_andamento: number | null
           rotas_entrega: number | null
@@ -1510,6 +1513,9 @@ export type Database = {
           percentual_bem_sucedidos?: number | null
           percentual_falhas?: number | null
           percentual_pendentes?: number | null
+          performance_logistics_max?: number | null
+          performance_sem_dc_max?: number | null
+          performance_sem_dc_sinistro_max?: number | null
           rotas_coleta?: number | null
           rotas_em_andamento?: number | null
           rotas_entrega?: number | null
@@ -1534,6 +1540,9 @@ export type Database = {
           percentual_bem_sucedidos?: number | null
           percentual_falhas?: number | null
           percentual_pendentes?: number | null
+          performance_logistics_max?: number | null
+          performance_sem_dc_max?: number | null
+          performance_sem_dc_sinistro_max?: number | null
           rotas_coleta?: number | null
           rotas_em_andamento?: number | null
           rotas_entrega?: number | null
@@ -3133,6 +3142,50 @@ export type Database = {
           },
         ]
       }
+      worker_ultimos_dados: {
+        Row: {
+          atualizado_em: string
+          base_codigo: string | null
+          base_id: string | null
+          chave_referencia: string
+          coletado_em: string
+          dados: Json
+          data_operacional: string | null
+          fonte: string
+          id: string
+        }
+        Insert: {
+          atualizado_em?: string
+          base_codigo?: string | null
+          base_id?: string | null
+          chave_referencia: string
+          coletado_em?: string
+          dados?: Json
+          data_operacional?: string | null
+          fonte: string
+          id?: string
+        }
+        Update: {
+          atualizado_em?: string
+          base_codigo?: string | null
+          base_id?: string | null
+          chave_referencia?: string
+          coletado_em?: string
+          dados?: Json
+          data_operacional?: string | null
+          fonte?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_ultimos_dados_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       meli_rotas_ativas: {
@@ -3327,6 +3380,10 @@ export type Database = {
       }
       inventario_global_access: { Args: { _user_id: string }; Returns: boolean }
       meli_dashboard_geral: { Args: { p_data?: string }; Returns: Json }
+      meli_dashboard_geral_calculado: {
+        Args: { p_data?: string }
+        Returns: Json
+      }
       meli_dashboard_operacional: {
         Args: {
           p_base_id?: string
@@ -3401,10 +3458,31 @@ export type Database = {
         }
         Returns: Json
       }
+      meli_monitoramento_upsert: { Args: { p_snapshot: Json }; Returns: Json }
       meli_pode_operar: { Args: never; Returns: boolean }
       meli_publicar_rota_operacional: {
         Args: { p_data_operacional?: string; p_rota_id: string }
         Returns: Json
+      }
+      meli_registrar_monitoramento_snapshot: {
+        Args: {
+          p_base_codigo: string
+          p_bem_sucedidos: number
+          p_coletado_em: string
+          p_com_falhas: number
+          p_data_operacional: string
+          p_facility_id: string
+          p_pacotes: number
+          p_pendentes: number
+          p_rotas_coleta: number
+          p_rotas_em_andamento: number
+          p_rotas_entrega: number
+          p_rotas_mistas: number
+          p_rotas_totais: number
+          p_sacas: number
+          p_service_center_id: string
+        }
+        Returns: undefined
       }
       meli_romaneio_abrir_com_primeiro_pacote: {
         Args: {
