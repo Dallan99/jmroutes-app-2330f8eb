@@ -129,27 +129,52 @@ function AuthPage() {
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const identificador = email.trim().toLowerCase();
-    const emailLogin = identificador.includes("@") ? identificador : `${identificador}@motoristas.jmroutes.local`;
-    const { error } = await supabase.auth.signInWithPassword({ email: emailLogin, password: senha });
-    setLoading(false);
-    if (error) return toast.error(error.message);
+
     try {
-      const { registrarAudit } = await import("@/lib/audit.functions");
-      await registrarAudit({ data: { acao: "login", entidade: "auth", detalhes: { email } } });
-    } catch {
-      /* nunca bloqueia login por auditoria */
-    }
-    toast.success("Bem-vindo!");
-    const target = safeNext(next);
-    if (target) window.location.href = target;
-    else {
-      const { data: usuario } = await supabase.auth.getUser();
-      if (!usuario.user) {
-        await supabase.auth.signOut({ scope: "local" });
-        return toast.error("Não foi possível validar sua sessão. Tente entrar novamente.");
+      const identificador = email.trim().toLowerCase();
+      const emailLogin = identificador.includes("@")
+        ? identificador
+        : `${identificador}@motoristas.jmroutes.local`;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: emailLogin,
+        password: senha,
+      });
+
+      if (error) {
+        const mensagem = error.message?.trim();
+        return toast.error(
+          mensagem
+            ? traduzirErroAuth(mensagem)
+            : "Não foi possível realizar o login. Verifique e-mail, senha e conexão.",
+        );
       }
-      window.location.href = await destinoAposLogin(usuario.user.id);
+
+      if (!data.session || !data.user) {
+        return toast.error("Não foi possível realizar o login. Verifique e-mail, senha e conexão.");
+      }
+
+      // A resposta do login precisa ser confirmada pelo Supabase antes da navegação.
+      // Nenhum valor persistido localmente é usado como confirmação de acesso.
+      const { data: usuario, error: erroValidacao } = await supabase.auth.getUser();
+      if (erroValidacao || !usuario.user || usuario.user.id !== data.user.id) {
+        await supabase.auth.signOut({ scope: "local" });
+        return toast.error("Não foi possível realizar o login. Verifique e-mail, senha e conexão.");
+      }
+
+      try {
+        const { registrarAudit } = await import("@/lib/audit.functions");
+        await registrarAudit({ data: { acao: "login", entidade: "auth", detalhes: { email } } });
+      } catch {
+        /* nunca bloqueia login por auditoria */
+      }
+
+      toast.success("Bem-vindo!");
+      const target = safeNext(next);
+      window.location.href = target ?? await destinoAposLogin(usuario.user.id);
+    } catch {
+      toast.error("Não foi possível realizar o login. Verifique e-mail, senha e conexão.");
+    } finally {
+      setLoading(false);
     }
   }
 
