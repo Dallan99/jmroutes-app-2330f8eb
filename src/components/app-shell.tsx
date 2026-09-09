@@ -183,8 +183,10 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  // Itens restritos só aparecem depois que os papéis chegam, evitando o flash
+  // do menu completo seguido do "sumiço" dos itens.
   const allow = (item: NavItem) =>
-    !rolesCarregadas || !item.roles || item.roles.some((r) => roles.includes(r));
+    !item.roles || (rolesCarregadas && item.roles.some((r) => roles.includes(r)));
 
   const renderGroup = (label: string, items: NavItem[]) => {
     const visible = items.filter(allow);
