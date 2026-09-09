@@ -162,10 +162,11 @@ export function DashboardGeral({
                     );
                   })()}
                 </div>
-                <div className="mt-2 grid grid-cols-3 text-center">
+                <div className="mt-2 grid grid-cols-4 text-center">
                   <MiniStat label="Rotas" value={nf(b.rotas)} />
                   <MiniStat label="Pacotes" value={nf(b.total)} />
                   <MiniStat label="Entregues" value={nf(b.entregue)} className="text-success" />
+                  <MiniStat label="Risco" value={nf(b.rotas_risco)} className={b.rotas_risco > 0 ? "text-destructive" : ""} />
                 </div>
 
                 {(() => {
@@ -184,11 +185,12 @@ export function DashboardGeral({
       <Card className="p-4 md:p-5">
         <h2 className="text-sm font-semibold">Indicadores de entrega</h2>
         <p className="text-xs text-muted-foreground">Posição atual das rotas ativas e falhas em tempo real.</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <BigStat label="Carros em rota" value={nf(c?.rotas)} tone="info" />
           <BigStat label="Pacotes" value={nf(c?.total)} />
           <BigStat label="Entregues" value={nf(c?.entregue)} tone="success" />
           <BigStat label="Falhas" value={nf(c?.insucesso)} tone="destructive" />
+          <BigStat label="Rotas em área de risco" value={nf(c?.rotas_risco)} tone="destructive" />
         </div>
       </Card>
 

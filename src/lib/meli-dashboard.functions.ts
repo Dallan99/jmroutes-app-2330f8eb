@@ -161,12 +161,31 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   const { data: cadastros } = await client.from("bases").select("id,codigo,nome").in("codigo", codigos);
   const unidadePorCodigo = new Map((unidades ?? []).map((base: any) => [base.codigo, base]));
   const cadastroPorCodigo = new Map((cadastros ?? []).map((base: any) => [base.codigo, base]));
+  const idsBase = (cadastros ?? []).map((base: any) => base.id);
+  const { data: rotasRisco } = idsBase.length
+    ? await client
+        .from("meli_rotas")
+        .select("id,base_id,rota_area_risco,area_risco_parcial")
+        .eq("data_rota", dia)
+        .in("base_id", idsBase)
+        .or("rota_area_risco.eq.true,area_risco_parcial.eq.true")
+    : { data: [] };
+  const riscoPorBase = new Map<string, { total: number; integrais: number; parciais: number }>();
+  for (const rota of rotasRisco ?? []) {
+    if (!rota.base_id) continue;
+    const atual = riscoPorBase.get(rota.base_id) ?? { total: 0, integrais: 0, parciais: 0 };
+    atual.total += 1;
+    if (rota.rota_area_risco) atual.integrais += 1;
+    else if (rota.area_risco_parcial) atual.parciais += 1;
+    riscoPorBase.set(rota.base_id, atual);
+  }
 
   const bases: MeliDashboardBase[] = snapshots.map((snapshot: any) => {
     const unidade: any = unidadePorCodigo.get(snapshot.base_codigo);
     const cadastro: any = cadastroPorCodigo.get(snapshot.base_codigo);
     const total = Number(snapshot.pacotes ?? 0);
     const entregue = Number(snapshot.bem_sucedidos ?? 0);
+    const risco = cadastro?.id ? riscoPorBase.get(cadastro.id) : undefined;
     return {
       // O filtro detalhado usa bases.id; o id da unidade operacional pertence
       // a outro cadastro e não pode ser enviado como se fosse uma base.
@@ -175,9 +194,9 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       base_nome: unidade?.nome ?? cadastro?.nome ?? snapshot.base_codigo,
       service_center: snapshot.service_center_id ?? null,
       rotas: Number(snapshot.rotas_totais ?? 0),
-      rotas_risco: 0,
-      rotas_risco_integral: 0,
-      rotas_risco_parcial: 0,
+      rotas_risco: risco?.total ?? 0,
+      rotas_risco_integral: risco?.integrais ?? 0,
+      rotas_risco_parcial: risco?.parciais ?? 0,
       total,
       pacotes_risco: 0,
       entregue,
@@ -194,6 +213,9 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   const entregue = bases.reduce((soma, base) => soma + base.entregue, 0);
   const insucesso = bases.reduce((soma, base) => soma + base.insucesso, 0);
   const pendentes = bases.reduce((soma, base) => soma + base.em_rota, 0);
+  const totalRotasRisco = bases.reduce((soma, base) => soma + base.rotas_risco, 0);
+  const rotasRiscoIntegrais = bases.reduce((soma, base) => soma + base.rotas_risco_integral, 0);
+  const rotasRiscoParciais = bases.reduce((soma, base) => soma + base.rotas_risco_parcial, 0);
 
   const snapshotAt = snapshots.reduce<string | null>(
     (maisRecente, linha: any) => !maisRecente || linha.coletado_em > maisRecente ? linha.coletado_em : maisRecente,
@@ -216,7 +238,7 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       elegiveis: total,
       perc_entrega: total > 0 ? Math.round(1000 * entregue / total) / 10 : 0,
       rotas: bases.reduce((soma, base) => soma + base.rotas, 0),
-      rotas_risco: 0,
+      rotas_risco: totalRotasRisco,
       pm_nao_iniciadas: 0,
       pm_pacotes_fora: 0,
     },
@@ -227,6 +249,16 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     snapshot_fallback: true,
     snapshot_at: snapshotAt,
     ultima_sincronizacao: snapshotAt,
+    area_risco: {
+      rotas: totalRotasRisco,
+      integrais: rotasRiscoIntegrais,
+      parciais: rotasRiscoParciais,
+      pacotes: 0,
+      entregue: 0,
+      em_rota: 0,
+      insucesso: 0,
+      perc_conclusao: 0,
+    },
   };
 }
 
