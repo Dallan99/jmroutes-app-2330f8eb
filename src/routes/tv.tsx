@@ -59,7 +59,7 @@ function TvShell() {
           <span className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] font-semibold text-[var(--brand-yellow)]">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Operação Meli — Modo TV
           </span>
-          {abas.length > 1 && (
+          {abas.length > 0 && (
             <nav className="flex items-center gap-1" aria-label="Visões do Modo TV">
               {abas.map((a) => (
                 <TvNav key={a.to} to={a.to} icon={a.icon} label={a.label} active={path.startsWith(a.to)} />
