@@ -290,6 +290,11 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     snapshot_fallback: true,
     snapshot_at: snapshotAt,
     ultima_sincronizacao: snapshotAt,
+    sincronizacao_por_base: snapshots.map((snapshot: any) => ({
+      base_id: cadastroPorCodigo.get(snapshot.base_codigo)?.id ?? null,
+      base_codigo: snapshot.base_codigo,
+      last_synced_at: snapshot.coletado_em ?? null,
+    })),
     area_risco: {
       rotas: totalRotasRisco,
       integrais: rotasRiscoIntegrais,

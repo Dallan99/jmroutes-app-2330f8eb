@@ -65,6 +65,19 @@ export function DashboardGeral({
   const snapshotAtrasado = snapshotEm
     ? Date.now() - snapshotEm.getTime() > 5 * 60_000
     : false;
+  const syncSnapshotPorCodigo = useMemo(() => {
+    const mapa = new Map<string, { situacao: SituacaoSync; minutos: number | null; status: string }>();
+    const referencia = d?.server_time ? new Date(d.server_time).getTime() : Date.now();
+    for (const item of d?.sincronizacao_por_base ?? []) {
+      if (!item.base_codigo || !item.last_synced_at) continue;
+      const instante = new Date(item.last_synced_at).getTime();
+      if (Number.isNaN(instante)) continue;
+      const minutos = Math.max(0, Math.floor((referencia - instante) / 60_000));
+      const situacao: SituacaoSync = minutos > 25 ? "desatualizado" : minutos > 15 ? "atencao" : "atualizado";
+      mapa.set(item.base_codigo, { situacao, minutos, status: "sucesso" });
+    }
+    return mapa;
+  }, [d?.server_time, d?.sincronizacao_por_base]);
 
   const pmProgramadas = d?.pm_programadas ?? [];
   const [baseAberta, setBaseAberta] = useState<{ id: string | null; codigo: string; nome: string } | null>(null);
@@ -153,7 +166,9 @@ export function DashboardGeral({
                 </div>
                 <div className="mt-2">
                   {(() => {
-                    const s = syncPorCodigo?.get(b.base_codigo ?? "");
+                    // O cartão é alimentado pelo snapshot leve; sua data deve
+                    // prevalecer sobre a telemetria antiga da importação completa.
+                    const s = syncSnapshotPorCodigo.get(b.base_codigo ?? "") ?? syncPorCodigo?.get(b.base_codigo ?? "");
                     return (
                       <div className="flex flex-wrap items-center gap-2">
                         <SyncBaseIndicador situacao={s?.situacao ?? "sem_info"} minutos={s?.minutos ?? null} status={s?.status} />

@@ -11,7 +11,11 @@ for (const sinal of ["SIGINT", "SIGTERM"] as const) process.on(sinal, () => { en
 async function main() {
   const cfg = loadConfig();
   let jmr: JmrSessao | null = null;
-  logger.info("Worker leve do Dashboard Geral iniciado.", { bases: BASES_JM.map((b) => b.baseCode), intervalo_s: 300 });
+  const intervaloMs = Math.max(60, cfg.syncIntervalSeconds) * 1000;
+  logger.info("Worker leve do Dashboard Geral iniciado.", {
+    bases: BASES_JM.map((b) => b.baseCode),
+    intervalo_s: intervaloMs / 1000,
+  });
   while (!encerrando) {
     const auth = await garantirSessaoJmroutes(cfg, jmr);
     if (auth.status !== "ok") { jmr = null; await sleep(60_000); continue; }
@@ -34,7 +38,7 @@ async function main() {
         await sleep(2_000);
       }
     } finally { await sessao.fechar(); }
-    if (!encerrando) await sleep(300_000);
+    if (!encerrando) await sleep(intervaloMs);
   }
 }
 
