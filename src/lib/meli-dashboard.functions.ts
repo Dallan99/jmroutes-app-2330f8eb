@@ -128,6 +128,63 @@ type RpcClient = {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
+type MonitoramentoPreservado = {
+  base_codigo: string;
+  rotas_totais: number;
+  pacotes: number;
+  pendentes: number;
+  com_falhas: number;
+  bem_sucedidos: number;
+  performance_logistics_max: number | null;
+};
+
+function maior(atual: number | null | undefined, preservado: number | null | undefined) {
+  return Math.max(Number(atual ?? 0), Number(preservado ?? 0));
+}
+
+/**
+ * Aplica o maior valor confirmado no dia apenas ao resumo por base. Os detalhes
+ * de rota continuam vindo da fonte operacional e, portanto, não são inventados.
+ */
+export function aplicarMonitoramentoPreservado(
+  resultado: MeliDashboardResult,
+  snapshots: MonitoramentoPreservado[],
+): MeliDashboardResult {
+  if (resultado.status !== "ok" || !resultado.bases?.length || snapshots.length === 0) return resultado;
+
+  const porCodigo = new Map(snapshots.map((s) => [s.base_codigo.toUpperCase(), s]));
+  const bases = resultado.bases.map((base) => {
+    const snapshot = porCodigo.get((base.base_codigo ?? "").toUpperCase());
+    if (!snapshot) return base;
+    return {
+      ...base,
+      rotas: maior(base.rotas, snapshot.rotas_totais),
+      total: maior(base.total, snapshot.pacotes),
+      entregue: maior(base.entregue, snapshot.bem_sucedidos),
+      insucesso: maior(base.insucesso, snapshot.com_falhas),
+      perc_entrega: maior(base.perc_entrega, snapshot.performance_logistics_max),
+    };
+  });
+
+  const cards = resultado.cards
+    ? {
+        ...resultado.cards,
+        rotas: bases.reduce((soma, base) => soma + base.rotas, 0),
+        total: bases.reduce((soma, base) => soma + base.total, 0),
+        entregue: bases.reduce((soma, base) => soma + base.entregue, 0),
+        insucesso: bases.reduce((soma, base) => soma + base.insucesso, 0),
+        perc_entrega: bases.reduce((total, base) => total + base.total, 0) > 0
+          ? Math.round(
+              (1000 * bases.reduce((soma, base) => soma + base.entregue, 0)) /
+                bases.reduce((soma, base) => soma + base.total, 0),
+            ) / 10
+          : resultado.cards.perc_entrega,
+      }
+    : resultado.cards;
+
+  return { ...resultado, bases, cards };
+}
+
 export function meliDashboardQueryKey(filtros: MeliDashboardFiltros) {
   const normalizados = Object.fromEntries(
     Object.entries(filtros).filter(([, valor]) => valor !== null && valor !== undefined && valor !== ""),
@@ -152,7 +209,20 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
       },
     );
     if (error) return { status: "erro", erro: error.message };
-    return res as MeliDashboardResult;
+
+    const resultado = res as MeliDashboardResult;
+    const semFiltroDeDetalhe = !data.base_id && !data.motorista && !data.rota && !data.status &&
+      !data.transportadora && !data.risco;
+    if (!semFiltroDeDetalhe || resultado.status !== "ok") return resultado;
+
+    const dataOperacional = data.data ?? resultado.data_operacional;
+    if (!dataOperacional) return resultado;
+    const { data: snapshots } = await (context.supabase as any)
+      .from("meli_monitoramento_snapshots")
+      .select("base_codigo,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max")
+      .eq("data_operacional", dataOperacional);
+
+    return aplicarMonitoramentoPreservado(resultado, (snapshots ?? []) as MonitoramentoPreservado[]);
   });
 
 const pacotesSchema = z.object({
