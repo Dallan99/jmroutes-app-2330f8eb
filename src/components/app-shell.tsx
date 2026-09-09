@@ -249,7 +249,7 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
         </Link>
       </SidebarHeader>
       <SidebarContent>
-        {modoColetor ? renderGroup("Coletor", NAV_COLETOR) : (
+        {usarMenuColetor ? renderGroup("Coletor", NAV_COLETOR) : (
           <>
             {renderGroup("Operação", NAV_OPERACIONAL)}
             {renderGroup("Gestão", NAV_GESTAO)}
