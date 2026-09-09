@@ -523,44 +523,31 @@ export const rotasPorBase = createServerFn({ method: "POST" })
     const importIds = (imports ?? []).map((i) => i.id);
     const importBaseMap = new Map((imports ?? []).map((i) => [i.id, i.base_id] as const));
 
-    type EscalaPainel = {
-      nro_rota: string | null;
-      driver: string | null;
-      placa: string | null;
-      triado: boolean | null;
-      devolvido: boolean | null;
+    // Agregação feita no banco: uma única passagem por importação/rota.
+    // Trazer dezenas de milhares de linhas paginadas estourava o statement_timeout.
+    type AgregadoRota = {
       importacao_id: string | null;
       base_operacional_id: string | null;
+      nro_rota: string | null;
+      motorista: string | null;
+      placa: string | null;
+      total: number;
+      triado: number;
+      devolvido: number;
     };
 
-    let escalas: EscalaPainel[] = [];
+    let agregados: AgregadoRota[] = [];
     if (importIds.length > 0) {
-      const { supabaseAdmin } = await import(
-        "@/integrations/supabase/client.server"
-      );
-      const PAGE_SIZE = 1000;
-
-      // Carrega todas as importações do dia em uma única paginação sequencial.
-      // A versão anterior abria uma paginação paralela por importação e ordenava
-      // por `id`, fazendo o Postgres repetir leituras/sorts caros até estourar o
-      // statement_timeout. Aqui não precisamos de ordenação: o agrupamento abaixo
-      // calcula os totais por base/rota independentemente da ordem das linhas.
-      for (let inicio = 0; ; inicio += PAGE_SIZE) {
-        const { data: pagina, error: paginaErro } = await supabaseAdmin
-          .from("escalas")
-          .select("nro_rota, driver, placa, triado, devolvido, importacao_id, base_operacional_id")
-          .in("importacao_id", importIds)
-          .range(inicio, inicio + PAGE_SIZE - 1);
-        if (paginaErro) throw new Error(paginaErro.message);
-        if (!pagina || pagina.length === 0) break;
-        escalas.push(...(pagina as EscalaPainel[]));
-        if (pagina.length < PAGE_SIZE) break;
-      }
+      const { data: rpcData, error: rpcErro } = await supabase.rpc("gerencial_rotas_por_base", {
+        p_importacao_ids: importIds,
+      });
+      if (rpcErro) throw new Error(rpcErro.message);
+      agregados = (rpcData ?? []) as AgregadoRota[];
     }
 
     // Agrupamento por base+rota
     const grupos = new Map<string, RotaBaseRow>();
-    for (const e of escalas) {
+    for (const e of agregados) {
       const baseId = importBaseMap.get(e.importacao_id ?? "") ?? e.base_operacional_id;
       if (!baseId) continue;
       const b = baseMap.get(baseId);
@@ -572,7 +559,7 @@ export const rotasPorBase = createServerFn({ method: "POST" })
         base_codigo: b.codigo,
         base_nome: b.nome,
         nro_rota: rota,
-        motorista: e.driver,
+        motorista: e.motorista,
         placa: e.placa,
         total: 0,
         recebido: 0,
@@ -581,10 +568,12 @@ export const rotasPorBase = createServerFn({ method: "POST" })
         pct: 0,
         status: "vazia" as const,
       };
-      cur.total++;
+      cur.motorista = cur.motorista ?? e.motorista;
+      cur.placa = cur.placa ?? e.placa;
+      cur.total += Number(e.total ?? 0);
       // Neste painel, "bipado" representa a leitura feita na Triagem.
-      if (e.triado) cur.recebido++;
-      if (e.devolvido) cur.devolvido++;
+      cur.recebido += Number(e.triado ?? 0);
+      cur.devolvido += Number(e.devolvido ?? 0);
       grupos.set(key, cur);
     }
 
