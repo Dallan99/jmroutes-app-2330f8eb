@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $workerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $runner = Join-Path $PSScriptRoot 'run-worker-base.cmd'
+$dashboardRunner = Join-Path $PSScriptRoot 'run-dashboard-geral.cmd'
 $taskPrefix = 'JMRoutes Meli Worker'
 
 if (-not (Test-Path (Join-Path $workerDir '.env.local'))) {
@@ -18,10 +19,8 @@ foreach ($legacyTask in $legacyTasks) {
 }
 
 $bases = @(
-  @{ Name = 'Grupo 1'; Code = 'SSP3,SSP38,SSP5,SSP17,SSP37'; Delay = 0; Label = 'GRUPO-1' },
-  @{ Name = 'Grupo 2'; Code = 'ESP15,SSP20,SSP6,SSP45'; Delay = 20; Label = 'GRUPO-2' },
-  @{ Name = 'Grupo 3'; Code = 'ESP16,SSP15,SSP23,SSC2'; Delay = 40; Label = 'GRUPO-3' },
-  @{ Name = 'Grupo 4'; Code = 'ESP17,ESP18'; Delay = 60; Label = 'GRUPO-4' }
+  @{ Name = 'Grupo 1'; Code = 'ESP15,ESP17'; Delay = 0; Label = 'GRUPO-1' },
+  @{ Name = 'Grupo 2'; Code = 'ESP16,ESP18'; Delay = 30; Label = 'GRUPO-2' }
 )
 
 foreach ($base in $bases) {
@@ -49,4 +48,11 @@ foreach ($base in $bases) {
   Start-ScheduledTask -TaskName $taskName
 }
 
-Write-Host 'Início automático instalado: quatro workers cobrindo todas as bases do Dashboard Geral.' -ForegroundColor Green
+$dashboardAction = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/d /c call `"$dashboardRunner`"" -WorkingDirectory $workerDir
+$dashboardTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$dashboardPrincipal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+$dashboardSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+Register-ScheduledTask -TaskName "$taskPrefix Dashboard Geral" -Action $dashboardAction -Trigger $dashboardTrigger -Principal $dashboardPrincipal -Settings $dashboardSettings -Force | Out-Null
+Start-ScheduledTask -TaskName "$taskPrefix Dashboard Geral"
+
+Write-Host 'Início automático instalado: dois workers XPT e um worker leve do Dashboard Geral.' -ForegroundColor Green

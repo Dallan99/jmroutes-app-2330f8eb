@@ -39,7 +39,7 @@ export const Route = createFileRoute("/api/public/meli/importar-monitoramento")(
     if (!papel) return json({ ok:false,codigo:"sem_permissao" },403,origin);
     const d = parsed.data;
     const dataOperacional = dataEmSaoPaulo(d.coletado_em);
-    const { error } = await supabaseAdmin.from("meli_monitoramento_snapshots").upsert({ ...d,data_operacional:dataOperacional,updated_at:new Date().toISOString() },{onConflict:"base_codigo,data_operacional"});
+    const { error } = await supabaseAdmin.rpc("meli_monitoramento_upsert", { p_snapshot: { ...d,data_operacional:dataOperacional } });
     if (error) return json({ ok:false,codigo:"falha_persistencia" },500,origin);
     return json({ ok:true,base_codigo:d.base_codigo },200,origin);
   } } },

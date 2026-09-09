@@ -4,7 +4,6 @@ import { randomUUID } from "node:crypto";
 import { ADMINML, type WorkerConfig } from "../config.js";
 import { logger, mensagemSegura } from "../logger.js";
 import { jitter, listarRotas, sleep, type MeliTransport, type RotaLista } from "../meli/list.js";
-import { consultarResumosMetricasRotas } from "../meli/metrics-summaries.js";
 import { obterDetalheRota } from "../meli/detail.js";
 import {
   novoEstadoIncremental,
@@ -15,8 +14,6 @@ import {
 import type { CircuitBreaker } from "../state/breaker.js";
 import { enviarRotaBruta } from "./send.js";
 import type { CicloStatus, Execucao, SessaoStatusTelemetria } from "../telemetry/report.js";
-import { resumirMonitoramento } from "../meli/monitoring-summary.js";
-import { enviarMonitoramento } from "./monitoring.js";
 
 export type CicloDeps = {
   cfg: WorkerConfig;
@@ -143,29 +140,6 @@ export async function executarCiclo(deps: CicloDeps): Promise<CicloResultado> {
     };
   }
 
-  // A consulta consolidada usa a mesma sessão Playwright e é mantida separada
-  // da lista/detalhe de rotas. Falhas nessa leitura não interrompem o ciclo de
-  // sincronização já existente.
-  const metricas = await consultarResumosMetricasRotas(transport, {
-    serviceCenterId: cfg.serviceCenterId,
-    serviceCenterIds: cfg.serviceCenterIds,
-    siteId: cfg.siteId,
-    dormir,
-  });
-  if (metricas.ok) {
-    logger.info("Resumos de métricas do Monitoramento Last Mile consultados.", {
-      base: cfg.baseCode,
-      serviceCenters: metricas.valor.map((item) => item.serviceCenterId),
-      total_respostas: metricas.valor.length,
-    });
-  } else {
-    logger.warn("Consulta de resumos de métricas não concluída; seguindo com o ciclo de rotas.", {
-      base: cfg.baseCode,
-      motivo: metricas.motivo,
-      status: metricas.status ?? null,
-    });
-  }
-
   const lista = await listarRotas(transport, {
     serviceCenterId: cfg.serviceCenterId,
     siteId: cfg.siteId,
@@ -208,21 +182,6 @@ export async function executarCiclo(deps: CicloDeps): Promise<CicloResultado> {
   // facilityId identifica a unidade operacional real e impede duplicidade.
   const rotasDaUnidade = filtrarRotasDaUnidade(lista.valor.rotas, cfg.baseCode);
   const encontradas = rotasDaUnidade.length;
-  if (!dryRun) {
-    const monitoramento = resumirMonitoramento(lista.valor.rotas, cfg.baseCode, cfg.serviceCenterId);
-    const envioMonitoramento = await enviarMonitoramento(cfg, deps.accessToken, monitoramento, deps.fetchImpl);
-    if (envioMonitoramento.status === "sem_sessao") {
-      return {
-        execucao: montar(cfg, inicio, batchId, "jmroutes_sem_sessao", "ok", { mensagem_segura: "sessão JMRoutes expirada ao enviar monitoramento." }),
-        sessaoAdminMLExpirada: false,
-        jmroutesSemSessao: true,
-        resumo: resumoDe(encontradas, 0, 0, 0, inicio, 0),
-        dryRun,
-        protocoloLotesIndisponivel: false,
-      };
-    }
-    if (envioMonitoramento.status === "erro") logger.warn("Resumo do monitoramento será repetido.", { base: cfg.baseCode, motivo: envioMonitoramento.motivo });
-  }
   const selecionadas = selecionarRotas(rotasDaUnidade, estado).slice(
     0,
     deps.maxRotasPorCiclo ?? 500,
