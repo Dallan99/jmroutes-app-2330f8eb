@@ -1,113 +1,47 @@
-# Diagnóstico técnico — preparação para integração oficial Mercado Livre (OAuth client_credentials + Tracking Notifications)
+# Diagnóstico: menus restritos desaparecem depois que o perfil carrega
 
-Nenhum arquivo do projeto foi alterado. Nenhuma migration aplicada, nenhum acesso a banco de produção, nenhuma publicação.
+Somente investigação. Nada foi alterado em código, banco, RLS, sidebar, PWA, workers, rotas ou permissões.
 
-## 1. Fatos confirmados no código
+## 1) Como `meuPerfil` consulta os papéis
 
-### 1.1 Mapa de rotas e módulos
+`src/lib/recebimento.functions.ts:338-368`
 
-Rotas públicas (`src/routes/`): `index.tsx`, `auth.tsx`, `reset-password.tsx`, `preview-relatorios.tsx`, `tv.tsx`, `tv.dashboard.tsx`, `tv.gerencial.tsx`, `tv.meli.tsx`, `mcp.ts`, `[.]lovable.oauth.consent.tsx`.
+- Função de servidor com `requireSupabaseAuth`; usa o cliente Supabase que age como o próprio usuário (RLS aplicada).
+- Faz três leituras em paralelo: `profiles` (por `id = userId`), `user_roles` (`select role where user_id = userId`) e `user_bases`.
+- Monta `roles` a partir de `user_roles` e define `acessoTotal` para `admin`/`gerente`.
+- Ponto crítico: as três leituras descartam o campo de erro (`const [{ data: profile }, { data: roles }, ...]`). Qualquer falha de leitura vira, silenciosamente, lista de papéis vazia — e a função ainda responde com sucesso.
 
-Rotas autenticadas (`src/routes/_authenticated/`): `recebimento`, `triagem`, `contagem`, `inventario`, `inventario-central`, `devolucoes`, `meli-devolucoes`, `meli-risco`, `dashboard`, `painel-operacional`, `gerencial`, `historico`, `auditoria`, `bases`, `usuarios`, `coletor`, `configuracoes`, `integracao-meli`, `transferencias`, `transferencias-lote`, `route.tsx` (gate).
+## 2) O usuário autenticado está sendo resolvido corretamente?
 
-Endpoints HTTP (`src/routes/api/`):
-- `api/public/meli/ciclo.ts` — protocolo de lotes do worker (início/staging/finalização).
-- `api/public/meli/importar-rota-bruta.ts` — ingestão de payload bruto.
-- `api/public/meli/notificacoes.ts` — recepção de notificações.
-- `api/meli/oauth/callback.ts` — callback do OAuth `authorization_code` atual.
+Sim, o caminho está correto e completo:
 
-Camada de domínio/servidor relevante em `src/lib/`: `meli.functions.ts`, `meli-sync.functions.ts`, `meli-sync-lotes.ts`, `meli-normalize.ts`, `meli-import-bruto.ts`, `meli-dashboard.functions.ts`, `meli-devolucoes.functions.ts`, `meli-devolucoes-domain.ts`, `meli-ranking.functions.ts`, `meli-risco.functions.ts`, `meli-status.ts`, `meli-pm.ts`, `meli-api.server.ts`, `meli-api-http.ts`, `meli-oauth.functions.ts`, `meli-oauth-crypto.server.ts`, `meli-oauth-support.ts`, e os operacionais `recebimento.functions.ts`, `recebimento-escala.server.ts`, `triagem.functions.ts`, `contagem-lock.functions.ts`, `historico.functions.ts`, `audit.functions.ts`.
+- `src/integrations/supabase/auth-middleware.ts` exige cabeçalho `Bearer`, valida o token via `getClaims` e usa `claims.sub` como `userId`.
+- `src/integrations/supabase/auth-attacher.ts` anexa o token em cada chamada e renova quando falta menos de 60s para expirar.
+- `src/start.ts` registra esse anexador globalmente.
+- Não há uso de cliente administrativo em `meuPerfil`, portanto o `userId` vem sempre do token do usuário.
 
-### 1.2 Acoplamento Meli ↔ módulos operacionais (pontos exatos)
+## 3) Evidência de retorno vazio, erro ou RLS
 
-- `src/lib/meli.functions.ts:237` e `src/lib/meli-import-bruto.ts:69` — RPC `meli_publicar_rota_operacional`: única ponte que converte rota Meli em carga operacional (`escalas`).
-- `src/lib/recebimento-escala.server.ts:59,63,76` — recebimento lê `escalas` filtrando `meli_pacote_id IS NOT NULL`.
-- `src/lib/triagem.functions.ts:318,323` — triagem projeta `meli_pacote_id` junto com o estado físico.
-- `src/lib/meli-ranking.functions.ts:89,129` — leitura direta de `meli_rotas` / `meli_pacotes` (somente leitura, analítico).
-- `src/lib/meli-risco.functions.ts:80` — RPC `meli_rotas_area_risco`.
-- `src/lib/meli-sync-lotes.ts` — regra de visibilidade da rota publicada; comentário no cabeçalho confirma que sync não escreve estado físico.
+Consultei o banco conectado (JM Routes) e não encontrei bloqueio estrutural:
 
-Conclusão: o acoplamento é estreito e passa por `meli_pacote_id` em `escalas` + a RPC de publicação. Nenhum caminho de sync escreve `recebido`, `triado` ou `devolvido`.
+- `user_roles` tem política de leitura própria: `SELECT ... using (auth.uid() = user_id)` para `authenticated`, além da política de supervisores/gerentes/admins.
+- Permissões de tabela presentes para `anon`, `authenticated` e `service_role` em `user_roles`, `profiles` e `user_bases`.
+- Dados existem: 22 registros em `user_roles`; todos os usuários humanos têm exatamente 1 papel. O último login (09/09, `dallan.zanini@jmdistribuicao.com.br`) tem papel `admin` e perfil criado.
+- Único registro sem papel: a conta de motorista `pastor@motoristas.jmroutes.local`.
+- Não havia erros de execução nem chamadas de rede registradas no snapshot do preview, então não há prova de erro em tempo real — apenas a certeza de que, se houver erro, ele é engolido (item 1).
 
-### 1.3 Schema atual de `meli_pacotes` / `meli_rotas`
+## 4) Causa mais provável
 
-`supabase/migrations/20260722162536_...sql:43-81` cria `meli_pacotes` com: `id`, `rota_id uuid NOT NULL REFERENCES meli_rotas(id) ON DELETE CASCADE`, `tracking_id text NOT NULL`, `shipment_id text`, dados de destinatário/endereço, `status`, `printed_label`, `ordem`, timestamps, `UNIQUE (rota_id, tracking_id)`. Índices em `rota_id`, `tracking_id` e (migration `20260730130146`) `shipment_id` parcial.
+O menu começa **permissivo**: em `src/components/app-shell.tsx:186-191`, o filtro é `!rolesCarregadas || !item.roles || ...`. Enquanto o perfil está carregando, **todos** os itens aparecem; quando a resposta chega, os itens restritos são filtrados pelos papéis recebidos. Ou seja, "sumir depois de carregar" é sempre o mesmo evento: a resposta trouxe uma lista de papéis que não contém o papel exigido.
 
-Lacunas confirmadas em `meli_pacotes`: **não existem** `tracking_number`, `facility`, `service_center_id`, `integration_source`. `facility` existe apenas em `meli_rotas`; `meli_service_center_id` existe apenas em `public.bases`.
+Duas explicações compatíveis com o código e com os dados, em ordem de probabilidade:
 
-### 1.4 Motorista e veículo
+1. **Falha silenciosa de leitura de papéis** (mais provável quando o usuário é admin e ainda perde os menus): como os erros das três consultas são ignorados, uma falha momentânea (erro do PostgREST, tempo esgotado, sessão trocada no meio da chamada) resulta em `roles: []` com resposta de sucesso. O menu então esconde tudo que é restrito, sem qualquer mensagem. Sinal distintivo: o nome do usuário no topo aparece como "—" e o papel exibido cai para "Operador".
+2. **Comportamento esperado para papel operador**: se a conta em uso tem papel `operador` (há 6 no banco) ou é conta de motorista sem papel, os itens de gestão/administração devem realmente desaparecer. O que confunde é o flash inicial mostrando o menu completo antes da filtragem.
 
-- `meli_rotas` tem `driver_name`, `driver_id`, `vehicle_license` como texto solto (`src/lib/meli-normalize.ts:34-36,292-294,414-435`, com normalização de placa para maiúsculas).
-- Entidade canônica `public.motoristas` (`nome`, `cpf`, `cnh`, `placa`, `transportadora`, `base_id`) existe e é usada por `rotas.motorista_id`, mas **não há vínculo** entre `meli_rotas` e `motoristas`. Não existe tabela de veículos.
+Para separar as duas hipóteses sem mudar nada: observar, logo após o carregamento, o nome e o papel exibidos no canto superior direito. Nome preenchido + "Operador" indica o caso 2 (permissão real). Nome "—" com conta que deveria ser administradora indica o caso 1 (leitura falhou e foi engolida).
 
-### 1.5 Fundação P0 já presente no repositório
+## Correções possíveis (não executadas, aguardando autorização)
 
-- `src/lib/meli-integration/contracts.ts`, `tracking-events.ts`, `oauth-client-credentials.server.ts` (client_credentials com cache/dedupe por audience, server-only).
-- SQL aditivo **não aplicado** em `supabase/propostas/20260826235641_meli_integration_p0_fundacao.sql` (colunas aditivas em `meli_pacotes`/`meli_rotas`, `integration_source` com CHECK, `motorista_id` FK opcional, tabela de eventos de tracking restrita a `service_role`).
-- Testes em `tests/meli-integration/`.
-
-### 1.6 Resultado de typecheck e testes (executados agora, sem edição)
-
-- `bunx tsgo --noEmit`: **limpo**, zero erros.
-- `bunx vitest run`: **161 testes passaram**, 30 arquivos ok, **3 arquivos falharam na importação** (nenhuma falha de assert):
-  - `tests/meli-integration/tracking-events.test.ts:8` e `oauth-client-credentials.test.ts:6` usam alias `@/...`; `tsconfig.json` inclui apenas `src/**`, então `vite-tsconfig-paths` não resolve o alias dentro de `tests/`. Todos os testes existentes usam caminho relativo (`../../src/lib/...`).
-  - `tests/meli-integration/migration-p0.test.ts:5` aponta para `supabase/migrations/20260826235641_...sql`, mas o arquivo está em `supabase/propostas/`.
-- Build de produção não foi executado para não gerar artefatos.
-
-## 2. Lacunas
-
-1. Sem colunas `tracking_number` / `facility` / `service_center_id` / `integration_source` em `meli_pacotes`.
-2. Sem tabela append-only de eventos internos de tracking.
-3. Sem vínculo `meli_rotas.motorista_id` → `motoristas`; sem entidade de veículo.
-4. OAuth atual é apenas `authorization_code` por usuário (`meli_api_conexoes`); não há credencial de aplicação nem persistência/observabilidade do token client_credentials.
-5. Sem adapter que isole "fonte de dados" (AdminML vs API oficial) da regra operacional.
-6. Os 3 arquivos de teste novos não rodam (imports quebrados).
-
-## 3. Proposta (desenho, sem execução)
-
-### 3.1 Tabela append-only de eventos internos
-
-`public.meli_tracking_eventos`: `id uuid PK`, `shipment_id text`, `tracking_number text`, `event_type text` (vocabulário **interno**, sem códigos oficiais), `event_date timestamptz`, `payload jsonb`, `send_status text NOT NULL DEFAULT 'NAO_ENVIAR'`, `attempts int NOT NULL DEFAULT 0`, `response jsonb`, `created_at timestamptz DEFAULT now()`, `sent_at timestamptz`. Sem UPDATE/DELETE por roles de app; RLS habilitada e apenas `service_role` com acesso; índices em `(shipment_id)`, `(send_status, created_at)`. Nenhum trigger sobre tabelas operacionais nesta fase.
-
-### 3.2 OAuth client_credentials server-side
-
-`MELI_CLIENT_ID` / `MELI_CLIENT_SECRET` como secrets de projeto lidos **dentro do handler** (`process.env[...]`), nunca `VITE_`. Módulo `*.server.ts` com cache em memória por audience, reuso do token de ~6h, renovação preventiva ~5 min antes do vencimento, dedupe de chamadas concorrentes, erros opacos sem log de segredo. Já implementado em `src/lib/meli-integration/oauth-client-credentials.server.ts` — falta apenas validar via teste e ligar os secrets.
-
-### 3.3 Camada de integração isolada
-
-`src/lib/meli-integration/`: `contracts.ts` (modelo canônico), `adapters/adminml.ts` (payload atual → canônico, reutilizando `meli-normalize.ts`), `adapters/carrier-api.ts` (stub, sem chamadas reais), `tracking-events.ts` (vocabulário + `NAO_ENVIAR`), `outbox.server.ts` (gravação append-only). Regra: fluxos operacionais continuam falando só com `escalas`/RPCs atuais; a integração só escreve em `meli_*`.
-
-## 4. Arquivos a alterar/criar (P0/P1)
-
-Baixo risco (P0):
-- corrigir imports em `tests/meli-integration/tracking-events.test.ts`, `oauth-client-credentials.test.ts` (relativo) e o caminho do SQL em `migration-p0.test.ts`;
-- migration aditiva a partir de `supabase/propostas/20260826235641_...sql` (aplicada só com autorização explícita);
-- `docs/integracao-meli-arquitetura.md` (atualizar com este diagnóstico).
-
-P1 (após P0 aprovado):
-- `src/lib/meli-integration/adapters/adminml.ts`, `adapters/carrier-api.ts`, `outbox.server.ts`;
-- pontos de emissão de evento interno (chamando o outbox) em `recebimento.functions.ts`, `triagem.functions.ts`, `meli-devolucoes.functions.ts` — apenas append de evento, sem alterar decisão operacional;
-- regeneração de `src/integrations/supabase/types.ts` após a migration.
-
-Sem novas dependências npm.
-
-## 5. Riscos e mitigação
-
-| Risco | Mitigação |
-| --- | --- |
-| Sync/API oficial sobrescrever estado físico JM | manter invariante: integração nunca escreve `recebido`/`triado`/`devolvido`; teste de caracterização |
-| `integration_source NOT NULL DEFAULT 'adminml'` travar upserts do worker | default cobre o worker atual; nenhum código precisa mudar |
-| Emissão de evento derrubar bipagem | outbox best-effort, try/catch, falha nunca bloqueia o bip |
-| Segredo vazar para o cliente | apenas `*.server.ts` + leitura dentro do handler; proibido `VITE_` |
-| Divergência de types após migration | regenerar types só depois da migration aprovada |
-
-## 6. Critérios de aceite
-
-- `bunx tsgo --noEmit` limpo; `bunx vitest run` com 33/33 arquivos passando.
-- Recebimento, triagem, contagem, devoluções, auditoria, histórico e bipagem inalterados (testes de caracterização atuais verdes).
-- `send_status` de todo evento nasce `NAO_ENVIAR`; zero chamadas de rede à API oficial nesta fase.
-- Worker/AdminML e OAuth `authorization_code` intocados.
-
-## 7. Parada para autorização
-
-Nada será alterado até você autorizar. Preciso saber: (a) aplico o P0 de correção dos 3 testes quebrados? (b) autoriza mover o SQL de `supabase/propostas/` para uma migration real e aplicá-la em homologação?
+- Propagar erro nas três leituras de `meuPerfil` para a interface distinguir "sem papel" de "falha ao carregar".
+- Inverter o padrão do menu: esconder itens restritos até os papéis carregarem, evitando o flash e o efeito de "sumiço".
