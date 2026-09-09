@@ -327,7 +327,7 @@ function BaseDetalheDialog({
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
               <MiniBox
                 label="Rotas"
-                value={nf(rotas.length)}
+                value={nf(rotasDetalhadas.length)}
                 ativo={situacaoBase === "rotas"}
                 onClick={() => setSituacaoBase("rotas")}
               />

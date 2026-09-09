@@ -195,9 +195,15 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   const insucesso = bases.reduce((soma, base) => soma + base.insucesso, 0);
   const pendentes = bases.reduce((soma, base) => soma + base.em_rota, 0);
 
+  const snapshotAt = snapshots.reduce<string | null>(
+    (maisRecente, linha: any) => !maisRecente || linha.coletado_em > maisRecente ? linha.coletado_em : maisRecente,
+    null,
+  );
+
   return {
     status: "ok",
     data_operacional: dia,
+    server_time: new Date().toISOString(),
     cards: {
       total,
       nao_iniciado: pendentes,
@@ -219,10 +225,8 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     motivos_insucesso: [],
     pm_programadas: [],
     snapshot_fallback: true,
-    snapshot_at: snapshots.reduce<string | null>(
-      (maisRecente, linha: any) => !maisRecente || linha.coletado_em > maisRecente ? linha.coletado_em : maisRecente,
-      null,
-    ),
+    snapshot_at: snapshotAt,
+    ultima_sincronizacao: snapshotAt,
   };
 }
 

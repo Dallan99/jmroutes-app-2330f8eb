@@ -228,6 +228,10 @@ function TvMeli() {
 
   const bases = d?.bases ?? [];
   const basesComDados = useMemo(() => bases.filter((b) => b.total > 0 || b.rotas > 0), [bases]);
+  const basesComInsucesso = useMemo(
+    () => basesComDados.filter((b) => b.insucesso > 0).sort((a, b) => b.insucesso - a.insucesso),
+    [basesComDados],
+  );
 
   const motivos = (d?.motivos_insucesso ?? []).filter((m) => m.total > 0);
   const totalOperacao = cards?.total ?? 0;
@@ -341,7 +345,9 @@ function TvMeli() {
 
           {visao === "rotas" && (
             <TvCard
-              titulo={`Operações / rotas (${rotasOrdenadas.length})`}
+              titulo={rotasOrdenadas.length > 0
+                ? `Operações / rotas (${rotasOrdenadas.length})`
+                : `Operações por base (${basesComDados.length})`}
               rodape={
                 <div className="flex items-center justify-between gap-3 text-sm text-white/70">
                   <span className="tabular-nums">Página {paginaAtual + 1} de {totalPaginas}</span>
@@ -372,6 +378,20 @@ function TvMeli() {
                   </tr>
                 </thead>
                 <tbody>
+                  {rotasOrdenadas.length === 0 && basesComDados.slice(0, linhasPorPagina).map((b) => (
+                    <tr key={b.base_id ?? b.base_codigo ?? "sem"} className="border-b border-white/10">
+                      <td className="p-1.5 font-semibold">{b.base_nome ?? b.base_codigo ?? "—"}<span className="ml-2 text-xs font-normal text-white/50">{b.base_codigo}</span></td>
+                      <td className="p-1.5 text-white/50">Consolidado</td>
+                      <td className="p-1.5 tabular-nums">{b.total}</td>
+                      <td className="p-1.5 tabular-nums text-white/60">—</td>
+                      <td className="p-1.5 tabular-nums text-sky-300">{b.em_rota}</td>
+                      <td className="p-1.5 tabular-nums text-emerald-400">{b.entregue}</td>
+                      <td className="p-1.5 tabular-nums text-amber-300">{b.insucesso}</td>
+                      <td className="p-1.5 tabular-nums font-semibold">{b.perc_entrega}%</td>
+                      <td className="p-1.5">—</td>
+                      <td className="p-1.5 tabular-nums">{hhmmss(d?.snapshot_at)}</td>
+                    </tr>
+                  ))}
                   {linhas.map((r) => {
                     const atrasada = !r.last_synced_at || agora - new Date(r.last_synced_at).getTime() > ROTA_PARADA_MS;
                     return (
@@ -399,7 +419,7 @@ function TvMeli() {
                       </tr>
                     );
                   })}
-                  {linhas.length === 0 && (
+                  {linhas.length === 0 && basesComDados.length === 0 && (
                     <tr><td colSpan={10} className="p-6 text-center text-white/60">Nenhuma rota no dia operacional.</td></tr>
                   )}
                 </tbody>
@@ -408,7 +428,7 @@ function TvMeli() {
           )}
 
           {visao === "insucessos" && (
-            motivos.length === 0 ? (
+            motivos.length === 0 && basesComInsucesso.length === 0 ? (
               <VisaoPositiva
                 titulo="Nenhum insucesso registrado"
                 subtitulo="Operação sem tentativas de entrega frustradas no momento"
@@ -424,7 +444,7 @@ function TvMeli() {
                     compacto
                   />
                   <TvNum label="Motivos distintos" valor={motivos.length} tom="neutro" compacto />
-                  <TvNum label="Rotas envolvidas" valor={rotas.filter((r) => r.insucesso > 0).length} tom="atencao" compacto />
+                  <TvNum label="Operações envolvidas" valor={rotas.length > 0 ? rotas.filter((r) => r.insucesso > 0).length : basesComInsucesso.length} tom="atencao" compacto />
                 </div>
                 <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
                   <TvCard titulo="Principais motivos">
@@ -444,9 +464,15 @@ function TvMeli() {
                       ))}
                     </ul>
                   </TvCard>
-                  <TvCard titulo="Rotas com insucesso">
+                  <TvCard titulo={rotas.length > 0 ? "Rotas com insucesso" : "Bases com insucesso"}>
                     <ul className="space-y-1.5 text-base xl:text-lg">
-                      {rotas.filter((r) => r.insucesso > 0)
+                      {(rotas.length > 0 ? rotas.filter((r) => r.insucesso > 0) : basesComInsucesso.map((b) => ({
+                          rota_id: b.base_id ?? b.base_codigo ?? "sem",
+                          nome_operacional: b.base_nome ?? b.base_codigo ?? "—",
+                          base_codigo: b.base_codigo,
+                          insucesso: b.insucesso,
+                          total: b.total,
+                        })))
                         .sort((a, b) => b.insucesso - a.insucesso)
                         .slice(0, itensLista)
                         .map((r) => (
