@@ -65,12 +65,28 @@ const ROLE_ALIASES: Record<string, Role> = {
   operadora: "operador",
 };
 
-const BASES_VALIDAS = ["ESP15", "ESP16", "ESP17", "ESP18"] as const;
+const BASES_VALIDAS = [
+  "SSP3", "SSP38", "ESP15", "SSP5", "SSP20", "ESP17", "ESP16", "SSP17",
+  "ESP18", "SSP6", "SSP45", "SSP15", "SSP37", "SSP23", "SSC2", "SSP4", "SSP7",
+] as const;
 const BASE_ALIASES: Record<string, (typeof BASES_VALIDAS)[number]> = {
   ESP15: "ESP15",
   ESP16: "ESP16",
   ESP17: "ESP17",
   ESP18: "ESP18",
+  SSP3: "SSP3",
+  SSP38: "SSP38",
+  SSP5: "SSP5",
+  SSP20: "SSP20",
+  SSP17: "SSP17",
+  SSP6: "SSP6",
+  SSP45: "SSP45",
+  SSP15: "SSP15",
+  SSP37: "SSP37",
+  SSP23: "SSP23",
+  SSC2: "SSC2",
+  SSP4: "SSP4",
+  SSP7: "SSP7",
   IBIUNA: "ESP15",
   "BASE DE IBIUNA": "ESP15",
   GUARUJA: "ESP16",
@@ -102,7 +118,7 @@ function normalizarBase(entrada: string): string {
   const bruto = limparValor(entrada);
   if (!bruto) return "";
   const norm = normalizarTexto(bruto);
-  const sigla = norm.match(/ESP\s*1[5-8]/);
+  const sigla = norm.match(/(?:ESP|SSP|SSC)\s*\d+/);
   if (sigla) return sigla[0].replace(/\s+/g, "");
   return BASE_ALIASES[norm] ?? norm;
 }
@@ -165,7 +181,7 @@ function validar(l: Omit<Linha, "linha" | "erro">): string | undefined {
     return "Role deve ser admin|gerente|supervisor|operador.";
   if (l.role === "operador" && !l.base_codigo) return "Operador exige base_codigo.";
   if (l.base_codigo && !BASES_VALIDAS.includes(l.base_codigo as (typeof BASES_VALIDAS)[number]))
-    return `Base inválida: use ${BASES_VALIDAS.join(", ")} ou o nome (ex.: "Base de Ibiúna", "São Lourenço ESP17").`;
+    return `Base inválida: use um dos códigos cadastrados (${BASES_VALIDAS.join(", ")}).`;
   if (l.senha.length < 8) return "Senha muito curta (mínimo 8).";
   return undefined;
 }
@@ -246,7 +262,7 @@ export function ImportarUsuariosDialog() {
     const csv =
       HEADER.join(",") +
       "\n" +
-      "# base_codigo aceita: ESP15/ESP16/ESP17/ESP18 ou nomes (Base de Ibiúna, Base de Guarujá, São Lourenço ESP17, Franco da Rocha ESP18, Embu Guaçu)\n" +
+      `# base_codigo aceita: ${BASES_VALIDAS.join("/")}\n` +
       "João Silva,joao.silva@jmdistribuicao.com.br,operador,ESP15,12345,\n" +
       "Maria Souza,maria.souza@jmdistribuicao.com.br,supervisor,Base de Guarujá,,\n" +
       "Pedro Lima,pedro.lima@jmdistribuicao.com.br,operador,São Lourenço ESP17,54321,\n";

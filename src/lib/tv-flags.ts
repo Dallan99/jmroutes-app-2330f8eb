@@ -22,4 +22,7 @@ export const TV_FLAGS = {
 export const TV_ROTA_INICIAL = "/tv/meli" as const;
 
 /** Bases hoje integradas ao worker Meli (usado para rótulo informativo). */
-export const TV_BASES_INTEGRADAS = ["ESP16"] as const;
+export const TV_BASES_INTEGRADAS = [
+  "SSP3", "SSP38", "ESP15", "SSP5", "SSP20", "ESP17", "ESP16", "SSP17",
+  "ESP18", "SSP6", "SSP45", "SSP15", "SSP37", "SSP23", "SSC2", "SSP4", "SSP7",
+] as const;

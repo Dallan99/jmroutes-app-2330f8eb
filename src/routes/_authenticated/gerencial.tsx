@@ -625,7 +625,7 @@ function Kpi({
 }
 
 // ============================================================
-// Painel: Resumo Operacional por Base (ESP15/16/17/18)
+// Painel: Resumo Operacional por Base
 // Filtro por dia + botões de base + tiles com atividades.
 // ============================================================
 function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
@@ -647,7 +647,6 @@ function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
     ...(totais ?? { triados: 0, recebimentos: 0, devolucoes: 0, inventario: 0, transferencias: 0, contagens: 0 }),
   };
 
-  const codigos = ["ESP15", "ESP16", "ESP17", "ESP18"] as const;
   const rangeTxt =
     q.data?.inicio && q.data?.fim
       ? q.data.inicio === q.data.fim
@@ -678,19 +677,17 @@ function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
         >
           Todas
         </Button>
-        {codigos.map((cod) => {
-          const b = bases.find((x) => x.codigo === cod);
-          if (!b) return null;
+        {basesOrdenadas.map((b) => {
           const isActive = baseSel === b.base_id;
           return (
             <Button
-              key={cod}
+              key={b.base_id}
               variant={isActive ? "default" : "outline"}
               size="sm"
               onClick={() => setBaseSel(b.base_id)}
               title={b.nome}
             >
-              {cod}
+              {b.codigo}
             </Button>
           );
         })}

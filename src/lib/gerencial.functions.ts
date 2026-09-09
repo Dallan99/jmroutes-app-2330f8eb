@@ -113,6 +113,22 @@ function inicioPeriodo(p: "hoje" | "7d" | "30d") {
   return new Date(now.getTime() - dias * 24 * 3600 * 1000);
 }
 
+/** Lê todas as páginas respeitando o limite de linhas da Data API. */
+async function buscarPaginado<T>(
+  criarConsulta: (inicio: number, fim: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const tamanho = 1000;
+  const resultado: T[] = [];
+  for (let inicio = 0; ; inicio += tamanho) {
+    const { data, error } = await criarConsulta(inicio, inicio + tamanho - 1);
+    if (error) throw new Error(error.message);
+    const pagina = data ?? [];
+    resultado.push(...pagina);
+    if (pagina.length < tamanho) break;
+  }
+  return resultado;
+}
+
 export const gerencialData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => inputSchema.parse(input))
@@ -124,14 +140,6 @@ export const gerencialData = createServerFn({ method: "POST" })
     const inicioSemana = inicioPeriodo("7d");
     const inicioMes = inicioPeriodo("30d");
 
-    const { data: recebimentos, error } = await supabase
-      .from("recebimentos")
-      .select("created_at, resultado, tempo_desde_ultima_ms, operador_id, rota_id")
-      .gte("created_at", inicioMes.toISOString())
-      .order("created_at", { ascending: false })
-      .limit(20000);
-    if (error) throw new Error(error.message);
-
     type Rec = {
       created_at: string;
       resultado: string;
@@ -139,7 +147,12 @@ export const gerencialData = createServerFn({ method: "POST" })
       operador_id: string | null;
       rota_id: string | null;
     };
-    const all = (recebimentos ?? []) as Rec[];
+    const all = await buscarPaginado<Rec>((inicio, fim) => supabase
+      .from("recebimentos")
+      .select("created_at, resultado, tempo_desde_ultima_ms, operador_id, rota_id")
+      .gte("created_at", inicioMes.toISOString())
+      .order("created_at", { ascending: false })
+      .range(inicio, fim) as any);
     const periodoRows = all.filter((r) => new Date(r.created_at) >= desde);
 
     const operadorIds = Array.from(
@@ -235,14 +248,6 @@ export const transferenciasGerencial = createServerFn({ method: "POST" })
     const { supabase } = context;
     const desde = inicioPeriodo(data.periodo).toISOString().slice(0, 10);
 
-    const { data: transferencias, error } = await supabase
-      .from("transferencias")
-      .select("id, base_id, motorista, status")
-      .gte("data_operacional", desde)
-      .order("data_operacional", { ascending: false })
-      .limit(20000);
-    if (error) throw new Error(error.message);
-
     type TransferenciaRow = {
       id: string;
       base_id: string;
@@ -261,7 +266,13 @@ export const transferenciasGerencial = createServerFn({ method: "POST" })
       minutos_atraso: number;
     };
 
-    const rows = ((transferencias ?? []) as TransferenciaRow[]).filter(
+    const transferencias = await buscarPaginado<TransferenciaRow>((inicio, fim) => supabase
+      .from("transferencias")
+      .select("id, base_id, motorista, status")
+      .gte("data_operacional", desde)
+      .order("data_operacional", { ascending: false })
+      .range(inicio, fim) as any);
+    const rows = transferencias.filter(
       (t) => t.status !== "cancelada",
     );
     if (!rows.length) {
@@ -698,64 +709,64 @@ export const resumoOperacionalPorBase = createServerFn({ method: "POST" })
 
     const OK = new Set(["ok", "primeira_leitura", "concluiu_rota"]);
 
-    const [recRes, devRes, invRes, transfRes, cntRes] = await Promise.all([
-      supabase
+    const [recebimentos, devolucoes, inventario, transferencias, contagens] = await Promise.all([
+      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
         .from("recebimentos")
         .select("base_id, resultado, data_operacional")
         .gte("data_operacional", inicio)
         .lte("data_operacional", fim)
-        .limit(100000),
-      supabase
+        .range(inicioPagina, fimPagina) as any),
+      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
         .from("devolucoes")
         .select("base_id, devolvido_em, cancelado")
         .gte("devolvido_em", iniISO)
         .lte("devolvido_em", fimISO)
-        .limit(100000),
-      supabase
+        .range(inicioPagina, fimPagina) as any),
+      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
         .from("inventario_leituras")
         .select("base_id, dia_operacional")
         .gte("dia_operacional", inicio)
         .lte("dia_operacional", fim)
-        .limit(100000),
-      supabase
+        .range(inicioPagina, fimPagina) as any),
+      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
         .from("transferencias")
         .select("base_id, data_operacional, status")
         .gte("data_operacional", inicio)
         .lte("data_operacional", fim)
-        .limit(100000),
-      supabase
+        .range(inicioPagina, fimPagina) as any),
+      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
         .from("contagens")
         .select("base_id, data_operacional")
         .gte("data_operacional", inicio)
         .lte("data_operacional", fim)
-        .limit(100000),
+        .range(inicioPagina, fimPagina) as any),
     ]);
 
-    for (const r of (recRes.data ?? []) as Array<{ base_id: string | null; resultado: string }>) {
+    for (const r of recebimentos as Array<{ base_id: string | null; resultado: string }>) {
       if (!r.base_id) continue;
       const cur = map.get(r.base_id);
       if (!cur) continue;
       cur.recebimentos++;
       if (OK.has(r.resultado)) cur.triados++;
     }
-    for (const d of (devRes.data ?? []) as Array<{ base_id: string | null; cancelado: boolean | null }>) {
+    for (const d of devolucoes as Array<{ base_id: string | null; cancelado: boolean | null }>) {
       if (!d.base_id || d.cancelado) continue;
       const cur = map.get(d.base_id);
       if (cur) cur.devolucoes++;
     }
-    for (const r of (invRes.data ?? []) as Array<{ base_id: string | null }>) {
+    for (const r of inventario as Array<{ base_id: string | null }>) {
       if (!r.base_id) continue;
       const cur = map.get(r.base_id);
       if (cur) cur.inventario++;
     }
-    for (const r of (transfRes.data ?? []) as Array<{ base_id: string | null; status: string | null }>) {
+    for (const r of transferencias as Array<{ base_id: string | null; status: string | null }>) {
       if (!r.base_id) continue;
       // Não conta transferências canceladas.
       if (r.status === "cancelada") continue;
       const cur = map.get(r.base_id);
       if (cur) cur.transferencias++;
     }
-    for (const r of (cntRes.data ?? []) as Array<{ base_id: string | null }>) {
+    for (const r of contagens as Array<{ base_id: string | null }>) {
       if (!r.base_id) continue;
       const cur = map.get(r.base_id);
       if (cur) cur.contagens++;
