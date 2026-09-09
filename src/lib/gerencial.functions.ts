@@ -523,16 +523,6 @@ export const rotasPorBase = createServerFn({ method: "POST" })
     const importIds = (imports ?? []).map((i) => i.id);
     const importBaseMap = new Map((imports ?? []).map((i) => [i.id, i.base_id] as const));
 
-    type EscalaPainel = {
-      nro_rota: string | null;
-      driver: string | null;
-      placa: string | null;
-      triado: boolean | null;
-      devolvido: boolean | null;
-      importacao_id: string | null;
-      base_operacional_id: string | null;
-    };
-
     // Agregação feita no banco: uma única passagem por importação/rota.
     // Trazer dezenas de milhares de linhas paginadas estourava o statement_timeout.
     type AgregadoRota = {
