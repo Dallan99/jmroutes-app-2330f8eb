@@ -57,13 +57,23 @@ function safeNext(next: string | undefined): string | null {
   return next;
 }
 
-async function destinoAposLogin() {
-  const { data: usuario } = await supabase.auth.getUser();
-  if (!usuario.user) return "/dashboard";
+function traduzirErroAuth(mensagem: string): string {
+  const mensagemNormalizada = mensagem.toLowerCase();
+
+  if (mensagemNormalizada.includes("invalid login credentials")) return "E-mail ou senha incorretos.";
+  if (mensagemNormalizada.includes("email not confirmed")) return "Confirme seu e-mail antes de entrar.";
+  if (mensagemNormalizada.includes("user already registered")) return "Este e-mail já está cadastrado.";
+  if (mensagemNormalizada.includes("password is known to be weak")) return "Essa senha é muito fraca. Escolha uma senha mais forte.";
+  if (mensagemNormalizada.includes("rate limit")) return "Muitas tentativas. Aguarde alguns minutos e tente novamente.";
+
+  return "Não foi possível concluir a autenticação. Tente novamente.";
+}
+
+async function destinoAposLogin(userId: string) {
   const { data: perfil } = await supabase
     .from("profiles")
     .select("meli_driver_id")
-    .eq("id", usuario.user.id)
+    .eq("id", userId)
     .maybeSingle();
   return perfil?.meli_driver_id ? "/motorista" : "/dashboard";
 }
@@ -81,14 +91,36 @@ function AuthPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
 
   useEffect(() => {
-    setHydrated(true);
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
+    let ativo = true;
+
+    async function validarSessaoInicial() {
+      try {
+        const { data: sessao } = await supabase.auth.getSession();
+        if (!sessao.session) return;
+
+        // A sessão local é apenas um ponto de partida. O usuário precisa ser
+        // confirmado pelo Supabase antes de permitir qualquer navegação.
+        const { data: usuario, error } = await supabase.auth.getUser();
+        if (error || !usuario.user) {
+          await supabase.auth.signOut({ scope: "local" });
+          return;
+        }
+
+        if (!ativo) return;
         const target = safeNext(next);
-        if (target) window.location.href = target;
-        else window.location.href = await destinoAposLogin();
+        window.location.href = target ?? await destinoAposLogin(usuario.user.id);
+      } catch {
+        // Falhas de sessão local não devem retirar o usuário da tela de acesso.
+        await supabase.auth.signOut({ scope: "local" });
+      } finally {
+        if (ativo) setHydrated(true);
       }
-    });
+    }
+
+    void validarSessaoInicial();
+    return () => {
+      ativo = false;
+    };
   }, [next]);
 
   if (!hydrated) return null;
@@ -111,7 +143,14 @@ function AuthPage() {
     toast.success("Bem-vindo!");
     const target = safeNext(next);
     if (target) window.location.href = target;
-    else window.location.href = await destinoAposLogin();
+    else {
+      const { data: usuario } = await supabase.auth.getUser();
+      if (!usuario.user) {
+        await supabase.auth.signOut({ scope: "local" });
+        return toast.error("Não foi possível validar sua sessão. Tente entrar novamente.");
+      }
+      window.location.href = await destinoAposLogin(usuario.user.id);
+    }
   }
 
 
@@ -126,8 +165,8 @@ function AuthPage() {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     setForgotLoading(false);
-    if (error) return toast.error(error.message);
-    toast.success("Enviamos um link de redefinição para seu email.");
+    if (error) return toast.error(traduzirErroAuth(error.message));
+    toast.success("Enviamos um link de redefinição para seu e-mail.");
     setForgotOpen(false);
     setForgotEmail("");
   }
