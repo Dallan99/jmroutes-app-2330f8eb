@@ -42,11 +42,14 @@ describe("Dashboard Meli — maior leitura do dia", () => {
     const atual: MeliDashboardResult = {
       status: "ok",
       cards: { insucesso: 5 },
-      bases: [],
+      bases: [{ base_id: "base-1", base_codigo: "ESP17", base_nome: "Embu Guaçu", rotas: 1, total: 10, entregue: 5, em_rota: 0, insucesso: 5, perc_entrega: 50 }],
       motivos_insucesso: [{ codigo: "endereco", descricao: "Endereço incorreto", cadastrado: true, total: 3 }],
     };
 
-    const resultado = aplicarMonitoramentoPreservado(atual, []);
+    const resultado = aplicarMonitoramentoPreservado(atual, [{
+      base_codigo: "ESP17", rotas_totais: 1, pacotes: 10, pendentes: 0,
+      com_falhas: 5, bem_sucedidos: 5, performance_logistics_max: 50,
+    }]);
 
     expect(resultado.motivos_insucesso).toEqual([
       { codigo: "endereco", descricao: "Endereço incorreto", cadastrado: true, total: 3 },
