@@ -160,7 +160,9 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     .eq("ativo", true);
   const { data: cadastros } = await client.from("bases").select("id,codigo,nome").in("codigo", codigos);
   const unidadePorCodigo = new Map((unidades ?? []).map((base: any) => [base.codigo, base]));
-  const cadastroPorCodigo = new Map((cadastros ?? []).map((base: any) => [base.codigo, base]));
+  const cadastroPorCodigo = new Map<string, any>(
+    (cadastros ?? []).map((base: any) => [base.codigo as string, base]),
+  );
   const idsBase = (cadastros ?? []).map((base: any) => base.id);
   const { data: rotasRisco } = idsBase.length
     ? await client
