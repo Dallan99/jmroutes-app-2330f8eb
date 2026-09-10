@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -91,11 +91,11 @@ const NAV_OPERACIONAL: NavItem[] = [
   { title: "Dashboard Geral", to: "/dashboard-geral", icon: LayoutDashboard, roles: ["admin", "supervisor", "gerente"] },
   { title: "Dashboard XPTs", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
   { title: "Painel Operacional", to: "/painel-operacional", icon: TrendingUp },
-  { title: "Recebimento", to: "/recebimento", icon: PackageSearch },
+  { title: "Recebimento", to: "/triagem", icon: PackageSearch },
   { title: "Expedição", to: "/expedicao", icon: Truck },
   { title: "Contagem", to: "/contagem", icon: ClipboardList },
-  { title: "Devoluções", to: "/devolucoes", icon: RotateCcw },
-  { title: "Inventário", to: "/inventario", icon: ClipboardList },
+  { title: "Devoluções", to: "/meli-devolucoes", icon: RotateCcw },
+  { title: "Inventário", to: "/inventario-central", icon: ClipboardList },
 ];
 const NAV_GESTAO: NavItem[] = [
   { title: "Gerencial", to: "/gerencial", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
@@ -109,6 +109,13 @@ const NAV_ADMIN: NavItem[] = [
   { title: "Motoristas", to: "/motoristas", icon: Truck, roles: ["admin"] },
   { title: "Configurações", to: "/configuracoes", icon: Settings, roles: ["admin"] },
 ];
+
+// Fonte única do menu normal. Os grupos e a ordem não dependem da rota atual.
+const NAV_SECTIONS = [
+  { label: "Operação", items: NAV_OPERACIONAL },
+  { label: "Gestão", items: NAV_GESTAO },
+  { label: "Administração", items: NAV_ADMIN },
+] as const;
 
 const NAV_COLETOR: NavItem[] = [
   { title: "Recebimento", to: "/triagem", icon: PackageSearch },
@@ -252,9 +259,9 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
       <SidebarContent>
         {usarMenuColetor ? renderGroup("Coletor", NAV_COLETOR) : (
           <>
-            {renderGroup("Operação", NAV_OPERACIONAL)}
-            {renderGroup("Gestão", NAV_GESTAO)}
-            {renderGroup("Administração", NAV_ADMIN)}
+            {NAV_SECTIONS.map(({ label, items }) => (
+              <Fragment key={label}>{renderGroup(label, items)}</Fragment>
+            ))}
           </>
         )}
       </SidebarContent>
