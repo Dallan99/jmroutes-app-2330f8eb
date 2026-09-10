@@ -373,8 +373,19 @@ export const meuPerfil = createServerFn({ method: "GET" })
       await new Promise((resolve) => setTimeout(resolve, 500 * (tentativa + 1)));
     }
 
-    // Nunca engolir falha de leitura: sem isso, um erro vira "sem papéis" e a
-    // interface esconde silenciosamente os menus restritos.
+    // O PostgREST pode ficar temporariamente indisponível enquanto recompõe o
+    // cache do schema. Nesse caso, devolvemos um estado restrito e explícito em
+    // vez de derrubar toda a interface. O cliente consulta novamente até o
+    // serviço recuperar; nenhum papel ou base é liberado pelo fallback.
+    if (primeiroErro && transitorio(primeiroErro.message)) {
+      return {
+        profile: null,
+        roles: [],
+        acessoTotal: false,
+        basesPermitidas: [],
+        indisponivelTemporariamente: true,
+      };
+    }
     if (primeiroErro) throw new Error(`Falha ao carregar perfil: ${primeiroErro.message}`);
 
     const rolesArr = (roles ?? []).map((r) => r.role);
@@ -397,5 +408,6 @@ export const meuPerfil = createServerFn({ method: "GET" })
       roles: rolesArr,
       acessoTotal,
       basesPermitidas: Array.from(basesPermitidasMap.values()),
+      indisponivelTemporariamente: false,
     };
   });

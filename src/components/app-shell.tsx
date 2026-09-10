@@ -140,6 +140,7 @@ function AppShellContent() {
     queryKey: ["meu-perfil"],
     queryFn: () => fetchPerfil(),
     staleTime: 60_000,
+    refetchInterval: (query) => query.state.data?.indisponivelTemporariamente ? 5_000 : false,
   });
   const rolesCarregadas = perfilQuery.isSuccess;
   const roles = (perfilQuery.data?.roles ?? []) as Array<Role>;
