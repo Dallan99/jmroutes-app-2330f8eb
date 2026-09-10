@@ -35,13 +35,14 @@ import { JmLogo, JmWordmark } from "@/components/jm-logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { meuPerfil } from "@/lib/recebimento.functions";
 import { toast } from "sonner";
 import { BaseOperacionalProvider, useBaseOperacional } from "@/lib/base-operacional-context";
 import { SeletorBaseDia } from "@/components/base-operacional-selector";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CollectorModeProvider, useCollectorMode } from "@/lib/collector-mode";
 import { isPwaStandalone } from "@/lib/pwa-install";
-import { obterUsuarioValidado } from "@/lib/auth-session";
 
 const ROTAS_APP_COLETOR = new Set(["/coletor", "/recebimento", "/triagem", "/expedicao", "/motorista", "/meli-devolucoes"]);
 
@@ -122,25 +123,6 @@ const NAV_COLETOR: NavItem[] = [
   { title: "Devoluções", to: "/meli-devolucoes", icon: RotateCcw },
 ];
 
-async function carregarPerfilDoSidebar() {
-  const { data: usuario, error: usuarioErro } = await obterUsuarioValidado();
-  if (usuarioErro || !usuario.user) throw usuarioErro ?? new Error("Sessão inválida");
-
-  const userId = usuario.user.id;
-  const [perfil, papeis] = await Promise.all([
-    supabase.from("profiles").select("id, nome, email, matricula, base_id, bases(codigo, nome)").eq("id", userId).maybeSingle(),
-    supabase.from("user_roles").select("role").eq("user_id", userId),
-  ]);
-
-  const erro = perfil.error ?? papeis.error;
-  if (erro) throw erro;
-
-  return {
-    profile: perfil.data,
-    roles: (papeis.data ?? []).map((item) => item.role),
-  };
-}
-
 export function AppShell() {
   return (
     <CollectorModeProvider>
@@ -153,13 +135,12 @@ function AppShellContent() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [appColetorInstalado, setAppColetorInstalado] = useState(() => isPwaStandalone());
+  const fetchPerfil = useServerFn(meuPerfil);
   const perfilQuery = useQuery({
     queryKey: ["meu-perfil"],
-    queryFn: carregarPerfilDoSidebar,
+    queryFn: () => fetchPerfil(),
     staleTime: 60_000,
-    retry: 5,
-    retryDelay: (tentativa) => Math.min(500 * 2 ** tentativa, 5_000),
-    refetchOnWindowFocus: true,
+    refetchInterval: (query) => query.state.data?.indisponivelTemporariamente ? 5_000 : false,
   });
   const rolesCarregadas = perfilQuery.isSuccess;
   const roles = (perfilQuery.data?.roles ?? []) as Array<Role>;
