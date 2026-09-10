@@ -362,7 +362,7 @@ export const meuPerfil = createServerFn({ method: "GET" })
     let extras: Awaited<ReturnType<typeof carregar>>[2]["data"] = null;
     let primeiroErro: { message: string } | null = null;
 
-    for (let tentativa = 0; tentativa < 3; tentativa++) {
+    for (let tentativa = 0; tentativa < 6; tentativa++) {
       const [p, r, e] = await carregar();
       profile = p.data;
       roles = r.data;
@@ -370,7 +370,7 @@ export const meuPerfil = createServerFn({ method: "GET" })
       primeiroErro = p.error ?? r.error ?? e.error ?? null;
       if (!primeiroErro) break;
       if (!transitorio(primeiroErro.message)) break;
-      await new Promise((resolve) => setTimeout(resolve, 400 * (tentativa + 1)));
+      await new Promise((resolve) => setTimeout(resolve, 500 * (tentativa + 1)));
     }
 
     // Nunca engolir falha de leitura: sem isso, um erro vira "sem papéis" e a
