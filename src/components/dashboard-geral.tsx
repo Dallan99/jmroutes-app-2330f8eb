@@ -172,7 +172,9 @@ export function DashboardGeral({
                     return (
                       <div className="flex flex-wrap items-center gap-2">
                         <SyncBaseIndicador situacao={s?.situacao ?? "sem_info"} minutos={s?.minutos ?? null} status={s?.status} />
-                        <SeloSincronizando ativo={s?.sincronizando === true} />
+                        <SeloSincronizando
+                          ativo={(s as { sincronizando?: boolean } | undefined)?.sincronizando === true}
+                        />
                       </div>
                     );
                   })()}

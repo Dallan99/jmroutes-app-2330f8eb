@@ -350,14 +350,19 @@ export const meuPerfil = createServerFn({ method: "GET" })
     // "Could not query the database for the schema cache" é transitório (PostgREST
     // recarregando o cache). Tentamos novamente antes de falhar.
     const transitorio = (msg?: string) =>
-      !!msg && (msg.includes("schema cache") || msg.includes("Retrying"));
+      !!msg &&
+      (msg.includes("schema cache") ||
+        msg.includes("Retrying") ||
+        msg.includes("Could not query the database") ||
+        msg.includes("fetch failed") ||
+        msg.includes("timeout"));
 
     let profile: Awaited<ReturnType<typeof carregar>>[0]["data"] = null;
     let roles: Awaited<ReturnType<typeof carregar>>[1]["data"] = null;
     let extras: Awaited<ReturnType<typeof carregar>>[2]["data"] = null;
     let primeiroErro: { message: string } | null = null;
 
-    for (let tentativa = 0; tentativa < 3; tentativa++) {
+    for (let tentativa = 0; tentativa < 6; tentativa++) {
       const [p, r, e] = await carregar();
       profile = p.data;
       roles = r.data;
@@ -365,11 +370,22 @@ export const meuPerfil = createServerFn({ method: "GET" })
       primeiroErro = p.error ?? r.error ?? e.error ?? null;
       if (!primeiroErro) break;
       if (!transitorio(primeiroErro.message)) break;
-      await new Promise((resolve) => setTimeout(resolve, 400 * (tentativa + 1)));
+      await new Promise((resolve) => setTimeout(resolve, 500 * (tentativa + 1)));
     }
 
-    // Nunca engolir falha de leitura: sem isso, um erro vira "sem papéis" e a
-    // interface esconde silenciosamente os menus restritos.
+    // O PostgREST pode ficar temporariamente indisponível enquanto recompõe o
+    // cache do schema. Nesse caso, devolvemos um estado restrito e explícito em
+    // vez de derrubar toda a interface. O cliente consulta novamente até o
+    // serviço recuperar; nenhum papel ou base é liberado pelo fallback.
+    if (primeiroErro && transitorio(primeiroErro.message)) {
+      return {
+        profile: null,
+        roles: [],
+        acessoTotal: false,
+        basesPermitidas: [],
+        indisponivelTemporariamente: true,
+      };
+    }
     if (primeiroErro) throw new Error(`Falha ao carregar perfil: ${primeiroErro.message}`);
 
     const rolesArr = (roles ?? []).map((r) => r.role);
@@ -392,5 +408,6 @@ export const meuPerfil = createServerFn({ method: "GET" })
       roles: rolesArr,
       acessoTotal,
       basesPermitidas: Array.from(basesPermitidasMap.values()),
+      indisponivelTemporariamente: false,
     };
   });
