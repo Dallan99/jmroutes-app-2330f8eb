@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import heroImg from "@/assets/jm-hero.png.asset.json";
 import { JM_LOGO_URL } from "@/components/jm-logo";
-import { obterUsuarioValidado } from "@/lib/auth-session";
+import { obterUsuarioValidado, registrarUsuarioValidado } from "@/lib/auth-session";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -154,13 +154,10 @@ function AuthPage() {
         return toast.error("Não foi possível realizar o login. Verifique e-mail, senha e conexão.");
       }
 
-      // A resposta do login precisa ser confirmada pelo Supabase antes da navegação.
-      // Nenhum valor persistido localmente é usado como confirmação de acesso.
-      const { data: usuario, error: erroValidacao } = await obterUsuarioValidado();
-      if (erroValidacao || !usuario.user || usuario.user.id !== data.user.id) {
-        await supabase.auth.signOut({ scope: "local" });
-        return toast.error("Não foi possível realizar o login. Verifique e-mail, senha e conexão.");
-      }
+      // signInWithPassword acabou de validar as credenciais no Supabase. Guardamos
+      // esse mesmo usuário por poucos segundos para a abertura do Dashboard não
+      // repetir duas chamadas lentas ao Auth durante a mesma entrada.
+      registrarUsuarioValidado(data.user);
 
       try {
         const { registrarAudit } = await import("@/lib/audit.functions");
@@ -171,7 +168,7 @@ function AuthPage() {
 
       toast.success("Bem-vindo!");
       const target = safeNext(next);
-      window.location.href = target ?? await destinoAposLogin(usuario.user.id);
+      window.location.href = target ?? await destinoAposLogin(data.user.id);
     } catch {
       toast.error("Não foi possível realizar o login. Verifique e-mail, senha e conexão.");
     } finally {
