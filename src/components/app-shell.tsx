@@ -88,25 +88,26 @@ type Role = "admin" | "supervisor" | "gerente" | "operador";
 const NAV_OPERACIONAL: NavItem[] = [
   { title: "Modo coletor", to: "/coletor", icon: Smartphone },
   { title: "Bases", to: "/bases", icon: Boxes },
-  { title: "Dashboard", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Dashboard Geral", to: "/dashboard-geral", icon: LayoutDashboard, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Dashboard XPTs", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
   { title: "Painel Operacional", to: "/painel-operacional", icon: TrendingUp },
-  { title: "Recebimento", to: "/triagem", icon: PackageSearch },
+  { title: "Recebimento", to: "/recebimento", icon: PackageSearch },
   { title: "Expedição", to: "/expedicao", icon: Truck },
   { title: "Contagem", to: "/contagem", icon: ClipboardList },
-  { title: "Devoluções", to: "/meli-devolucoes", icon: RotateCcw },
-  { title: "Inventário", to: "/inventario-central", icon: ClipboardList },
+  { title: "Devoluções", to: "/devolucoes", icon: RotateCcw },
+  { title: "Inventário", to: "/inventario", icon: ClipboardList },
 ];
 const NAV_GESTAO: NavItem[] = [
-  { title: "Histórico", to: "/historico", icon: History, roles: ["admin", "supervisor", "gerente"] },
   { title: "Gerencial", to: "/gerencial", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Auditoria", to: "/auditoria", icon: ShieldCheck, roles: ["admin"] },
+  { title: "Usuários", to: "/usuarios", icon: Users, roles: ["admin"] },
   { title: "Integração Meli", to: "/integracao-meli", icon: PackageSearch, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Histórico", to: "/historico", icon: History, roles: ["admin", "supervisor", "gerente"] },
   { title: "Área de Risco", to: "/meli-risco", icon: ShieldAlert, roles: ["admin", "supervisor", "gerente"] },
 ];
 const NAV_ADMIN: NavItem[] = [
   { title: "Motoristas", to: "/motoristas", icon: Truck, roles: ["admin"] },
-  { title: "Usuários", to: "/usuarios", icon: Users, roles: ["admin"] },
   { title: "Configurações", to: "/configuracoes", icon: Settings, roles: ["admin"] },
-  { title: "Auditoria", to: "/auditoria", icon: ShieldCheck, roles: ["admin"] },
 ];
 
 const NAV_COLETOR: NavItem[] = [
