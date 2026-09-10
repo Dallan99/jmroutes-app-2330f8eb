@@ -350,7 +350,12 @@ export const meuPerfil = createServerFn({ method: "GET" })
     // "Could not query the database for the schema cache" é transitório (PostgREST
     // recarregando o cache). Tentamos novamente antes de falhar.
     const transitorio = (msg?: string) =>
-      !!msg && (msg.includes("schema cache") || msg.includes("Retrying"));
+      !!msg &&
+      (msg.includes("schema cache") ||
+        msg.includes("Retrying") ||
+        msg.includes("Could not query the database") ||
+        msg.includes("fetch failed") ||
+        msg.includes("timeout"));
 
     let profile: Awaited<ReturnType<typeof carregar>>[0]["data"] = null;
     let roles: Awaited<ReturnType<typeof carregar>>[1]["data"] = null;
