@@ -3,7 +3,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
 const filtroSchema = z.object({
-  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  data: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .nullable(),
   base_id: z.string().uuid().optional().nullable(),
   motorista: z.string().trim().max(120).optional().nullable(),
   rota: z.string().trim().max(120).optional().nullable(),
@@ -35,7 +39,6 @@ export type MeliDashboardCards = {
   /** Pacotes dessas rotas PM não iniciadas (fora do numerador e do denominador). */
   pm_pacotes_fora?: number;
 };
-
 
 export type MeliDashboardRota = {
   rota_id: string;
@@ -121,19 +124,42 @@ export type MeliDashboardResult = {
     perc_conclusao: number;
   };
   ultima_sincronizacao?: string | null;
-  sincronizacao_por_base?: { base_id: string | null; base_codigo: string | null; last_synced_at: string | null }[];
+  sincronizacao_por_base?: {
+    base_id: string | null;
+    base_codigo: string | null;
+    last_synced_at: string | null;
+  }[];
   snapshot_fallback?: boolean;
   snapshot_at?: string | null;
+  sla_geral?: {
+    bases_total: number;
+    rotas_total: number;
+    pacotes_total: number;
+    entregues_total: number;
+    pendentes_total: number;
+    insucessos_total: number;
+    percentual: number;
+    ultima_coleta: string | null;
+    updated_at: string;
+  } | null;
 };
 
 type RpcClient = {
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  rpc: (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
-async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string): Promise<MeliDashboardResult | null> {
+async function carregarUltimoSnapshotMultibase(
+  client: any,
+  dataLimite: string,
+): Promise<MeliDashboardResult | null> {
   const { data: leituras, error } = await client
     .from("meli_monitoramento_snapshots")
-    .select("base_codigo,data_operacional,service_center_id,rotas_totais,rotas_em_andamento,pacotes,pendentes,com_falhas,bem_sucedidos,coletado_em,performance_logistics_max")
+    .select(
+      "base_codigo,data_operacional,service_center_id,rotas_totais,rotas_em_andamento,pacotes,pendentes,com_falhas,bem_sucedidos,coletado_em,performance_logistics_max",
+    )
     .lte("data_operacional", dataLimite)
     .order("data_operacional", { ascending: false })
     .order("coletado_em", { ascending: false })
@@ -148,7 +174,9 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   // restrição única ainda não tenha sido aplicada.
   const snapshotPorBase = new Map<string, any>();
   for (const linha of leituras.filter((item: any) => String(item.data_operacional) === dia)) {
-    const codigo = String(linha.base_codigo ?? "").trim().toUpperCase();
+    const codigo = String(linha.base_codigo ?? "")
+      .trim()
+      .toUpperCase();
     if (codigo && !snapshotPorBase.has(codigo)) snapshotPorBase.set(codigo, linha);
   }
   const snapshots = [...snapshotPorBase.values()];
@@ -158,7 +186,10 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     .select("id,codigo,nome,ordem")
     .in("codigo", codigos)
     .eq("ativo", true);
-  const { data: cadastros } = await client.from("bases").select("id,codigo,nome").in("codigo", codigos);
+  const { data: cadastros } = await client
+    .from("bases")
+    .select("id,codigo,nome")
+    .in("codigo", codigos);
   const unidadePorCodigo = new Map((unidades ?? []).map((base: any) => [base.codigo, base]));
   const cadastroPorCodigo = new Map<string, any>(
     (cadastros ?? []).map((base: any) => [base.codigo as string, base]),
@@ -167,7 +198,9 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   const { data: rotasRisco } = idsBase.length
     ? await client
         .from("meli_rotas")
-        .select("id,route_id,cluster,base_id,service_center_id,driver_name,vehicle_license,carrier,data_rota,last_synced_at,rota_area_risco,area_risco_parcial,total_pacotes,delivered_total,pending_total,occurrence_total")
+        .select(
+          "id,route_id,cluster,base_id,service_center_id,driver_name,vehicle_license,carrier,data_rota,last_synced_at,rota_area_risco,area_risco_parcial,total_pacotes,delivered_total,pending_total,occurrence_total",
+        )
         .eq("data_rota", dia)
         .in("base_id", idsBase)
         .or("rota_area_risco.eq.true,area_risco_parcial.eq.true")
@@ -182,34 +215,41 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     riscoPorBase.set(rota.base_id, atual);
   }
 
-  const bases: MeliDashboardBase[] = snapshots.map((snapshot: any) => {
-    const unidade: any = unidadePorCodigo.get(snapshot.base_codigo);
-    const cadastro: any = cadastroPorCodigo.get(snapshot.base_codigo);
-    const total = Number(snapshot.pacotes ?? 0);
-    const entregue = Number(snapshot.bem_sucedidos ?? 0);
-    const risco = cadastro?.id ? riscoPorBase.get(cadastro.id) : undefined;
-    return {
-      // O filtro detalhado usa bases.id; o id da unidade operacional pertence
-      // a outro cadastro e não pode ser enviado como se fosse uma base.
-      base_id: cadastro?.id ?? null,
-      base_codigo: snapshot.base_codigo,
-      base_nome: unidade?.nome ?? cadastro?.nome ?? snapshot.base_codigo,
-      service_center: snapshot.service_center_id ?? null,
-      rotas: Number(snapshot.rotas_totais ?? 0),
-      rotas_risco: risco?.total ?? 0,
-      rotas_risco_integral: risco?.integrais ?? 0,
-      rotas_risco_parcial: risco?.parciais ?? 0,
-      total,
-      pacotes_risco: 0,
-      entregue,
-      em_rota: Number(snapshot.pendentes ?? 0),
-      insucesso: Number(snapshot.com_falhas ?? 0),
-      perc_entrega: Number(snapshot.performance_logistics_max ?? (total > 0 ? 100 * entregue / total : 0)),
-      pm_nao_iniciadas: 0,
-      pm_pacotes_fora: 0,
-      _ordem: Number(unidade?.ordem ?? 9999),
-    };
-  }).sort((a: any, b: any) => a._ordem - b._ordem || String(a.base_codigo).localeCompare(String(b.base_codigo)))
+  const bases: MeliDashboardBase[] = snapshots
+    .map((snapshot: any) => {
+      const unidade: any = unidadePorCodigo.get(snapshot.base_codigo);
+      const cadastro: any = cadastroPorCodigo.get(snapshot.base_codigo);
+      const total = Number(snapshot.pacotes ?? 0);
+      const entregue = Number(snapshot.bem_sucedidos ?? 0);
+      const risco = cadastro?.id ? riscoPorBase.get(cadastro.id) : undefined;
+      return {
+        // O filtro detalhado usa bases.id; o id da unidade operacional pertence
+        // a outro cadastro e não pode ser enviado como se fosse uma base.
+        base_id: cadastro?.id ?? null,
+        base_codigo: snapshot.base_codigo,
+        base_nome: unidade?.nome ?? cadastro?.nome ?? snapshot.base_codigo,
+        service_center: snapshot.service_center_id ?? null,
+        rotas: Number(snapshot.rotas_totais ?? 0),
+        rotas_risco: risco?.total ?? 0,
+        rotas_risco_integral: risco?.integrais ?? 0,
+        rotas_risco_parcial: risco?.parciais ?? 0,
+        total,
+        pacotes_risco: 0,
+        entregue,
+        em_rota: Number(snapshot.pendentes ?? 0),
+        insucesso: Number(snapshot.com_falhas ?? 0),
+        perc_entrega: Number(
+          snapshot.performance_logistics_max ?? (total > 0 ? (100 * entregue) / total : 0),
+        ),
+        pm_nao_iniciadas: 0,
+        pm_pacotes_fora: 0,
+        _ordem: Number(unidade?.ordem ?? 9999),
+      };
+    })
+    .sort(
+      (a: any, b: any) =>
+        a._ordem - b._ordem || String(a.base_codigo).localeCompare(String(b.base_codigo)),
+    )
     .map(({ _ordem, ...base }: any) => base as MeliDashboardBase);
   const total = bases.reduce((soma, base) => soma + base.total, 0);
   const entregue = bases.reduce((soma, base) => soma + base.entregue, 0);
@@ -247,7 +287,7 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       insucesso: insucessoRota,
       cancelado: 0,
       pacotes_risco: totalRota,
-      perc_entrega: totalRota > 0 ? Math.round(1000 * entregueRota / totalRota) / 10 : 0,
+      perc_entrega: totalRota > 0 ? Math.round((1000 * entregueRota) / totalRota) / 10 : 0,
     };
   });
   const pacotesRisco = rotas.reduce((soma, rota) => soma + rota.pacotes_risco, 0);
@@ -256,7 +296,8 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
   const insucessosRisco = rotas.reduce((soma, rota) => soma + rota.insucesso, 0);
 
   const snapshotAt = snapshots.reduce<string | null>(
-    (maisRecente, linha: any) => !maisRecente || linha.coletado_em > maisRecente ? linha.coletado_em : maisRecente,
+    (maisRecente, linha: any) =>
+      !maisRecente || linha.coletado_em > maisRecente ? linha.coletado_em : maisRecente,
     null,
   );
 
@@ -274,7 +315,7 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       desconhecido: 0,
       area_risco_pacotes: pacotesRisco,
       elegiveis: total,
-      perc_entrega: total > 0 ? Math.round(1000 * entregue / total) / 10 : 0,
+      perc_entrega: total > 0 ? Math.round((1000 * entregue) / total) / 10 : 0,
       rotas: bases.reduce((soma, base) => soma + base.rotas, 0),
       rotas_risco: totalRotasRisco,
       pm_nao_iniciadas: 0,
@@ -282,12 +323,17 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
     },
     bases,
     rotas,
-    motivos_insucesso: insucesso > 0 ? [{
-      codigo: "sem_detalhamento_adminml",
-      descricao: "Aguardando detalhamento do motivo pelo AdminML",
-      cadastrado: true,
-      total: insucesso,
-    }] : [],
+    motivos_insucesso:
+      insucesso > 0
+        ? [
+            {
+              codigo: "sem_detalhamento_adminml",
+              descricao: "Aguardando detalhamento do motivo pelo AdminML",
+              cadastrado: true,
+              total: insucesso,
+            },
+          ]
+        : [],
     pm_programadas: [],
     snapshot_fallback: true,
     snapshot_at: snapshotAt,
@@ -305,7 +351,8 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
       entregue: entreguesRisco,
       em_rota: emRotaRisco,
       insucesso: insucessosRisco,
-      perc_conclusao: pacotesRisco > 0 ? Math.round(1000 * entreguesRisco / pacotesRisco) / 10 : 0,
+      perc_conclusao:
+        pacotesRisco > 0 ? Math.round((1000 * entreguesRisco) / pacotesRisco) / 10 : 0,
     },
   };
 }
@@ -322,6 +369,36 @@ type MonitoramentoPreservado = {
   bem_sucedidos: number;
   performance_logistics_max: number | null;
 };
+
+async function anexarSlaGeral(
+  client: any,
+  resultado: MeliDashboardResult,
+  dataOperacional: string,
+): Promise<MeliDashboardResult> {
+  const { data, error } = await client
+    .from("meli_sla_diario")
+    .select(
+      "bases_total,rotas_total,pacotes_total,entregues_total,pendentes_total,insucessos_total,sla_geral,ultima_coleta,updated_at",
+    )
+    .eq("data_operacional", dataOperacional)
+    .maybeSingle();
+
+  if (error || !data) return resultado;
+  return {
+    ...resultado,
+    sla_geral: {
+      bases_total: Number(data.bases_total ?? 0),
+      rotas_total: Number(data.rotas_total ?? 0),
+      pacotes_total: Number(data.pacotes_total ?? 0),
+      entregues_total: Number(data.entregues_total ?? 0),
+      pendentes_total: Number(data.pendentes_total ?? 0),
+      insucessos_total: Number(data.insucessos_total ?? 0),
+      percentual: Number(data.sla_geral ?? 0),
+      ultima_coleta: data.ultima_coleta ?? null,
+      updated_at: data.updated_at,
+    },
+  };
+}
 
 type CadastroBaseSnapshot = { id: string; codigo: string; nome: string };
 
@@ -373,7 +450,9 @@ export function aplicarMonitoramentoPreservado(
       entregue,
       em_rota: Number(snapshot.pendentes ?? 0),
       insucesso: Number(snapshot.com_falhas ?? 0),
-      perc_entrega: Number(snapshot.performance_logistics_max ?? (total > 0 ? 100 * entregue / total : 0)),
+      perc_entrega: Number(
+        snapshot.performance_logistics_max ?? (total > 0 ? (100 * entregue) / total : 0),
+      ),
     });
     codigosAtuais.add(codigo);
   }
@@ -385,26 +464,31 @@ export function aplicarMonitoramentoPreservado(
         total: bases.reduce((soma, base) => soma + base.total, 0),
         entregue: bases.reduce((soma, base) => soma + base.entregue, 0),
         insucesso: bases.reduce((soma, base) => soma + base.insucesso, 0),
-        perc_entrega: bases.reduce((total, base) => total + base.total, 0) > 0
-          ? Math.round(
-              (1000 * bases.reduce((soma, base) => soma + base.entregue, 0)) /
-                bases.reduce((soma, base) => soma + base.total, 0),
-            ) / 10
-          : resultado.cards.perc_entrega,
+        perc_entrega:
+          bases.reduce((total, base) => total + base.total, 0) > 0
+            ? Math.round(
+                (1000 * bases.reduce((soma, base) => soma + base.entregue, 0)) /
+                  bases.reduce((soma, base) => soma + base.total, 0),
+              ) / 10
+            : resultado.cards.perc_entrega,
       }
     : resultado.cards;
 
   const motivosAtuais = resultado.motivos_insucesso ?? [];
   const totalMotivos = motivosAtuais.reduce((soma, motivo) => soma + Number(motivo.total ?? 0), 0);
   const semDetalhamento = Math.max(0, Number(cards?.insucesso ?? 0) - totalMotivos);
-  const motivos_insucesso = semDetalhamento > 0
-    ? [...motivosAtuais, {
-        codigo: "sem_detalhamento_adminml",
-        descricao: "Aguardando detalhamento do motivo pelo AdminML",
-        cadastrado: true,
-        total: semDetalhamento,
-      }]
-    : motivosAtuais;
+  const motivos_insucesso =
+    semDetalhamento > 0
+      ? [
+          ...motivosAtuais,
+          {
+            codigo: "sem_detalhamento_adminml",
+            descricao: "Aguardando detalhamento do motivo pelo AdminML",
+            cadastrado: true,
+            total: semDetalhamento,
+          },
+        ]
+      : motivosAtuais;
 
   return { ...resultado, bases, cards, motivos_insucesso };
 }
@@ -479,7 +563,7 @@ export function aplicarRotasRiscoPersistidas(
       insucesso,
       cancelado: 0,
       pacotes_risco: Boolean(rota.rota_area_risco) ? total : 0,
-      perc_entrega: total > 0 ? Math.round(1000 * entregue / total) / 10 : 0,
+      perc_entrega: total > 0 ? Math.round((1000 * entregue) / total) / 10 : 0,
     });
   }
 
@@ -491,10 +575,14 @@ export function aplicarRotasRiscoPersistidas(
       ...base,
       rotas_risco: daBase.length,
       rotas_risco_integral: daBase.filter((rota) => rota.rota_area_risco).length,
-      rotas_risco_parcial: daBase.filter((rota) => rota.area_risco_parcial && !rota.rota_area_risco).length,
+      rotas_risco_parcial: daBase.filter((rota) => rota.area_risco_parcial && !rota.rota_area_risco)
+        .length,
     };
   });
-  const pacotes = risco.reduce((soma, rota) => soma + (rota.rota_area_risco ? rota.total : rota.pacotes_risco), 0);
+  const pacotes = risco.reduce(
+    (soma, rota) => soma + (rota.rota_area_risco ? rota.total : rota.pacotes_risco),
+    0,
+  );
   const entregue = risco.reduce((soma, rota) => soma + rota.entregue, 0);
   const emRota = risco.reduce((soma, rota) => soma + rota.em_rota, 0);
   const insucesso = risco.reduce((soma, rota) => soma + rota.insucesso, 0);
@@ -503,7 +591,9 @@ export function aplicarRotasRiscoPersistidas(
     ...resultado,
     rotas,
     bases,
-    cards: resultado.cards ? { ...resultado.cards, rotas_risco: risco.length, area_risco_pacotes: pacotes } : resultado.cards,
+    cards: resultado.cards
+      ? { ...resultado.cards, rotas_risco: risco.length, area_risco_pacotes: pacotes }
+      : resultado.cards,
     area_risco: {
       rotas: risco.length,
       integrais: risco.filter((rota) => rota.rota_area_risco).length,
@@ -512,14 +602,16 @@ export function aplicarRotasRiscoPersistidas(
       entregue,
       em_rota: emRota,
       insucesso,
-      perc_conclusao: pacotes > 0 ? Math.round(1000 * entregue / pacotes) / 10 : 0,
+      perc_conclusao: pacotes > 0 ? Math.round((1000 * entregue) / pacotes) / 10 : 0,
     },
   };
 }
 
 export function meliDashboardQueryKey(filtros: MeliDashboardFiltros) {
   const normalizados = Object.fromEntries(
-    Object.entries(filtros).filter(([, valor]) => valor !== null && valor !== undefined && valor !== ""),
+    Object.entries(filtros).filter(
+      ([, valor]) => valor !== null && valor !== undefined && valor !== "",
+    ),
   );
   return ["meli-dashboard-operacional", normalizados] as const;
 }
@@ -528,11 +620,21 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => filtroSchema.parse(d ?? {}))
   .handler(async ({ data, context }): Promise<MeliDashboardResult> => {
-    const semFiltroDeDetalhe = !data.base_id && !data.motorista && !data.rota && !data.status &&
-      !data.transportadora && !data.risco;
-    const dataSolicitada = data.data ?? new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date());
+    const semFiltroDeDetalhe =
+      !data.base_id &&
+      !data.motorista &&
+      !data.rota &&
+      !data.status &&
+      !data.transportadora &&
+      !data.risco;
+    const dataSolicitada =
+      data.data ??
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
 
     // A consulta operacional também traz os motivos de insucesso. Os snapshots
     // são usados como proteção dos acumulados e como fallback, mas não podem
@@ -553,8 +655,17 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
     );
     if (error) {
       if (semFiltroDeDetalhe) {
-        const fallback = await carregarUltimoSnapshotMultibase(context.supabase as any, dataSolicitada);
-        if (fallback) return fallback;
+        const fallback = await carregarUltimoSnapshotMultibase(
+          context.supabase as any,
+          dataSolicitada,
+        );
+        if (fallback) {
+          return anexarSlaGeral(
+            context.supabase as any,
+            fallback,
+            fallback.data_operacional ?? dataSolicitada,
+          );
+        }
       }
       return { status: "erro", erro: error.message };
     }
@@ -566,28 +677,50 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
     if (!dataOperacional) return resultado;
     const { data: rotasRisco } = await (context.supabase as any)
       .from("meli_rotas")
-      .select("id,route_id,cluster,base_id,service_center_id,driver_name,vehicle_license,carrier,data_rota,last_synced_at,rota_area_risco,area_risco_parcial,total_pacotes,delivered_total,pending_total,occurrence_total")
+      .select(
+        "id,route_id,cluster,base_id,service_center_id,driver_name,vehicle_license,carrier,data_rota,last_synced_at,rota_area_risco,area_risco_parcial,total_pacotes,delivered_total,pending_total,occurrence_total",
+      )
       .eq("data_rota", dataOperacional)
       .or("rota_area_risco.eq.true,area_risco_parcial.eq.true");
     const { data: snapshots } = await (context.supabase as any)
       .from("meli_monitoramento_snapshots")
-      .select("base_codigo,service_center_id,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max")
+      .select(
+        "base_codigo,service_center_id,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max",
+      )
       .eq("data_operacional", dataOperacional);
     const snapshotsTipados = (snapshots ?? []) as MonitoramentoPreservado[];
-    const codigos = [...new Set(snapshotsTipados.map((snapshot) => snapshot.base_codigo.toUpperCase()).filter(Boolean))];
+    const codigos = [
+      ...new Set(
+        snapshotsTipados.map((snapshot) => snapshot.base_codigo.toUpperCase()).filter(Boolean),
+      ),
+    ];
     const { data: cadastros } = codigos.length
       ? await (context.supabase as any).from("bases").select("id,codigo,nome").in("codigo", codigos)
       : { data: [] };
     const cadastroPorCodigo = new Map<string, CadastroBaseSnapshot>(
-      ((cadastros ?? []) as CadastroBaseSnapshot[]).map((base) => [base.codigo.toUpperCase(), base]),
+      ((cadastros ?? []) as CadastroBaseSnapshot[]).map((base) => [
+        base.codigo.toUpperCase(),
+        base,
+      ]),
     );
     const snapshotsComCadastro = snapshotsTipados.map((snapshot) => {
       const cadastro = cadastroPorCodigo.get(snapshot.base_codigo.toUpperCase());
-      return { ...snapshot, base_id: cadastro?.id ?? null, base_nome: cadastro?.nome ?? snapshot.base_codigo };
+      return {
+        ...snapshot,
+        base_id: cadastro?.id ?? null,
+        base_nome: cadastro?.nome ?? snapshot.base_codigo,
+      };
     });
 
-    resultado = aplicarMonitoramentoPreservado(resultado, snapshotsComCadastro as MonitoramentoPreservado[]);
-    return aplicarRotasRiscoPersistidas(resultado, (rotasRisco ?? []) as RotaRiscoPersistida[]);
+    resultado = aplicarMonitoramentoPreservado(
+      resultado,
+      snapshotsComCadastro as MonitoramentoPreservado[],
+    );
+    resultado = aplicarRotasRiscoPersistidas(
+      resultado,
+      (rotasRisco ?? []) as RotaRiscoPersistida[],
+    );
+    return anexarSlaGeral(context.supabase as any, resultado, dataOperacional);
   });
 
 const pacotesSchema = z.object({

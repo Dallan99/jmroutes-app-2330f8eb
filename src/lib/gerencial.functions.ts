@@ -102,6 +102,17 @@ export type RotasPorBaseData = {
   rotas: RotaBaseRow[];
 };
 
+export type MeliSlaDiario = {
+  data_operacional: string;
+  bases_total: number;
+  rotas_total: number;
+  pacotes_total: number;
+  entregues_total: number;
+  insucessos_total: number;
+  sla_geral: number;
+  ultima_coleta: string | null;
+};
+
 function inicioPeriodo(p: "hoje" | "7d" | "30d") {
   const now = new Date();
   if (p === "hoje") {
@@ -113,9 +124,37 @@ function inicioPeriodo(p: "hoje" | "7d" | "30d") {
   return new Date(now.getTime() - dias * 24 * 3600 * 1000);
 }
 
+export const meliSlaHistorico = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => inputSchema.parse(d ?? {}))
+  .handler(async ({ data, context }): Promise<MeliSlaDiario[]> => {
+    const inicio = inicioPeriodo(data.periodo).toISOString().slice(0, 10);
+    const { data: linhas, error } = await context.supabase
+      .from("meli_sla_diario")
+      .select(
+        "data_operacional,bases_total,rotas_total,pacotes_total,entregues_total,insucessos_total,sla_geral,ultima_coleta",
+      )
+      .gte("data_operacional", inicio)
+      .order("data_operacional", { ascending: false })
+      .limit(data.periodo === "hoje" ? 1 : data.periodo === "7d" ? 7 : 30);
+    if (error) throw new Error(error.message);
+    return (linhas ?? []).map((linha) => ({
+      ...linha,
+      bases_total: Number(linha.bases_total ?? 0),
+      rotas_total: Number(linha.rotas_total ?? 0),
+      pacotes_total: Number(linha.pacotes_total ?? 0),
+      entregues_total: Number(linha.entregues_total ?? 0),
+      insucessos_total: Number(linha.insucessos_total ?? 0),
+      sla_geral: Number(linha.sla_geral ?? 0),
+    }));
+  });
+
 /** Lê todas as páginas respeitando o limite de linhas da Data API. */
 async function buscarPaginado<T>(
-  criarConsulta: (inicio: number, fim: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  criarConsulta: (
+    inicio: number,
+    fim: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const tamanho = 1000;
   const resultado: T[] = [];
@@ -147,12 +186,15 @@ export const gerencialData = createServerFn({ method: "POST" })
       operador_id: string | null;
       rota_id: string | null;
     };
-    const all = await buscarPaginado<Rec>((inicio, fim) => supabase
-      .from("recebimentos")
-      .select("created_at, resultado, tempo_desde_ultima_ms, operador_id, rota_id")
-      .gte("created_at", inicioMes.toISOString())
-      .order("created_at", { ascending: false })
-      .range(inicio, fim) as any);
+    const all = await buscarPaginado<Rec>(
+      (inicio, fim) =>
+        supabase
+          .from("recebimentos")
+          .select("created_at, resultado, tempo_desde_ultima_ms, operador_id, rota_id")
+          .gte("created_at", inicioMes.toISOString())
+          .order("created_at", { ascending: false })
+          .range(inicio, fim) as any,
+    );
     const periodoRows = all.filter((r) => new Date(r.created_at) >= desde);
 
     const operadorIds = Array.from(
@@ -179,7 +221,9 @@ export const gerencialData = createServerFn({ method: "POST" })
       const total = arr.length;
       const erros = total - ok;
       const rotas = new Set(arr.map((r) => r.rota_id).filter(Boolean)).size;
-      const tempos = arr.map((r) => r.tempo_desde_ultima_ms).filter((v): v is number => typeof v === "number" && v > 0 && v < 300000);
+      const tempos = arr
+        .map((r) => r.tempo_desde_ultima_ms)
+        .filter((v): v is number => typeof v === "number" && v > 0 && v < 300000);
       const tempoMedio = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : null;
       return {
         operador_id: id,
@@ -200,7 +244,9 @@ export const gerencialData = createServerFn({ method: "POST" })
       erros: periodoRows.filter((r) => !OK.has(r.resultado)).length,
       operadores_ativos: porOperador.length,
       tempo_medio_ms: (() => {
-        const t = periodoRows.map((r) => r.tempo_desde_ultima_ms).filter((v): v is number => typeof v === "number" && v > 0 && v < 300000);
+        const t = periodoRows
+          .map((r) => r.tempo_desde_ultima_ms)
+          .filter((v): v is number => typeof v === "number" && v > 0 && v < 300000);
         return t.length ? t.reduce((a, b) => a + b, 0) / t.length : null;
       })(),
     };
@@ -236,7 +282,10 @@ export const gerencialData = createServerFn({ method: "POST" })
       totais,
       porOperador,
       top3: porOperador.slice(0, 3),
-      bottom3: [...porOperador].filter((o) => o.total_leituras > 0).sort((a, b) => a.total_leituras - b.total_leituras).slice(0, 3),
+      bottom3: [...porOperador]
+        .filter((o) => o.total_leituras > 0)
+        .sort((a, b) => a.total_leituras - b.total_leituras)
+        .slice(0, 3),
       porDia,
       comparativo,
     };
@@ -266,15 +315,16 @@ export const transferenciasGerencial = createServerFn({ method: "POST" })
       minutos_atraso: number;
     };
 
-    const transferencias = await buscarPaginado<TransferenciaRow>((inicio, fim) => supabase
-      .from("transferencias")
-      .select("id, base_id, motorista, status")
-      .gte("data_operacional", desde)
-      .order("data_operacional", { ascending: false })
-      .range(inicio, fim) as any);
-    const rows = transferencias.filter(
-      (t) => t.status !== "cancelada",
+    const transferencias = await buscarPaginado<TransferenciaRow>(
+      (inicio, fim) =>
+        supabase
+          .from("transferencias")
+          .select("id, base_id, motorista, status")
+          .gte("data_operacional", desde)
+          .order("data_operacional", { ascending: false })
+          .range(inicio, fim) as any,
     );
+    const rows = transferencias.filter((t) => t.status !== "cancelada");
     if (!rows.length) {
       return {
         periodo: data.periodo,
@@ -386,11 +436,15 @@ export const transferenciasGerencial = createServerFn({ method: "POST" })
     });
 
     const service = contarService(metricas);
-    const permanencias = metricas.map((t) => t.permanencia).filter((valor): valor is number => valor !== null);
+    const permanencias = metricas
+      .map((t) => t.permanencia)
+      .filter((valor): valor is number => valor !== null);
     const totais: TransferenciasGerencialData["totais"] = {
       total: metricas.length,
       ...service,
-      taxa_disponibilizacao: metricas.length ? (service.disponibilizados_ate_7 / metricas.length) * 100 : 0,
+      taxa_disponibilizacao: metricas.length
+        ? (service.disponibilizados_ate_7 / metricas.length) * 100
+        : 0,
       media_service_min: media(permanencias),
       maior_service_min: permanencias.length ? Math.max(...permanencias) : null,
       media_deslocamento_min: media(metricas.map((t) => t.deslocamento)),
@@ -454,7 +508,10 @@ export const transferenciasGerencial = createServerFn({ method: "POST" })
   });
 
 const rotasInputSchema = z.object({
-  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  data: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   baseId: z.string().uuid().optional(),
 });
 
@@ -494,7 +551,10 @@ export const rotasPorBase = createServerFn({ method: "POST" })
       .select("id, base_id")
       .eq("data_operacional", dia)
       .eq("ativa", true)
-      .in("base_id", allowedBases.map((b) => b.id));
+      .in(
+        "base_id",
+        allowedBases.map((b) => b.id),
+      );
     let imports = importacoesIniciais.data;
     if (importacoesIniciais.error) throw new Error(importacoesIniciais.error.message);
 
@@ -504,7 +564,10 @@ export const rotasPorBase = createServerFn({ method: "POST" })
         .from("importacoes_escala")
         .select("data_operacional")
         .eq("ativa", true)
-        .in("base_id", allowedBases.map((b) => b.id))
+        .in(
+          "base_id",
+          allowedBases.map((b) => b.id),
+        )
         .order("data_operacional", { ascending: false })
         .limit(1);
       const nova = recente?.[0]?.data_operacional as string | undefined;
@@ -515,7 +578,10 @@ export const rotasPorBase = createServerFn({ method: "POST" })
           .select("id, base_id")
           .eq("data_operacional", dia)
           .eq("ativa", true)
-          .in("base_id", allowedBases.map((b) => b.id));
+          .in(
+            "base_id",
+            allowedBases.map((b) => b.id),
+          );
         imports = r2.data ?? [];
       }
     }
@@ -585,8 +651,10 @@ export const rotasPorBase = createServerFn({ method: "POST" })
         processados === 0 ? "vazia" : r.recebido >= r.total ? "completa" : "parcial";
       return { ...r, faltando, pct, status };
     });
-    rotas.sort((a, b) =>
-      a.base_nome.localeCompare(b.base_nome) || a.nro_rota.localeCompare(b.nro_rota, "pt-BR", { numeric: true }),
+    rotas.sort(
+      (a, b) =>
+        a.base_nome.localeCompare(b.base_nome) ||
+        a.nro_rota.localeCompare(b.nro_rota, "pt-BR", { numeric: true }),
     );
 
     const resumoBases = allowedBases.map((b) => {
@@ -624,8 +692,8 @@ export type ResumoBaseRow = {
   base_id: string;
   codigo: string;
   nome: string;
-  triados: number;          // recebimentos com resultado "ok" / "primeira_leitura"
-  recebimentos: number;     // total de leituras registradas
+  triados: number; // recebimentos com resultado "ok" / "primeira_leitura"
+  recebimentos: number; // total de leituras registradas
   devolucoes: number;
   inventario: number;
   transferencias: number;
@@ -642,7 +710,10 @@ export type ResumoPorBaseData = {
 };
 
 const resumoInputSchema = z.object({
-  dia: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dia: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   periodo: z.enum(["hoje", "7d", "30d"]).optional(),
 });
 
@@ -699,36 +770,51 @@ export const resumoOperacionalPorBase = createServerFn({ method: "POST" })
     const OK = new Set(["ok", "primeira_leitura", "concluiu_rota"]);
 
     const [recebimentos, devolucoes, inventario, transferencias, contagens] = await Promise.all([
-      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
-        .from("recebimentos")
-        .select("base_id, resultado, data_operacional")
-        .gte("data_operacional", inicio)
-        .lte("data_operacional", fim)
-        .range(inicioPagina, fimPagina) as any),
-      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
-        .from("devolucoes")
-        .select("base_id, devolvido_em, cancelado")
-        .gte("devolvido_em", iniISO)
-        .lte("devolvido_em", fimISO)
-        .range(inicioPagina, fimPagina) as any),
-      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
-        .from("inventario_leituras")
-        .select("base_id, dia_operacional")
-        .gte("dia_operacional", inicio)
-        .lte("dia_operacional", fim)
-        .range(inicioPagina, fimPagina) as any),
-      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
-        .from("transferencias")
-        .select("base_id, data_operacional, status")
-        .gte("data_operacional", inicio)
-        .lte("data_operacional", fim)
-        .range(inicioPagina, fimPagina) as any),
-      buscarPaginado<any>((inicioPagina, fimPagina) => supabase
-        .from("contagens")
-        .select("base_id, data_operacional")
-        .gte("data_operacional", inicio)
-        .lte("data_operacional", fim)
-        .range(inicioPagina, fimPagina) as any),
+      buscarPaginado<any>(
+        (inicioPagina, fimPagina) =>
+          supabase
+            .from("recebimentos")
+            .select("base_id, resultado, data_operacional")
+            .gte("data_operacional", inicio)
+            .lte("data_operacional", fim)
+            .range(inicioPagina, fimPagina) as any,
+      ),
+      buscarPaginado<any>(
+        (inicioPagina, fimPagina) =>
+          supabase
+            .from("devolucoes")
+            .select("base_id, devolvido_em, cancelado")
+            .gte("devolvido_em", iniISO)
+            .lte("devolvido_em", fimISO)
+            .range(inicioPagina, fimPagina) as any,
+      ),
+      buscarPaginado<any>(
+        (inicioPagina, fimPagina) =>
+          supabase
+            .from("inventario_leituras")
+            .select("base_id, dia_operacional")
+            .gte("dia_operacional", inicio)
+            .lte("dia_operacional", fim)
+            .range(inicioPagina, fimPagina) as any,
+      ),
+      buscarPaginado<any>(
+        (inicioPagina, fimPagina) =>
+          supabase
+            .from("transferencias")
+            .select("base_id, data_operacional, status")
+            .gte("data_operacional", inicio)
+            .lte("data_operacional", fim)
+            .range(inicioPagina, fimPagina) as any,
+      ),
+      buscarPaginado<any>(
+        (inicioPagina, fimPagina) =>
+          supabase
+            .from("contagens")
+            .select("base_id, data_operacional")
+            .gte("data_operacional", inicio)
+            .lte("data_operacional", fim)
+            .range(inicioPagina, fimPagina) as any,
+      ),
     ]);
 
     for (const r of recebimentos as Array<{ base_id: string | null; resultado: string }>) {
@@ -788,19 +874,14 @@ export const resumoOperacionalPorBase = createServerFn({ method: "POST" })
 // ============================================================
 
 export type MetricaResumo =
-  | "recebimentos"
-  | "triados"
-  | "devolucoes"
-  | "inventario"
-  | "transferencias"
-  | "contagens";
+  "recebimentos" | "triados" | "devolucoes" | "inventario" | "transferencias" | "contagens";
 
 export type DetalheItem = {
   id: string;
   quando: string; // ISO
   base_codigo: string | null;
   base_nome: string | null;
-  titulo: string;   // linha principal
+  titulo: string; // linha principal
   subtitulo?: string | null;
   extra?: string | null;
   operador_nome?: string | null;
@@ -817,10 +898,20 @@ export type DetalhesMetricaData = {
 };
 
 const detalhesInput = z.object({
-  metrica: z.enum(["recebimentos", "triados", "devolucoes", "inventario", "transferencias", "contagens"]),
+  metrica: z.enum([
+    "recebimentos",
+    "triados",
+    "devolucoes",
+    "inventario",
+    "transferencias",
+    "contagens",
+  ]),
   periodo: z.enum(["hoje", "7d", "30d"]).default("hoje"),
   base_id: z.string().uuid().optional(),
-  dia: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dia: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   limit: z.number().int().min(1).max(1000).default(300),
 });
 
@@ -873,7 +964,9 @@ export const detalhesResumoPorBase = createServerFn({ method: "POST" })
     } else if (data.metrica === "devolucoes") {
       let q = supabase
         .from("devolucoes")
-        .select("id, shipment_codigo, rota, motorista, motivo, observacao, base_id, devolvido_em, cancelado, devolvido_por")
+        .select(
+          "id, shipment_codigo, rota, motorista, motivo, observacao, base_id, devolvido_em, cancelado, devolvido_por",
+        )
         .gte("devolvido_em", iniISO)
         .lte("devolvido_em", fimISO)
         .eq("cancelado", false)
@@ -887,7 +980,10 @@ export const detalhesResumoPorBase = createServerFn({ method: "POST" })
       ) as string[];
       const nomes = new Map<string, string>();
       if (userIds.length > 0) {
-        const { data: profs } = await supabase.from("profiles").select("id, nome").in("id", userIds);
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, nome")
+          .in("id", userIds);
         (profs ?? []).forEach((p) => nomes.set(p.id as string, p.nome as string));
       }
       for (const r of rows ?? []) {
@@ -930,7 +1026,9 @@ export const detalhesResumoPorBase = createServerFn({ method: "POST" })
     } else if (data.metrica === "transferencias") {
       let q = supabase
         .from("transferencias")
-        .select("id, codigo, service, motorista, placa, status, base_id, data_operacional, created_at, finalizada_em")
+        .select(
+          "id, codigo, service, motorista, placa, status, base_id, data_operacional, created_at, finalizada_em",
+        )
         .gte("data_operacional", inicio)
         .lte("data_operacional", fim)
         .neq("status", "cancelada")
@@ -954,7 +1052,9 @@ export const detalhesResumoPorBase = createServerFn({ method: "POST" })
     } else if (data.metrica === "contagens") {
       let q = supabase
         .from("contagens")
-        .select("id, base_id, data_operacional, iniciada_em, finalizada_em, total_esperado, total_contado, divergencia")
+        .select(
+          "id, base_id, data_operacional, iniciada_em, finalizada_em, total_esperado, total_contado, divergencia",
+        )
         .gte("data_operacional", inicio)
         .lte("data_operacional", fim)
         .order("iniciada_em", { ascending: false })
