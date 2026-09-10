@@ -19,6 +19,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { SeloSincronizando, SyncBaseIndicador, type SituacaoSync } from "@/components/meli-sync-monitor";
 import { ChevronLeft, Search } from "lucide-react";
+import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
 
 
 const CORES = ["var(--info)", "var(--success)", "var(--warning)", "var(--destructive)"] as const;
@@ -53,7 +54,7 @@ export function DashboardGeral({
 
   const q = useQuery({
     queryKey: meliDashboardQueryKey(filtros),
-    queryFn: () => fetchDados({ data: filtros }),
+    queryFn: () => buscarDashboardComContingencia(() => fetchDados({ data: filtros }), filtros),
     refetchInterval: 30_000,
     placeholderData: (prev) => prev,
   });
@@ -102,7 +103,7 @@ export function DashboardGeral({
       <Card className="p-4 md:p-5">
         <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">Painel Operacional</h2>
 
-        {snapshotEm && (
+        {(snapshotEm || d?.cache_local) && (
           <div
             className={`mt-2 rounded-md border px-3 py-2 text-xs ${
               snapshotAtrasado
@@ -110,10 +111,12 @@ export function DashboardGeral({
                 : "border-border bg-muted/30 text-muted-foreground"
             }`}
           >
-            {snapshotAtrasado
+            {d?.cache_local
+              ? "Conexão interrompida. Mantendo o último resultado salvo"
+              : snapshotAtrasado
               ? "Coleta sem atualização. Mantendo o último registro válido"
               : "Último registro válido"}{" "}
-            de {snapshotEm.toLocaleString("pt-BR")}.
+            de {(snapshotEm ?? (d?.cache_salvo_em ? new Date(d.cache_salvo_em) : null))?.toLocaleString("pt-BR") ?? "horário indisponível"}.
           </div>
         )}
 

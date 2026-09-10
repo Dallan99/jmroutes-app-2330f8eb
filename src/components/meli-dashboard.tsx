@@ -30,6 +30,7 @@ import {
   AlertTriangle, ArrowUpDown, CheckCircle2, Download, Package, PackageX, RefreshCcw,
   ShieldAlert, SlidersHorizontal, Timer, Truck, XCircle,
 } from "lucide-react";
+import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
 
 
 
@@ -94,7 +95,7 @@ export function MeliDashboardSection({
 
   const q = useQuery({
     queryKey: meliDashboardQueryKey(filtros),
-    queryFn: () => fetchDados({ data: filtros }),
+    queryFn: () => buscarDashboardComContingencia(() => fetchDados({ data: filtros }), filtros),
     refetchInterval: REFETCH_MS,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -270,6 +271,11 @@ export function MeliDashboardSection({
         {q.data?.status === "erro" && (
           <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
             Falha ao consultar o painel: {q.data.erro}. Mostrando os últimos dados válidos.
+          </div>
+        )}
+        {d?.cache_local && (
+          <div role="status" className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+            Conexão interrompida. Exibindo o último resultado salvo em {d.cache_salvo_em ? new Date(d.cache_salvo_em).toLocaleString("pt-BR") : "horário indisponível"}.
           </div>
         )}
 

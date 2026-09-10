@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import {
   ChevronLeft, ChevronRight, Pause, Play, RefreshCw, Repeat, ShieldAlert, ShieldCheck,
 } from "lucide-react";
+import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
 
 type Risco = "qualquer" | "integral" | "parcial";
 
@@ -144,7 +145,7 @@ function TvMeli() {
 
   const q = useQuery({
     queryKey: ["tv-meli", filtros],
-    queryFn: () => fetchDados({ data: filtros }),
+    queryFn: () => buscarDashboardComContingencia(() => fetchDados({ data: filtros }), filtros),
     refetchInterval: REFETCH_MS,
     refetchIntervalInBackground: true,
     refetchOnWindowFocus: true,
@@ -186,7 +187,7 @@ function TvMeli() {
   const agora = serverTime ? new Date(serverTime).getTime() : Date.now();
   const ultimaSync = d?.ultima_sincronizacao ?? null;
   const syncAtrasada = !ultimaSync || agora - new Date(ultimaSync).getTime() > SEM_SYNC_MS;
-  const syncStatus = q.data?.status === "erro" ? "Com erro" : syncAtrasada ? "Atrasada" : "Em dia";
+  const syncStatus = d?.cache_local ? "Sem conexão" : q.data?.status === "erro" ? "Com erro" : syncAtrasada ? "Atrasada" : "Em dia";
 
   const rotasOrdenadas = useMemo(() => {
     const atraso = (r: MeliDashboardRota) =>
