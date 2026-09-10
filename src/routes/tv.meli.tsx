@@ -189,10 +189,14 @@ function TvMeli() {
   const syncAtrasada = !ultimaSync || agora - new Date(ultimaSync).getTime() > SEM_SYNC_MS;
   const syncStatus = d?.cache_local ? "Sem conexão" : q.data?.status === "erro" ? "Com erro" : syncAtrasada ? "Atrasada" : "Em dia";
 
+  const rotasOperacionais = useMemo(
+    () => rotas.filter((r) => r.total > 0 || r.nao_iniciado > 0 || r.em_rota > 0 || r.entregue > 0 || r.insucesso > 0),
+    [rotas],
+  );
   const rotasOrdenadas = useMemo(() => {
     const atraso = (r: MeliDashboardRota) =>
       !r.last_synced_at ? Number.MAX_SAFE_INTEGER : agora - new Date(r.last_synced_at).getTime();
-    return [...rotas].sort((a, b) => {
+    return [...rotasOperacionais].sort((a, b) => {
       const aAtraso = atraso(a) > ROTA_PARADA_MS ? 1 : 0;
       const bAtraso = atraso(b) > ROTA_PARADA_MS ? 1 : 0;
       if (aAtraso !== bAtraso) return bAtraso - aAtraso;
@@ -203,11 +207,11 @@ function TvMeli() {
       if (a.perc_entrega !== b.perc_entrega) return a.perc_entrega - b.perc_entrega;
       return b.nao_iniciado - a.nao_iniciado;
     });
-  }, [rotas, agora]);
+  }, [rotasOperacionais, agora]);
 
   const rotasAtrasadas = useMemo(
-    () => rotas.filter((r) => !r.last_synced_at || agora - new Date(r.last_synced_at).getTime() > ROTA_PARADA_MS).length,
-    [rotas, agora],
+    () => rotasOperacionais.filter((r) => !r.last_synced_at || agora - new Date(r.last_synced_at).getTime() > ROTA_PARADA_MS).length,
+    [rotasOperacionais, agora],
   );
 
   /** Linhas que cabem na área útil: cabeçalho da tabela + rodapé de paginação. */

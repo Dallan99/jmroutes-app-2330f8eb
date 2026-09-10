@@ -116,6 +116,44 @@ export function DashboardGeral({
 
   return (
     <section className="space-y-4">
+      {d?.sla_geral && (
+        <Card className="overflow-hidden border-primary/25 bg-primary/[0.04] p-4 md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                SLA geral da empresa no dia
+              </p>
+              <p className="mt-1 font-display text-4xl font-bold tabular-nums text-primary">
+                {d.sla_geral.percentual.toFixed(2)}%
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Nota ponderada pelo volume de pacotes de todas as operações Meli.
+              </p>
+            </div>
+            <div className="grid min-w-[280px] flex-1 grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-2xl">
+              <MiniStat label="Bases" value={nf(d.sla_geral.bases_total)} />
+              <MiniStat label="Rotas" value={nf(d.sla_geral.rotas_total)} />
+              <MiniStat label="Pacotes" value={nf(d.sla_geral.pacotes_total)} />
+              <MiniStat label="Entregues" value={nf(d.sla_geral.entregues_total)} className="text-success" />
+            </div>
+          </div>
+        </Card>
+      )}
+
+      <Card className="p-4 md:p-5">
+        <h2 className="text-sm font-semibold">Indicadores de entrega</h2>
+        <p className="text-xs text-muted-foreground">
+          Posição atual das rotas ativas e falhas em tempo real.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <BigStat label="Carros em rota" value={nf(c?.rotas)} tone="info" />
+          <BigStat label="Pacotes" value={nf(c?.total)} />
+          <BigStat label="Entregues" value={nf(c?.entregue)} tone="success" />
+          <BigStat label="Falhas" value={nf(c?.insucesso)} tone="destructive" />
+          <BigStat label="Rotas em área de risco" value={nf(c?.rotas_risco)} tone="destructive" />
+        </div>
+      </Card>
+
       <Card className="p-4 md:p-5">
         <h2 className="font-display text-xl md:text-2xl font-bold tracking-tight">
           Painel Operacional
@@ -140,34 +178,6 @@ export function DashboardGeral({
             )?.toLocaleString("pt-BR") ?? "horário indisponível"}
             .
           </div>
-        )}
-
-        {d?.sla_geral && (
-          <Card className="mt-4 overflow-hidden border-primary/25 bg-primary/[0.04] p-4">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  SLA geral da empresa no dia
-                </p>
-                <p className="mt-1 font-display text-4xl font-bold tabular-nums text-primary">
-                  {d.sla_geral.percentual.toFixed(2)}%
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Nota ponderada pelo volume de pacotes de todas as operações Meli.
-                </p>
-              </div>
-              <div className="grid min-w-[280px] flex-1 grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-2xl">
-                <MiniStat label="Bases" value={nf(d.sla_geral.bases_total)} />
-                <MiniStat label="Rotas" value={nf(d.sla_geral.rotas_total)} />
-                <MiniStat label="Pacotes" value={nf(d.sla_geral.pacotes_total)} />
-                <MiniStat
-                  label="Entregues"
-                  value={nf(d.sla_geral.entregues_total)}
-                  className="text-success"
-                />
-              </div>
-            </div>
-          </Card>
         )}
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -282,20 +292,6 @@ export function DashboardGeral({
               </Card>
             );
           })}
-        </div>
-      </Card>
-
-      <Card className="p-4 md:p-5">
-        <h2 className="text-sm font-semibold">Indicadores de entrega</h2>
-        <p className="text-xs text-muted-foreground">
-          Posição atual das rotas ativas e falhas em tempo real.
-        </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <BigStat label="Carros em rota" value={nf(c?.rotas)} tone="info" />
-          <BigStat label="Pacotes" value={nf(c?.total)} />
-          <BigStat label="Entregues" value={nf(c?.entregue)} tone="success" />
-          <BigStat label="Falhas" value={nf(c?.insucesso)} tone="destructive" />
-          <BigStat label="Rotas em área de risco" value={nf(c?.rotas_risco)} tone="destructive" />
         </div>
       </Card>
 
