@@ -62,13 +62,17 @@ describe("Dashboard Meli — maior leitura do dia", () => {
     ]);
   });
 
-  it("não adiciona ao Dashboard bases que não pertencem ao resultado operacional", () => {
+  it("adiciona ao Dashboard bases confirmadas no snapshot mesmo ausentes da resposta operacional", () => {
     const atual: MeliDashboardResult = { status: "ok", bases: [] };
     const resultado = aplicarMonitoramentoPreservado(atual, [{
-      base_codigo: "SSP38", rotas_totais: 12, pacotes: 100, pendentes: 0,
+      base_codigo: "SSP38", base_id: "base-38", base_nome: "Itupeva", rotas_totais: 12, pacotes: 100, pendentes: 0,
       com_falhas: 0, bem_sucedidos: 97, performance_logistics_max: 97,
     }]);
-    expect(resultado.bases).toEqual([]);
+    expect(resultado.bases).toEqual([expect.objectContaining({
+      base_id: "base-38", base_codigo: "SSP38", base_nome: "Itupeva",
+      rotas: 12, total: 100, entregue: 97, perc_entrega: 97,
+    })]);
+    expect(resultado.cards).toBeUndefined();
   });
 
   it("inclui rota com selo de risco mesmo sem pacotes detalhados", () => {

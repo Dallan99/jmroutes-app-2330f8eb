@@ -312,6 +312,9 @@ async function carregarUltimoSnapshotMultibase(client: any, dataLimite: string):
 
 type MonitoramentoPreservado = {
   base_codigo: string;
+  base_id?: string | null;
+  base_nome?: string | null;
+  service_center_id?: string | null;
   rotas_totais: number;
   pacotes: number;
   pendentes: number;
@@ -320,22 +323,24 @@ type MonitoramentoPreservado = {
   performance_logistics_max: number | null;
 };
 
+type CadastroBaseSnapshot = { id: string; codigo: string; nome: string };
+
 function maior(atual: number | null | undefined, preservado: number | null | undefined) {
   return Math.max(Number(atual ?? 0), Number(preservado ?? 0));
 }
 
 /**
- * Aplica o maior valor confirmado no dia apenas ao resumo por base. Os detalhes
- * de rota continuam vindo da fonte operacional e, portanto, não são inventados.
+ * Une o resumo operacional com todas as bases confirmadas no snapshot do dia e
+ * preserva o maior valor já observado. Detalhes de rota não são inventados.
  */
 export function aplicarMonitoramentoPreservado(
   resultado: MeliDashboardResult,
   snapshots: MonitoramentoPreservado[],
 ): MeliDashboardResult {
-  if (resultado.status !== "ok" || !resultado.bases?.length || snapshots.length === 0) return resultado;
+  if (resultado.status !== "ok" || snapshots.length === 0) return resultado;
 
   const porCodigo = new Map(snapshots.map((s) => [s.base_codigo.toUpperCase(), s]));
-  const bases = resultado.bases.map((base) => {
+  const bases = (resultado.bases ?? []).map((base) => {
     const snapshot = porCodigo.get((base.base_codigo ?? "").toUpperCase());
     if (!snapshot) return base;
     return {
@@ -347,6 +352,31 @@ export function aplicarMonitoramentoPreservado(
       perc_entrega: maior(base.perc_entrega, snapshot.performance_logistics_max),
     };
   });
+
+  const codigosAtuais = new Set(bases.map((base) => (base.base_codigo ?? "").toUpperCase()));
+  for (const snapshot of snapshots) {
+    const codigo = snapshot.base_codigo.trim().toUpperCase();
+    if (!codigo || codigosAtuais.has(codigo)) continue;
+    const total = Number(snapshot.pacotes ?? 0);
+    const entregue = Number(snapshot.bem_sucedidos ?? 0);
+    bases.push({
+      base_id: snapshot.base_id ?? null,
+      base_codigo: codigo,
+      base_nome: snapshot.base_nome ?? codigo,
+      service_center: snapshot.service_center_id ?? null,
+      rotas: Number(snapshot.rotas_totais ?? 0),
+      rotas_risco: 0,
+      rotas_risco_integral: 0,
+      rotas_risco_parcial: 0,
+      total,
+      pacotes_risco: 0,
+      entregue,
+      em_rota: Number(snapshot.pendentes ?? 0),
+      insucesso: Number(snapshot.com_falhas ?? 0),
+      perc_entrega: Number(snapshot.performance_logistics_max ?? (total > 0 ? 100 * entregue / total : 0)),
+    });
+    codigosAtuais.add(codigo);
+  }
 
   const cards = resultado.cards
     ? {
@@ -539,13 +569,25 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
       .select("id,route_id,cluster,base_id,service_center_id,driver_name,vehicle_license,carrier,data_rota,last_synced_at,rota_area_risco,area_risco_parcial,total_pacotes,delivered_total,pending_total,occurrence_total")
       .eq("data_rota", dataOperacional)
       .or("rota_area_risco.eq.true,area_risco_parcial.eq.true");
-    resultado = aplicarRotasRiscoPersistidas(resultado, (rotasRisco ?? []) as RotaRiscoPersistida[]);
     const { data: snapshots } = await (context.supabase as any)
       .from("meli_monitoramento_snapshots")
-      .select("base_codigo,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max")
+      .select("base_codigo,service_center_id,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max")
       .eq("data_operacional", dataOperacional);
+    const snapshotsTipados = (snapshots ?? []) as MonitoramentoPreservado[];
+    const codigos = [...new Set(snapshotsTipados.map((snapshot) => snapshot.base_codigo.toUpperCase()).filter(Boolean))];
+    const { data: cadastros } = codigos.length
+      ? await (context.supabase as any).from("bases").select("id,codigo,nome").in("codigo", codigos)
+      : { data: [] };
+    const cadastroPorCodigo = new Map<string, CadastroBaseSnapshot>(
+      ((cadastros ?? []) as CadastroBaseSnapshot[]).map((base) => [base.codigo.toUpperCase(), base]),
+    );
+    const snapshotsComCadastro = snapshotsTipados.map((snapshot) => {
+      const cadastro = cadastroPorCodigo.get(snapshot.base_codigo.toUpperCase());
+      return { ...snapshot, base_id: cadastro?.id ?? null, base_nome: cadastro?.nome ?? snapshot.base_codigo };
+    });
 
-    return aplicarMonitoramentoPreservado(resultado, (snapshots ?? []) as MonitoramentoPreservado[]);
+    resultado = aplicarMonitoramentoPreservado(resultado, snapshotsComCadastro as MonitoramentoPreservado[]);
+    return aplicarRotasRiscoPersistidas(resultado, (rotasRisco ?? []) as RotaRiscoPersistida[]);
   });
 
 const pacotesSchema = z.object({
