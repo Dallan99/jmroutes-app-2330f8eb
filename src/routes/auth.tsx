@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import heroImg from "@/assets/jm-hero.png.asset.json";
 import { JM_LOGO_URL } from "@/components/jm-logo";
+import { obterUsuarioValidado } from "@/lib/auth-session";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -100,7 +101,7 @@ function AuthPage() {
 
         // A sessão local é apenas um ponto de partida. O usuário precisa ser
         // confirmado pelo Supabase antes de permitir qualquer navegação.
-        const { data: usuario, error } = await supabase.auth.getUser();
+        const { data: usuario, error } = await obterUsuarioValidado();
         if (error || !usuario.user) {
           await supabase.auth.signOut({ scope: "local" });
           return;
@@ -155,7 +156,7 @@ function AuthPage() {
 
       // A resposta do login precisa ser confirmada pelo Supabase antes da navegação.
       // Nenhum valor persistido localmente é usado como confirmação de acesso.
-      const { data: usuario, error: erroValidacao } = await supabase.auth.getUser();
+      const { data: usuario, error: erroValidacao } = await obterUsuarioValidado();
       if (erroValidacao || !usuario.user || usuario.user.id !== data.user.id) {
         await supabase.auth.signOut({ scope: "local" });
         return toast.error("Não foi possível realizar o login. Verifique e-mail, senha e conexão.");
