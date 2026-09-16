@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarMonitoramentoPreservado, aplicarRotasRiscoPersistidas, type MeliDashboardResult } from "../src/lib/meli-dashboard.functions";
+import { aplicarMonitoramentoPreservado, aplicarRotasRiscoPersistidas, temDadosDashboard, type MeliDashboardResult } from "../src/lib/meli-dashboard.functions";
 
 describe("Dashboard Meli — maior leitura do dia", () => {
   it("não deixa uma base nem os cartões consolidados regredirem", () => {
@@ -88,5 +88,32 @@ describe("Dashboard Meli — maior leitura do dia", () => {
     expect(resultado.bases?.[0]).toMatchObject({ rotas_risco: 1, rotas_risco_integral: 1 });
     expect(resultado.rotas?.[0]).toMatchObject({ nome_operacional: "H2_AM1", rota_area_risco: true, total: 18 });
     expect(resultado.area_risco).toMatchObject({ rotas: 1, integrais: 1, pacotes: 18 });
+  });
+
+  it("identifica quando o dashboard possui dados operacionais válidos", () => {
+    expect(temDadosDashboard({ status: "ok", bases: [] })).toBe(false);
+    expect(
+      temDadosDashboard({
+        status: "ok",
+        bases: [
+          {
+            base_id: "base-1",
+            base_codigo: "SSP45",
+            base_nome: "Itaquera",
+            service_center: "SSP45",
+            rotas: 1,
+            rotas_risco: 0,
+            rotas_risco_integral: 0,
+            rotas_risco_parcial: 0,
+            total: 25,
+            pacotes_risco: 0,
+            entregue: 0,
+            em_rota: 25,
+            insucesso: 0,
+            perc_entrega: 0,
+          },
+        ],
+      }),
+    ).toBe(true);
   });
 });
