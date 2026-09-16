@@ -38,6 +38,26 @@ export function obterServiceCentersDaBase(base: Pick<BaseJm, "serviceCenterId" |
   return [...new Set([base.serviceCenterId, ...(base.serviceCenterIds ?? [])].map((id) => id.trim()).filter(Boolean))];
 }
 
+export function parseMonitoringConcurrency(raw?: string | null): number {
+  if (!raw) return 3;
+  const trimmed = raw.trim();
+  if (!trimmed) return 3;
+  const num = Number(trimmed);
+  if (Number.isInteger(num) && num >= 1 && num <= 3) {
+    return num;
+  }
+  return 3;
+}
+
+export function monitoringConcurrency(
+  envOrValue: Record<string, string | undefined> | string | undefined = process.env,
+): number {
+  if (typeof envOrValue === "string" || envOrValue === undefined) {
+    return parseMonitoringConcurrency(envOrValue);
+  }
+  return parseMonitoringConcurrency(envOrValue["MONITORING_CONCURRENCY"]);
+}
+
 export const PILOTO = { BASE_CODE: "ESP16", SERVICE_CENTER_ID: "SSP15", SITE_ID: "MLB", NOME: "Guarujá" } as const;
 export const ADMINML = {
   HOST: "envios.adminml.com",
@@ -82,6 +102,7 @@ export type WorkerConfig = {
    */
   discoveryOnly: boolean;
   discoveryBaseCode: string | null;
+  monitoringConcurrency: number;
 };
 
 export class ConfigError extends Error {}
@@ -163,6 +184,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     protocoloLotes,
     discoveryOnly,
     discoveryBaseCode,
+    monitoringConcurrency: parseMonitoringConcurrency(env["MONITORING_CONCURRENCY"]),
   };
 }
 
