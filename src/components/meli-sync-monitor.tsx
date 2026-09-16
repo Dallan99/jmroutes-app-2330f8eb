@@ -30,7 +30,9 @@ export function minutosDesde(iso: string | null | undefined, serverTime: string 
   const ref = serverTime ? new Date(serverTime).getTime() : Date.now();
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return null;
-  return Math.max(0, Math.floor((ref - t) / MIN));
+  const diff = ref - t;
+  if (diff < 0) return 0;
+  return Math.floor(diff / MIN);
 }
 
 export function situacaoDaBase(b: MeliSyncBase, serverTime: string | null | undefined): SituacaoSync {
@@ -67,8 +69,11 @@ export function situacaoGeral(bases: MeliSyncBase[], serverTime: string | null |
 
 export function textoAtraso(min: number | null, situacao: SituacaoSync, status?: string | null) {
   if (min === null) return "Sem informação de sincronização";
-  const quando = min <= 0 ? "há menos de 1 min" : `há ${min} min`;
-  
+  if (min <= 0) return "Atualizado agora";
+  if (min === 1) return "Atualizado há 1 min";
+  if (min > 1440) return "Sem sincronização hoje";
+
+  const quando = `há ${min} min`;
   const statusLower = (status ?? "").toLowerCase();
   const isParcial = statusLower === "sucesso_parcial" || statusLower === "divergencia_totais";
 

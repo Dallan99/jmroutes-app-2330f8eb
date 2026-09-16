@@ -31,6 +31,34 @@ function nf(n: number | null | undefined) {
   return typeof n === "number" ? n.toLocaleString("pt-BR") : "—";
 }
 
+function obterMelhorSync(
+  codigo: string | null | undefined,
+  syncPorCodigo?: Map<
+    string,
+    {
+      situacao: SituacaoSync;
+      minutos: number | null;
+      status?: string | null;
+      sincronizando?: boolean;
+    }
+  >,
+  syncSnapshotPorCodigo?: Map<
+    string,
+    { situacao: SituacaoSync; minutos: number | null; status: string }
+  >,
+) {
+  if (!codigo) return undefined;
+  const s1 = syncPorCodigo?.get(codigo);
+  const s2 = syncSnapshotPorCodigo?.get(codigo);
+  if (!s1) return s2;
+  if (!s2) return s1;
+
+  if (s1.minutos !== null && s2.minutos !== null) {
+    return s1.minutos <= s2.minutos ? s1 : s2;
+  }
+  return s1.minutos !== null ? s1 : s2;
+}
+
 /**
  * Visão direta e imediata da operação: progresso por base + indicadores de entrega.
  */
@@ -121,20 +149,21 @@ export function DashboardGeral({
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                SLA geral da empresa no dia
+                SLA Geral da Operação no Dia
               </p>
               <p className="mt-1 font-display text-4xl font-bold tabular-nums text-primary">
                 {d.sla_geral.percentual.toFixed(2)}%
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Nota ponderada pelo volume de pacotes de todas as operações Meli.
+                Progresso: {nf(d.sla_geral.entregues_total)} de {nf(d.sla_geral.pacotes_total)} pacotes entregues.
               </p>
             </div>
-            <div className="grid min-w-[280px] flex-1 grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-2xl">
+            <div className="grid min-w-[280px] flex-1 grid-cols-2 gap-3 sm:grid-cols-5 lg:max-w-3xl">
               <MiniStat label="Bases" value={nf(d.sla_geral.bases_total)} />
               <MiniStat label="Rotas" value={nf(d.sla_geral.rotas_total)} />
-              <MiniStat label="Pacotes" value={nf(d.sla_geral.pacotes_total)} />
+              <MiniStat label="Total Pacotes" value={nf(d.sla_geral.pacotes_total)} />
               <MiniStat label="Entregues" value={nf(d.sla_geral.entregues_total)} className="text-success" />
+              <MiniStat label="Falta entregar" value={nf(d.sla_geral.pendentes_total)} className="text-warning" />
             </div>
           </div>
         </Card>
@@ -250,11 +279,11 @@ export function DashboardGeral({
                 </div>
                 <div className="mt-2">
                   {(() => {
-                    // O cartão é alimentado pelo snapshot leve; sua data deve
-                    // prevalecer sobre a telemetria antiga da importação completa.
-                    const s =
-                      syncSnapshotPorCodigo.get(b.base_codigo ?? "") ??
-                      syncPorCodigo?.get(b.base_codigo ?? "");
+                    const s = obterMelhorSync(
+                      b.base_codigo,
+                      syncPorCodigo,
+                      syncSnapshotPorCodigo,
+                    );
                     return (
                       <div className="flex flex-wrap items-center gap-2">
                         <SyncBaseIndicador

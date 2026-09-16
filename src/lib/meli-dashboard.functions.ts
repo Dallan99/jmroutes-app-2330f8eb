@@ -375,7 +375,7 @@ async function anexarSlaGeral(
   resultado: MeliDashboardResult,
   dataOperacional: string,
 ): Promise<MeliDashboardResult> {
-  const { data, error } = await client
+  const { data } = await client
     .from("meli_sla_diario")
     .select(
       "bases_total,rotas_total,pacotes_total,entregues_total,pendentes_total,insucessos_total,sla_geral,ultima_coleta,updated_at",
@@ -383,19 +383,44 @@ async function anexarSlaGeral(
     .eq("data_operacional", dataOperacional)
     .maybeSingle();
 
-  if (error || !data) return resultado;
+  const bases = resultado.bases ?? [];
+  const pacotesTotal = Math.max(
+    Number(data?.pacotes_total ?? 0),
+    resultado.cards?.total ?? bases.reduce((s, b) => s + b.total, 0),
+  );
+  const entreguesTotal = Math.max(
+    Number(data?.entregues_total ?? 0),
+    resultado.cards?.entregue ?? bases.reduce((s, b) => s + b.entregue, 0),
+  );
+  const rotasTotal = Math.max(
+    Number(data?.rotas_total ?? 0),
+    resultado.cards?.rotas ?? bases.reduce((s, b) => s + b.rotas, 0),
+  );
+  const basesTotal = Math.max(Number(data?.bases_total ?? 0), bases.length);
+  const insucessosTotal = Math.max(
+    Number(data?.insucessos_total ?? 0),
+    resultado.cards?.insucesso ?? bases.reduce((s, b) => s + b.insucesso, 0),
+  );
+  const pendentesTotal = Math.max(0, pacotesTotal - entreguesTotal);
+  const percentual =
+    pacotesTotal > 0
+      ? (entreguesTotal / pacotesTotal) * 100
+      : Number(data?.sla_geral ?? 0);
+
+  if (pacotesTotal === 0 && !data) return resultado;
+
   return {
     ...resultado,
     sla_geral: {
-      bases_total: Number(data.bases_total ?? 0),
-      rotas_total: Number(data.rotas_total ?? 0),
-      pacotes_total: Number(data.pacotes_total ?? 0),
-      entregues_total: Number(data.entregues_total ?? 0),
-      pendentes_total: Number(data.pendentes_total ?? 0),
-      insucessos_total: Number(data.insucessos_total ?? 0),
-      percentual: Number(data.sla_geral ?? 0),
-      ultima_coleta: data.ultima_coleta ?? null,
-      updated_at: data.updated_at,
+      bases_total: basesTotal,
+      rotas_total: rotasTotal,
+      pacotes_total: pacotesTotal,
+      entregues_total: entreguesTotal,
+      pendentes_total: pendentesTotal,
+      insucessos_total: insucessosTotal,
+      percentual: Math.round(percentual * 100) / 100,
+      ultima_coleta: data?.ultima_coleta ?? resultado.ultima_sincronizacao ?? null,
+      updated_at: data?.updated_at ?? new Date().toISOString(),
     },
   };
 }
