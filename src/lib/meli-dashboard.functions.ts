@@ -151,6 +151,12 @@ type RpcClient = {
   ) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
+export function temDadosDashboard(resultado: MeliDashboardResult | null | undefined): boolean {
+  if (!resultado || resultado.status !== "ok") return false;
+  if ((resultado.cards?.total ?? 0) > 0 || (resultado.cards?.rotas ?? 0) > 0) return true;
+  return (resultado.bases ?? []).some((base) => (base.total ?? 0) > 0 || (base.rotas ?? 0) > 0);
+}
+
 async function carregarUltimoSnapshotMultibase(
   client: any,
   dataLimite: string,
@@ -161,6 +167,7 @@ async function carregarUltimoSnapshotMultibase(
       "base_codigo,data_operacional,service_center_id,rotas_totais,rotas_em_andamento,pacotes,pendentes,com_falhas,bem_sucedidos,coletado_em,performance_logistics_max",
     )
     .lte("data_operacional", dataLimite)
+    .or("pacotes.gt.0,rotas_totais.gt.0")
     .order("data_operacional", { ascending: false })
     .order("coletado_em", { ascending: false })
     .limit(100);
@@ -678,25 +685,32 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
         p_risco: data.risco ?? null,
       },
     );
-    if (error) {
-      if (semFiltroDeDetalhe) {
-        const fallback = await carregarUltimoSnapshotMultibase(
+    let resultado = res as MeliDashboardResult | undefined;
+
+    if (
+      semFiltroDeDetalhe &&
+      (error || !resultado || resultado.status !== "ok" || !temDadosDashboard(resultado))
+    ) {
+      const fallback = await carregarUltimoSnapshotMultibase(
+        context.supabase as any,
+        dataSolicitada,
+      );
+      if (fallback) {
+        return anexarSlaGeral(
           context.supabase as any,
-          dataSolicitada,
+          fallback,
+          fallback.data_operacional ?? dataSolicitada,
         );
-        if (fallback) {
-          return anexarSlaGeral(
-            context.supabase as any,
-            fallback,
-            fallback.data_operacional ?? dataSolicitada,
-          );
-        }
       }
+    }
+
+    if (error) {
       return { status: "erro", erro: error.message };
     }
 
-    let resultado = res as MeliDashboardResult;
-    if (!semFiltroDeDetalhe || resultado.status !== "ok") return resultado;
+    if (!resultado || !semFiltroDeDetalhe || resultado.status !== "ok") {
+      return resultado ?? { status: "erro", erro: "Resposta vazia da RPC." };
+    }
 
     const dataOperacional = data.data ?? resultado.data_operacional;
     if (!dataOperacional) return resultado;
