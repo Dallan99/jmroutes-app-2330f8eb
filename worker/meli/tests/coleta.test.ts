@@ -11,7 +11,7 @@ import { filtrarRotasDaUnidade } from "../src/pipeline/cycle";
 import { obterDetalheRota } from "../src/meli/detail";
 import { CircuitBreaker } from "../src/state/breaker";
 import { novoEstadoIncremental, registrarColeta, selecionarRotas } from "../src/meli/active-filter";
-import { resumirMonitoramento } from "../src/meli/monitoring-summary";
+import { resumirMonitoramento, type MonitoramentoResumo } from "../src/meli/monitoring-summary";
 
 const semDormir = async () => undefined;
 
@@ -155,6 +155,30 @@ describe("resumo do Monitoramento Last Mile", () => {
     expect(resumirMonitoramento(rotas, "SSP20", "SSP20", "2026-09-08T12:00:00.000Z")).toMatchObject({
       base_codigo: "SSP20", rotas_totais: 1, pacotes: 50, bem_sucedidos: 50,
     });
+  });
+
+  it("considera resumo com rotas_totais 0 e pacotes 0 inválido para persistência", () => {
+    const resumoVazio: MonitoramentoResumo = {
+      base_codigo: "ESP15",
+      facility_id: "ESP15",
+      service_center_id: "SSP20",
+      rotas_totais: 0,
+      rotas_entrega: 0,
+      rotas_coleta: 0,
+      rotas_mistas: 0,
+      rotas_em_andamento: 0,
+      pacotes: 0,
+      sacas: 0,
+      pendentes: 0,
+      com_falhas: 0,
+      bem_sucedidos: 0,
+      coletado_em: "2026-09-08T12:00:00.000Z",
+    };
+
+    const ehValidoParaPersistencia = (resumo: MonitoramentoResumo) =>
+      !(resumo.rotas_totais === 0 && resumo.pacotes === 0);
+
+    expect(ehValidoParaPersistencia(resumoVazio)).toBe(false);
   });
 });
 
