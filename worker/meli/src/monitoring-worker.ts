@@ -31,7 +31,12 @@ async function main() {
         const lista = await listarRotas(sessao.transport, { serviceCenterId, siteId: "MLB" });
         if (!lista.ok) { logger.warn("Leitura agregada não concluída.", { serviceCenterId, motivo: lista.motivo }); await sleep(5_000); continue; }
         for (const base of bases) {
-          const resultado = await enviarMonitoramento(cfg, accessToken, resumirMonitoramento(lista.valor.rotas, base.baseCode, serviceCenterId));
+          const resumo = resumirMonitoramento(lista.valor.rotas, base.baseCode, serviceCenterId);
+          if (resumo.rotas_totais === 0 && resumo.pacotes === 0) {
+            logger.info("Snapshot vazio ignorado.", { base: base.baseCode });
+            continue;
+          }
+          const resultado = await enviarMonitoramento(cfg, accessToken, resumo);
           if (resultado.status === "sem_sessao") jmr = null;
           logger.info("Snapshot do Dashboard Geral processado.", { base: base.baseCode, status: resultado.status });
         }
