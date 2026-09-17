@@ -1,58 +1,67 @@
-# Diagnóstico — Painel Operacional parado (16–17/09/2026)
+# Análise arquitetural — tirar o coletor Meli do notebook Windows
 
-## Resumo da causa (já confirmada)
-A sessão do coletor no portal do Mercado Livre (AdminML) venceu e passou a ser redirecionada para a tela de login (`sessao_expirada_redirecionada`). O coletor continua rodando a cada ~5 minutos, mas não lê nenhuma rota, então não envia snapshot algum. Nada foi rejeitado pelo banco; a proteção contra snapshot vazio não bloqueou nada.
+Somente análise. Nada foi alterado em código, banco ou publicação.
 
-- Última execução (tentativa): 17/09 01:39 UTC — ainda ativa.
-- Última execução bem-sucedida: 16/09 20:42 UTC.
-- Últimas gravações: ESP15 20:45, SSP20 20:45, SSP3 20:45, SSP38 20:45; ESP16/ESP17/ESP18 e demais 20:43–20:44; SSP37 já estava parada desde 15:51.
-- Antes da queda: 44 ciclos com limite de requisições, 3 com sessão expirada e 2 com o circuito pausado — a sessão vinha sendo derrubada por excesso de chamadas.
+## 1. O que hoje amarra o coletor ao notebook
 
-## 1) Quem mantém a sessão AdminML
-Não é o site JMRoutes nem o Supabase. É o **coletor instalado na máquina Windows da operação** (pasta `worker/meli`), que roda em duas janelas separadas:
+Dependências reais do Windows (todas fora do código de negócio):
+- `worker/meli/windows/*.cmd` e `*.ps1`: caminho fixo `C:\Program Files\nodejs\node.exe`, laços `timeout /t ... goto loop` como "reinício automático", `icacls`, gravação de `.env.local` e leitura do `.env` do projeto.
+- `CONFIGURAR-COLETOR.cmd` / `setup-local.ps1`: cria as configurações e já executa o login do Mercado Livre.
+- Início automático via tarefa do Windows (`instalar-inicio-automatico.ps1`).
+- Logs em arquivos locais (`logs/worker-*.log`), sem coleta central.
+- Arquivo de sessão do Mercado Livre em `worker/meli/data/adminml-session.enc`, só naquela máquina.
 
-- `windows/run-worker-base.cmd` — um processo por base (coleta de rotas/pacotes).
-- `windows/run-dashboard-geral.cmd` — processo do Painel Operacional, configurado para **ESP15, ESP16, ESP17 e ESP18** — exatamente as bases do print. É esse processo que alimenta `meli_monitoramento_snapshots`.
+O código do coletor em si (`src/`) **já é multiplataforma**: usa Node + Playwright/Chromium, caminhos vindos de variáveis, e há Dockerfile e `fly.toml` prontos (imagem oficial do Playwright, volume `/data`, uma máquina sem escala a zero). Não há Puppeteer.
 
-A sessão é um navegador Chromium controlado pelo coletor, usando cookies salvos localmente e cifrados no arquivo `data/adminml-session.enc` (chave `WORKER_SESSION_KEY` em `.env.local`). O arquivo nunca vai para o Supabase nem para o site.
+Processos hoje: um por base (`run-worker-base.cmd`) mais um do Painel Operacional (`run-dashboard-geral.cmd`, bases ESP15–ESP18). Todos compartilham o mesmo arquivo de sessão do Mercado Livre e o mesmo login técnico do JMRoutes (com trava de arquivo no token de renovação). Comunicação: HTTPS para o JMRoutes (`/api/public/meli/...`) com token do usuário técnico e para o Supabase apenas via chave pública — nunca chave de serviço.
 
-## 2) Arquivos e funções
-- `worker/meli/src/session/login.ts` — `autenticarManualmente` (abre navegador visível para o operador fazer login + MFA) e `autenticarManualmenteCoordenado` (evita dois processos abrindo login ao mesmo tempo).
-- `worker/meli/scripts/auth.ts` — script chamado por `npm run auth`, grava a sessão cifrada.
-- `worker/meli/src/session/store.ts` — `salvarSessao` / `carregarSessao` (AES‑256‑GCM).
-- `worker/meli/src/pipeline/auth.ts` — `abrirSessaoAdminML` (usa a sessão salva) e a parte JMRoutes/Supabase (`garantirSessaoJmroutes`, e-mail/senha do usuário técnico + refresh token em `data/jmr-session.enc`).
-- `worker/meli/windows/setup-local.ps1` (`CONFIGURAR-COLETOR.cmd`) — configura `.env.local` e já executa o login do AdminML no final.
-- `worker/meli/src/telemetry/report.ts` — grava a telemetria em `meli_worker_execucoes`.
+## 2. Viabilidade de container Linux 24/7 na nuvem
 
-## 3) Onde a expiração é detectada
-- `pipeline/auth.ts` linhas 95–105: após abrir `envios.adminml.com/logistics/monitoring`, compara o domínio final; se mudou (redirecionado ao login), devolve `aguardando_autenticacao` com motivo `sessao_expirada_redirecionada` — é exatamente o que aparece no banco.
-- `meli/list.ts` e `meli/risk.ts` sinalizam `sessao_expirada` em 401/403, o que abre o circuito.
+Tecnicamente viável e já 80% preparado: container Linux com Chromium sem interface, volume persistente para a sessão cifrada, reinício automático pelo provedor. O que **não** é resolvido por infraestrutura:
 
-## 4) Procedimento previsto hoje para reautenticar
-- No coletor de rotas (`src/index.ts`, linhas 129–147 e 240–253) existe **recuperação assistida**: ao detectar sessão inválida, ele tenta abrir o navegador visível e espera até 10 minutos o operador logar.
-- **Ponto importante:** o processo do Painel Operacional (`src/monitoring-worker.ts`, linha 25) **não** tem essa recuperação — ele apenas registra o aviso e espera 5 minutos, repetindo indefinidamente. Ou seja, sem alguém refazer o login na máquina, o Painel nunca volta sozinho.
-- Procedimento documentado: rodar o login manual na máquina do coletor (`CONFIGURAR-COLETOR.cmd`, ou `npm run auth` na pasta `worker/meli`), concluir login e MFA no navegador que abrir, e reiniciar as duas janelas do coletor.
+- **Bloqueio de IP (risco número 1, já observado):** em teste anterior no Fly.io (IP dedicado, região São Paulo) o portal do Mercado Livre respondeu 403 para todas as chamadas. O bloqueio é por faixa de datacenter, não por IP específico. Sem contornar isso, migrar para nuvem pública derruba a coleta por completo. Alternativas: saída de rede residencial/empresarial (proxy da própria empresa ou proxy residencial contratado), ou hospedar o container num servidor dentro da rede da empresa (mini PC/servidor local Linux 24/7) — que já elimina a dependência do notebook sem trocar a faixa de IP.
+- **Login com MFA:** o login exige pessoa + segundo fator. Em container isso só funciona com navegador visível acessível remotamente (Chromium com display virtual + acesso remoto tipo noVNC) — o que precisa ser construído, hoje não existe. Enquanto o Mercado Livre não fornecer API/token oficial para esses dados, a reautenticação humana eventual é inevitável.
 
-## 5) Dá para renovar pela interface do JMRoutes?
-Não. Exige acesso à máquina/navegador do coletor: o login pede senha e MFA do Mercado Livre, e a sessão fica somente naquele computador. O site JMRoutes não tem (e por segurança não deveria ter) tela para isso.
+Conclusão honesta: dá para ficar **100% automático no dia a dia** (execução, reinício, atualização, logs, telemetria); **não dá para ficar 100% automático na renovação de sessão** sem API oficial.
 
-## 6) Como confirmar que voltou
-1. Na máquina do coletor, a janela do Painel Operacional deve passar a registrar "Snapshot do Dashboard Geral processado" (arquivo `logs/worker-DASHBOARD-GERAL.log`).
-2. No JMRoutes, o "desatualizado há X min" das bases ESP15–ESP18 deve cair para poucos minutos em até ~2 ciclos (2–5 min).
-3. Verificação técnica: a última execução em `meli_worker_execucoes` volta a `sucesso` com sessão `ok`, e a data de coleta mais recente por base em `meli_monitoramento_snapshots` passa a ficar dentro dos últimos minutos.
+## 3. Arquivos a adaptar / que podem ficar
 
-## 7) Reduzir o limite de requisições sem mexer em regra de negócio
-Sim, apenas por configuração no `.env.local`/scripts da máquina do coletor, sem tocar em código, banco ou regras:
-- aumentar `SYNC_INTERVAL_SECONDS` (ex.: 60 → 120/180) no processo do Painel e nos de base;
-- definir `MONITORING_CONCURRENCY=1` (o coletor aceita 1–3; hoje o padrão é 3);
-- escalonar o início dos processos por base (`run-worker-base.cmd` já aceita atraso inicial) para não disparar tudo junto;
-- evitar rodar simultaneamente coletor e sessões manuais do AdminML no mesmo login.
+Precisam de adaptação:
+- `Dockerfile`: hoje só executa o coletor de rotas (`dist/index.js`); precisa também do processo do Painel (`dist/monitoring-worker.js`) e de um supervisor simples de processos por base.
+- Substituir `windows/*.cmd`/`*.ps1` por composição de containers (ou unidades systemd) com política de reinício e atraso escalonado por base.
+- `fly.toml` (ou equivalente): hoje trava numa base só (ESP16, modo teste). Precisa das 15 bases, `DRY_RUN=false` e volume.
+- `src/monitoring-worker.ts`: não tem recuperação de sessão (o de rotas tem); em nuvem, precisa sinalizar claramente "aguardando reconexão".
+- Fluxo de login: novo caminho para reautenticação remota (navegador visível dentro do container com acesso protegido), ou procedimento de subir o arquivo de sessão gerado num computador para o volume.
+- Logs: enviar para a saída padrão/coletor do provedor em vez de arquivos locais.
 
-## Procedimento recomendado (parar aqui, sem executar nada)
-1. Acessar a máquina do coletor e rodar o login do AdminML (`CONFIGURAR-COLETOR.cmd` ou `npm run auth`), concluindo login + MFA.
-2. Reiniciar as janelas do coletor (base e Painel Operacional).
-3. Conferir os três pontos do item 6.
-4. Depois de estabilizar, aplicar os ajustes de ritmo do item 7.
-5. Melhoria opcional futura (requer autorização): dar ao processo do Painel a mesma recuperação assistida do coletor de rotas, e mostrar no Painel um aviso de "coleta aguardando reconexão" para os números antigos não parecerem atuais.
+Podem permanecer sem mudança: `src/config.ts`, `src/session/store.ts`, `src/crypto.ts`, `src/pipeline/*`, `src/meli/*`, `src/telemetry/report.ts`, `scripts/auth.ts`, `src/state/breaker.ts` e toda a ingestão no JMRoutes (endpoints, RPCs, painéis).
 
-Nenhuma alteração foi feita: sem mudanças em código, banco, RPC, coletor, painéis, menu, credenciais ou publicação.
+## 4. Recursos mínimos
+- 1 vCPU compartilhada e **1 GB de memória** por container de coleta (Chromium sem interface, concorrência 1); 2 GB confortável se juntar vários processos no mesmo container.
+- Armazenamento: imagem do Playwright ~2 GB + volume de **1 GB** para sessão e estado.
+- Rede: saída HTTPS estável; se usar proxy, contar a latência extra.
+- Para as 15 bases + Painel num único host: ~2 vCPU e 4 GB é o piso realista, executando as bases em série/escalonadas.
+
+## 5. Riscos e mitigação
+| Risco | Mitigação |
+| --- | --- |
+| 403 por faixa de datacenter | testar antes num container isolado; usar servidor na rede da empresa ou proxy residencial/empresarial |
+| Sessão vence e ninguém percebe | alerta no Painel e aviso automático (e-mail/mensagem) quando a última execução ficar em "aguardando autenticação" |
+| Limite de requisições derruba a sessão | intervalo maior, concorrência 1, início escalonado — só configuração |
+| Perda da chave da sessão | guardar no cofre de segredos; se perder, basta refazer o login |
+| Migração quebrar a coleta atual | rodar nuvem e notebook em paralelo antes de desligar o notebook |
+| Vários processos disputando a mesma sessão | manter a trava de arquivo já existente e volume único |
+
+## 6. Plano de migração em etapas (com rollback)
+1. **Prova de rede (1 dia):** container Linux no candidato (nuvem e/ou servidor local), somente leitura em modo teste, para verificar se o portal responde sem 403. *Rollback: descartar o container.*
+2. **Ambiente e segredos:** criar volume e segredos no destino; nenhuma escrita no JMRoutes ainda. *Rollback: apagar app/volume.*
+3. **Piloto de 1 base + Painel Operacional em paralelo** com o notebook ainda ativo, comparando números por 24–48 h. *Rollback: parar o container; o notebook continua sendo a fonte.*
+4. **Migração das 15 bases** em lotes de 3–4, com início escalonado e monitoramento do limite de requisições. *Rollback por lote: devolver aquelas bases ao notebook.*
+5. **Desligar o notebook** apenas depois de 7 dias estáveis; manter a instalação Windows pronta como plano B por mais 30 dias.
+6. **Automação da reconexão:** navegador visível remoto protegido + alertas, para que a reautenticação leve minutos e possa ser feita de qualquer lugar. *Rollback: procedimento atual de gerar a sessão num computador e enviá-la ao volume.*
+
+## 7. O que fica automático x o que ainda exige pessoa
+- Automático: subir/reiniciar, atualizar versão, coletar as 15 bases, enviar snapshots, telemetria, logs, controle de ritmo e circuito, renovação do login técnico do JMRoutes.
+- Ainda exige pessoa: login + MFA no portal do Mercado Livre quando a sessão vencer (frequência observada: algumas vezes por semana, agravada por excesso de chamadas). Só desaparece com API/token oficial do Mercado Livre — caminho que já existe iniciado no projeto (integração oficial com credenciais de aplicação) e é a única saída para 100% automático.
+
+Nada implementado; aguardando sua decisão sobre o destino (nuvem com proxy x servidor Linux na rede da empresa).
