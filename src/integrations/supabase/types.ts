@@ -2047,6 +2047,45 @@ export type Database = {
           },
         ]
       }
+      meli_sla_diario: {
+        Row: {
+          bases_total: number
+          data_operacional: string
+          entregues_total: number
+          insucessos_total: number
+          pacotes_total: number
+          pendentes_total: number
+          rotas_total: number
+          sla_geral: number
+          ultima_coleta: string | null
+          updated_at: string
+        }
+        Insert: {
+          bases_total?: number
+          data_operacional: string
+          entregues_total?: number
+          insucessos_total?: number
+          pacotes_total?: number
+          pendentes_total?: number
+          rotas_total?: number
+          sla_geral?: number
+          ultima_coleta?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bases_total?: number
+          data_operacional?: string
+          entregues_total?: number
+          insucessos_total?: number
+          pacotes_total?: number
+          pendentes_total?: number
+          rotas_total?: number
+          sla_geral?: number
+          ultima_coleta?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meli_sync_ciclos: {
         Row: {
           ativo: boolean
@@ -3634,6 +3673,10 @@ export type Database = {
           p_worker_versao: string
         }
         Returns: Json
+      }
+      recalcular_meli_sla_diario: {
+        Args: { p_data: string }
+        Returns: undefined
       }
       registrar_evento_transferencia: {
         Args: {
