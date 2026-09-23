@@ -11,6 +11,14 @@ try { $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($passwordPt
 finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($passwordPtr) }
 $passwordBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($password))
 
+Write-Host 'Credenciais do AdminML (o Okta Verify continuara exigindo aprovacao no celular)' -ForegroundColor Cyan
+$adminMlUsername = Read-Host 'Usuario do AdminML'
+$adminMlPasswordSecure = Read-Host 'Senha do AdminML' -AsSecureString
+$adminMlPasswordPtr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($adminMlPasswordSecure)
+try { $adminMlPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($adminMlPasswordPtr) }
+finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($adminMlPasswordPtr) }
+$adminMlPasswordBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($adminMlPassword))
+
 $rootEnv = Join-Path $workerDir '..\..\.env'
 $publicKeyLine = Get-Content $rootEnv | Where-Object { $_ -match '^(VITE_)?SUPABASE_(ANON_KEY|PUBLISHABLE_KEY)=' } | Select-Object -First 1
 if (-not $publicKeyLine) { throw 'Chave publica do Supabase nao encontrada no .env do projeto.' }
@@ -29,6 +37,8 @@ $lines = @(
   "SUPABASE_ANON_KEY=$publicKey"
   "WORKER_EMAIL=$email"
   "WORKER_PASSWORD_BASE64=$passwordBase64"
+  "ADMINML_USERNAME=$adminMlUsername"
+  "ADMINML_PASSWORD_BASE64=$adminMlPasswordBase64"
   "WORKER_SESSION_KEY=$sessionKey"
   "SESSION_FILE_PATH=$sessionPath"
   'BASE_CODES=SSP3,SSP38,ESP15,SSP5,SSP20,ESP17,ESP16,SSP17,ESP18,SSP6,SSP45,SSP15,SSP37,SSP23,SSC2'
