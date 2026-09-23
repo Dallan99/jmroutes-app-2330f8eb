@@ -50,7 +50,7 @@ async function avancarLoginAssistido(
   estado: EstadoLoginAssistido,
 ): Promise<void> {
   const usuario = page
-    .locator('input[name="username"], input#okta-signin-username, input[type="email"], input[autocomplete="username"]')
+    .locator('input[name="identifier"], input[name="username"], input#okta-signin-username, input[type="email"], input[autocomplete="username"]')
     .first();
   if (!estado.usuarioEnviado && await usuario.isVisible().catch(() => false)) {
     await usuario.fill(credenciais.usuario);
