@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $workerDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $runner = Join-Path $PSScriptRoot 'run-worker-base.cmd'
 $dashboardRunner = Join-Path $PSScriptRoot 'run-dashboard-geral.cmd'
+$hiddenRunner = Join-Path $PSScriptRoot 'run-hidden.ps1'
 $taskPrefix = 'JMRoutes Meli Worker'
 
 if (-not (Test-Path (Join-Path $workerDir '.env.local'))) {
@@ -38,8 +39,8 @@ $bases = @(
 
 foreach ($base in $bases) {
   $taskName = "$taskPrefix $($base.Name)"
-  $arguments = "/d /c call `"$runner`" `"$($base.Code)`" $($base.Delay) $($base.Label)"
-  $action = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument $arguments -WorkingDirectory $workerDir
+  $arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$hiddenRunner`" -Mode worker -BaseCodes `"$($base.Code)`" -Delay $($base.Delay) -Label `"$($base.Label)`""
+  $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments -WorkingDirectory $workerDir
   $triggerLogon = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
   # Garante recuperação após suspensão, encerramento inesperado ou perda do processo.
   # Com MultipleInstances=IgnoreNew, esta verificação não cria duplicatas.
@@ -61,11 +62,12 @@ foreach ($base in $bases) {
   Start-ScheduledTask -TaskName $taskName
 }
 
-$dashboardAction = New-ScheduledTaskAction -Execute 'cmd.exe' -Argument "/d /c call `"$dashboardRunner`"" -WorkingDirectory $workerDir
+$dashboardAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$hiddenRunner`" -Mode dashboard" -WorkingDirectory $workerDir
 $dashboardTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$dashboardWatchdog = New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(1)) -RepetitionInterval (New-TimeSpan -Minutes 5)
 $dashboardPrincipal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 $dashboardSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
-Register-ScheduledTask -TaskName "$taskPrefix Dashboard Geral" -Action $dashboardAction -Trigger $dashboardTrigger -Principal $dashboardPrincipal -Settings $dashboardSettings -Force | Out-Null
+Register-ScheduledTask -TaskName "$taskPrefix Dashboard Geral" -Action $dashboardAction -Trigger @($dashboardTrigger, $dashboardWatchdog) -Principal $dashboardPrincipal -Settings $dashboardSettings -Force | Out-Null
 Start-ScheduledTask -TaskName "$taskPrefix Dashboard Geral"
 
 Write-Host 'Início automático instalado: dois workers XPT e um worker leve do Dashboard Geral.' -ForegroundColor Green
