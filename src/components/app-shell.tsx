@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   Smartphone,
   Truck,
+  Activity,
 } from "lucide-react";
 import { JmLogo, JmWordmark } from "@/components/jm-logo";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,7 @@ const NAV_GESTAO: NavItem[] = [
   { title: "Auditoria", to: "/auditoria", icon: ShieldCheck, roles: ["admin"] },
   { title: "Usuários", to: "/usuarios", icon: Users, roles: ["admin"] },
   { title: "Integração Meli", to: "/integracao-meli", icon: PackageSearch, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Monitoramento de Workers", to: "/monitoramento-workers", icon: Activity, roles: ["admin", "supervisor", "gerente"] },
   { title: "Histórico", to: "/historico", icon: History, roles: ["admin", "supervisor", "gerente"] },
   { title: "Área de Risco", to: "/meli-risco", icon: ShieldAlert, roles: ["admin", "supervisor", "gerente"] },
 ];

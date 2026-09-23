@@ -35,6 +35,7 @@ import { Route as AuthenticatedInventarioRouteImport } from './routes/_authentic
 import { Route as AuthenticatedInventarioCentralRouteImport } from './routes/_authenticated/inventario-central'
 import { Route as AuthenticatedMeliDevolucoesRouteImport } from './routes/_authenticated/meli-devolucoes'
 import { Route as AuthenticatedMeliRiscoRouteImport } from './routes/_authenticated/meli-risco'
+import { Route as AuthenticatedMonitoramentoWorkersRouteImport } from './routes/_authenticated/monitoramento-workers'
 import { Route as AuthenticatedMotoristaRouteImport } from './routes/_authenticated/motorista'
 import { Route as AuthenticatedMotoristasRouteImport } from './routes/_authenticated/motoristas'
 import { Route as AuthenticatedPainelOperacionalRouteImport } from './routes/_authenticated/painel-operacional'
@@ -192,6 +193,12 @@ const AuthenticatedMeliRiscoRoute = AuthenticatedMeliRiscoRouteImport.update({
   path: '/meli-risco',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMonitoramentoWorkersRoute =
+  AuthenticatedMonitoramentoWorkersRouteImport.update({
+    id: '/monitoramento-workers',
+    path: '/monitoramento-workers',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMotoristaRoute = AuthenticatedMotoristaRouteImport.update({
   id: '/motorista',
   path: '/motorista',
@@ -329,6 +336,7 @@ export interface FileRoutesByFullPath {
   '/inventario-central': typeof AuthenticatedInventarioCentralRoute
   '/meli-devolucoes': typeof AuthenticatedMeliDevolucoesRoute
   '/meli-risco': typeof AuthenticatedMeliRiscoRoute
+  '/monitoramento-workers': typeof AuthenticatedMonitoramentoWorkersRoute
   '/motorista': typeof AuthenticatedMotoristaRoute
   '/motoristas': typeof AuthenticatedMotoristasRoute
   '/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
@@ -376,6 +384,7 @@ export interface FileRoutesByTo {
   '/inventario-central': typeof AuthenticatedInventarioCentralRoute
   '/meli-devolucoes': typeof AuthenticatedMeliDevolucoesRoute
   '/meli-risco': typeof AuthenticatedMeliRiscoRoute
+  '/monitoramento-workers': typeof AuthenticatedMonitoramentoWorkersRoute
   '/motorista': typeof AuthenticatedMotoristaRoute
   '/motoristas': typeof AuthenticatedMotoristasRoute
   '/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
@@ -425,6 +434,7 @@ export interface FileRoutesById {
   '/_authenticated/inventario-central': typeof AuthenticatedInventarioCentralRoute
   '/_authenticated/meli-devolucoes': typeof AuthenticatedMeliDevolucoesRoute
   '/_authenticated/meli-risco': typeof AuthenticatedMeliRiscoRoute
+  '/_authenticated/monitoramento-workers': typeof AuthenticatedMonitoramentoWorkersRoute
   '/_authenticated/motorista': typeof AuthenticatedMotoristaRoute
   '/_authenticated/motoristas': typeof AuthenticatedMotoristasRoute
   '/_authenticated/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | '/inventario-central'
     | '/meli-devolucoes'
     | '/meli-risco'
+    | '/monitoramento-workers'
     | '/motorista'
     | '/motoristas'
     | '/painel-operacional'
@@ -521,6 +532,7 @@ export interface FileRouteTypes {
     | '/inventario-central'
     | '/meli-devolucoes'
     | '/meli-risco'
+    | '/monitoramento-workers'
     | '/motorista'
     | '/motoristas'
     | '/painel-operacional'
@@ -569,6 +581,7 @@ export interface FileRouteTypes {
     | '/_authenticated/inventario-central'
     | '/_authenticated/meli-devolucoes'
     | '/_authenticated/meli-risco'
+    | '/_authenticated/monitoramento-workers'
     | '/_authenticated/motorista'
     | '/_authenticated/motoristas'
     | '/_authenticated/painel-operacional'
@@ -796,6 +809,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMeliRiscoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/monitoramento-workers': {
+      id: '/_authenticated/monitoramento-workers'
+      path: '/monitoramento-workers'
+      fullPath: '/monitoramento-workers'
+      preLoaderRoute: typeof AuthenticatedMonitoramentoWorkersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/motorista': {
       id: '/_authenticated/motorista'
       path: '/motorista'
@@ -957,6 +977,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInventarioCentralRoute: typeof AuthenticatedInventarioCentralRoute
   AuthenticatedMeliDevolucoesRoute: typeof AuthenticatedMeliDevolucoesRoute
   AuthenticatedMeliRiscoRoute: typeof AuthenticatedMeliRiscoRoute
+  AuthenticatedMonitoramentoWorkersRoute: typeof AuthenticatedMonitoramentoWorkersRoute
   AuthenticatedMotoristaRoute: typeof AuthenticatedMotoristaRoute
   AuthenticatedMotoristasRoute: typeof AuthenticatedMotoristasRoute
   AuthenticatedPainelOperacionalRoute: typeof AuthenticatedPainelOperacionalRoute
@@ -985,6 +1006,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInventarioCentralRoute: AuthenticatedInventarioCentralRoute,
   AuthenticatedMeliDevolucoesRoute: AuthenticatedMeliDevolucoesRoute,
   AuthenticatedMeliRiscoRoute: AuthenticatedMeliRiscoRoute,
+  AuthenticatedMonitoramentoWorkersRoute:
+    AuthenticatedMonitoramentoWorkersRoute,
   AuthenticatedMotoristaRoute: AuthenticatedMotoristaRoute,
   AuthenticatedMotoristasRoute: AuthenticatedMotoristasRoute,
   AuthenticatedPainelOperacionalRoute: AuthenticatedPainelOperacionalRoute,
