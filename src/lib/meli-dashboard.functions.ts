@@ -375,6 +375,7 @@ type MonitoramentoPreservado = {
   com_falhas: number;
   bem_sucedidos: number;
   performance_logistics_max: number | null;
+  coletado_em?: string | null;
 };
 
 async function anexarSlaGeral(
@@ -522,7 +523,44 @@ export function aplicarMonitoramentoPreservado(
         ]
       : motivosAtuais;
 
-  return { ...resultado, bases, cards, motivos_insucesso };
+  const sincronizacaoPorCodigo = new Map(
+    (resultado.sincronizacao_por_base ?? [])
+      .filter((item) => item.base_codigo)
+      .map((item) => [item.base_codigo!.toUpperCase(), item]),
+  );
+  for (const snapshot of snapshots) {
+    if (!snapshot.coletado_em) continue;
+    const codigo = snapshot.base_codigo.toUpperCase();
+    const atual = sincronizacaoPorCodigo.get(codigo);
+    sincronizacaoPorCodigo.set(codigo, {
+      base_id: snapshot.base_id ?? atual?.base_id ?? null,
+      base_codigo: snapshot.base_codigo,
+      last_synced_at: snapshot.coletado_em,
+    });
+  }
+  const snapshotAt = snapshots.reduce<string | null>(
+    (maisRecente, snapshot) =>
+      snapshot.coletado_em && (!maisRecente || snapshot.coletado_em > maisRecente)
+        ? snapshot.coletado_em
+        : maisRecente,
+    null,
+  );
+
+  return {
+    ...resultado,
+    bases,
+    cards,
+    motivos_insucesso,
+    sincronizacao_por_base: [...sincronizacaoPorCodigo.values()],
+    snapshot_at:
+      snapshotAt && (!resultado.snapshot_at || snapshotAt > resultado.snapshot_at)
+        ? snapshotAt
+        : resultado.snapshot_at,
+    ultima_sincronizacao:
+      snapshotAt && (!resultado.ultima_sincronizacao || snapshotAt > resultado.ultima_sincronizacao)
+        ? snapshotAt
+        : resultado.ultima_sincronizacao,
+  };
 }
 
 type RotaRiscoPersistida = {
@@ -724,7 +762,7 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
     const { data: snapshots } = await (context.supabase as any)
       .from("meli_monitoramento_snapshots")
       .select(
-        "base_codigo,service_center_id,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max",
+        "base_codigo,service_center_id,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max,coletado_em",
       )
       .eq("data_operacional", dataOperacional);
     const snapshotsTipados = (snapshots ?? []) as MonitoramentoPreservado[];
