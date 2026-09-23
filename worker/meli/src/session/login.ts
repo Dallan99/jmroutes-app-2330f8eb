@@ -61,7 +61,8 @@ async function avancarLoginAssistido(
   const senha = page.locator('input[type="password"], input[name="password"]').first();
   if (!estado.senhaEnviada && await senha.isVisible().catch(() => false)) {
     await senha.fill(credenciais.senha);
-    estado.senhaEnviada = await clicarPrimeiroVisivel(page, [/^Entrar$/i, /^Sign in$/i, /^Verify$/i, /^Próximo$/i, /^Next$/i]);
+    await senha.press("Enter");
+    estado.senhaEnviada = true;
     return;
   }
 
