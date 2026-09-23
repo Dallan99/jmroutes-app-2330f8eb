@@ -1,5 +1,12 @@
 import type { RotaLista } from "./list.js";
 
+const BASES_SOMENTE_AM = new Set(["ESP15", "ESP16", "ESP17", "ESP18"]);
+
+function rotaEhPM(rota: RotaLista): boolean {
+  const alvo = `${rota.routeName ?? ""} ${rota.routeId}`.toUpperCase();
+  return /(^|[^A-Z0-9])PM[0-9]*([^A-Z0-9]|$)/.test(alvo);
+}
+
 export type MonitoramentoResumo = {
   base_codigo: string;
   facility_id: string;
@@ -15,6 +22,8 @@ export type MonitoramentoResumo = {
   com_falhas: number;
   bem_sucedidos: number;
   coletado_em: string;
+  /** Versão semântica usada para substituir snapshots antigos que incluíam PM. */
+  escopo_rotas?: "AM";
 };
 
 export function resumirMonitoramento(
@@ -24,7 +33,11 @@ export function resumirMonitoramento(
   coletadoEm = new Date().toISOString(),
 ): MonitoramentoResumo {
   const codigo = baseCode.trim().toUpperCase();
-  const filtradas = rotas.filter((rota) => rota.facilityId?.trim().toUpperCase() === codigo);
+  const filtradas = rotas.filter(
+    (rota) =>
+      rota.facilityId?.trim().toUpperCase() === codigo &&
+      !(BASES_SOMENTE_AM.has(codigo) && rotaEhPM(rota)),
+  );
   const resumo: MonitoramentoResumo = {
     base_codigo: codigo,
     facility_id: codigo,
@@ -40,6 +53,7 @@ export function resumirMonitoramento(
     com_falhas: 0,
     bem_sucedidos: 0,
     coletado_em: coletadoEm,
+    ...(BASES_SOMENTE_AM.has(codigo) ? { escopo_rotas: "AM" as const } : {}),
   };
   for (const rota of filtradas) {
     if (rota.isDeliveryPickupRoute) resumo.rotas_mistas += 1;

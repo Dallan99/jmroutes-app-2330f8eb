@@ -161,13 +161,16 @@ function ExpedicaoPage() {
       </Card>
 
       {!rotaSelecionada ? (
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-2.5">
           {(rotas.data ?? []).map((item) => (
-            <Card key={item.rota} className="p-4 space-y-3">
+            <Card key={item.rota} className="p-3 space-y-2.5">
               <div className="flex justify-between gap-3">
-                <div>
+                <div className="min-w-0">
                   <div className="text-xs text-muted-foreground">Rota</div>
-                  <b className="font-mono text-xl">{item.rota}</b>
+                  <b className="block truncate font-mono text-xl leading-tight">{item.rotaCodigo}</b>
+                  {item.rotaCodigo !== item.rota && (
+                    <span className="block font-mono text-xs text-muted-foreground">#{item.rota}</span>
+                  )}
                 </div>
                 <Badge variant={item.pronta ? (item.expedicao ? "secondary" : "default") : "outline"}>
                   {item.expedicao?.status ?? (item.pronta ? "Pronta" : "Aguardando Recebimento")}
@@ -190,7 +193,7 @@ function ExpedicaoPage() {
                 </div>
               </div>
               <Button
-                className="w-full"
+                className="h-9 w-full"
                 disabled={!item.pronta}
                 onClick={() => {
                   setRotaSelecionada(item.rota);

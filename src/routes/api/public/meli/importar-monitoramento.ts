@@ -11,6 +11,7 @@ const schema = z.object({
   rotas_mistas: contador, rotas_em_andamento: contador, pacotes: contador,
   sacas: contador, pendentes: contador, com_falhas: contador, bem_sucedidos: contador,
   coletado_em: z.string().datetime(),
+  escopo_rotas: z.enum(["AM"]).optional(),
 }).refine((v) => v.base_codigo === v.facility_id, { message: "facility_divergente" })
   .refine((v) => v.rotas_totais > 0 || v.pacotes > 0, {
     message: "snapshot_vazio",

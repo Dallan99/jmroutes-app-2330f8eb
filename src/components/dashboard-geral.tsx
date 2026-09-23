@@ -10,7 +10,7 @@ import {
   type MeliDashboardRota,
   type MeliDashboardPmProgramada,
 } from "@/lib/meli-dashboard.functions";
-import { avisoPmProgramadas } from "@/lib/meli-pm";
+import { avisoPmProgramadas, BASES_SOMENTE_AM, rotaEhPM } from "@/lib/meli-pm";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -372,8 +372,13 @@ function BaseDetalheDialog({
     queryFn: () => fetchBase({ data: { data, base_id: base!.id } }),
     enabled: !!base?.id,
   });
-  const rotasDetalhadas =
+  const rotasDetalhadasBrutas =
     detalhesQuery.data?.status === "ok" ? (detalhesQuery.data.rotas ?? []) : rotas;
+  const rotasDetalhadas = useMemo(() => {
+    const codigo = (base?.codigo ?? "").trim().toUpperCase();
+    if (!BASES_SOMENTE_AM.has(codigo)) return rotasDetalhadasBrutas;
+    return rotasDetalhadasBrutas.filter((rota) => !rotaEhPM(rota.cluster, rota.route_id));
+  }, [base?.codigo, rotasDetalhadasBrutas]);
 
   const pacotesQuery = useQuery({
     queryKey: ["dashboard-geral-pacotes", rotaSel?.rota_id],
@@ -442,9 +447,9 @@ function BaseDetalheDialog({
         }
       }}
     >
-      <DialogContent className="max-w-5xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="flex max-h-[94vh] w-[min(96vw,1120px)] max-w-none flex-col gap-3 overflow-hidden p-4">
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-base">
             {rotaSel && (
               <Button variant="ghost" size="sm" onClick={() => setRotaSel(null)}>
                 <ChevronLeft className="w-4 h-4 mr-1" /> Rotas
@@ -457,7 +462,7 @@ function BaseDetalheDialog({
 
         {!rotaSel ? (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+            <div className="grid grid-cols-2 gap-1.5 md:grid-cols-5">
               <MiniBox
                 label="Rotas"
                 value={nf(rotasDetalhadas.length)}
@@ -568,18 +573,18 @@ function BaseDetalheDialog({
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-muted-foreground" />
               <Input
-                className="pl-8"
+                className="h-8 pl-8 text-xs"
                 placeholder="Filtrar por rota, motorista ou placa..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
               />
             </div>
 
-            <ScrollArea className="h-[52vh]">
-              <table className="w-full text-sm">
+            <ScrollArea className="h-[48vh]">
+              <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-card">
                   <tr className="text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                    <th className="py-2 pr-2">Rota</th>
+                    <th className="py-1.5 pr-2">Rota</th>
                     <th className="py-2 pr-2">Motorista</th>
                     <th className="py-2 pr-2">Placa</th>
                     <th className="py-2 pr-2 text-right">Pacotes</th>
@@ -614,7 +619,7 @@ function BaseDetalheDialog({
                         setRotaSel(r);
                       }}
                     >
-                      <td className="py-2 pr-2 font-medium">
+                      <td className="py-1.5 pr-2 font-medium">
                         {r.nome_operacional}
                         {r.rota_area_risco && (
                           <Badge variant="destructive" className="ml-2 text-[10px]">
@@ -732,7 +737,7 @@ function BaseDetalheDialog({
                 </Button>
               )}
             </div>
-            <ScrollArea className="h-[52vh]">
+            <ScrollArea className="h-[48vh]">
               {pacotesQuery.isLoading ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   Carregando pacotes...

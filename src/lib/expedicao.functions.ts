@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { normalizarCodigoTriagem } from "./triagem-domain";
+import { nomeOperacionalRota } from "./meli-status";
 
 const baseDiaSchema = z.object({
   baseId: z.string().uuid(),
@@ -65,7 +66,10 @@ type LinhaEscala = {
 };
 
 export type RotaExpedicao = {
+  /** Chave técnica usada nas operações da Expedição. */
   rota: string;
+  /** Código operacional amigável (ex.: VR3_AM1). */
+  rotaCodigo: string;
   previstos: number;
   recebidos: number;
   faltantesRecebimento: number;
@@ -120,7 +124,7 @@ export const listarRotasExpedicao = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     if (!importacao) return [];
 
-    const [linhas, expedicoes, conclusoes] = await Promise.all([
+    const [linhas, expedicoes, conclusoes, rotasMeli] = await Promise.all([
       carregarEscalas(supabase, importacao.id),
       supabase
         .from("expedicoes")
@@ -134,8 +138,21 @@ export const listarRotasExpedicao = createServerFn({ method: "GET" })
           .eq("acao", "triagem.rota_concluida_ressalva")
           .eq("entidade_id", importacao.id);
       })(),
+      supabase
+        .from("meli_rotas")
+        .select("route_id,cluster")
+        .eq("base_id", data.baseId)
+        .eq("data_rota", data.dataOperacional),
     ]);
     if (expedicoes.error) throw new Error(expedicoes.error.message);
+    if (rotasMeli.error) throw new Error(rotasMeli.error.message);
+
+    const codigoPorRouteId = new Map(
+      (rotasMeli.data ?? []).map((rota) => [
+        String(rota.route_id).trim(),
+        nomeOperacionalRota({ cluster: rota.cluster, route_id: rota.route_id }),
+      ]),
+    );
 
     const porRota = new Map<string, { previstos: number; recebidos: number }>();
     for (const linha of linhas) {
@@ -159,6 +176,7 @@ export const listarRotasExpedicao = createServerFn({ method: "GET" })
         const expedicao = expedicaoPorRota.get(rota);
         return {
           rota,
+          rotaCodigo: codigoPorRouteId.get(rota) ?? rota,
           previstos: contagem.previstos,
           recebidos: contagem.recebidos,
           faltantesRecebimento: Math.max(contagem.previstos - contagem.recebidos, 0),

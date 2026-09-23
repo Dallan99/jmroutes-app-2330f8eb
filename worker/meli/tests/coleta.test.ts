@@ -157,6 +157,23 @@ describe("resumo do Monitoramento Last Mile", () => {
     });
   });
 
+  it("considera somente rotas AM nas quatro bases XPT", () => {
+    for (const base of ["ESP15", "ESP16", "ESP17", "ESP18"]) {
+      const resumo = resumirMonitoramento([
+        { routeId: "445035431", routeName: "VR3_AM1", facilityId: base, counters: { total: 99, delivered: 10, notDelivered: 1, pending: 88, totalBags: 0 } },
+        { routeId: "445035432", routeName: "N1_PM1", facilityId: base, counters: { total: 50, delivered: 50, notDelivered: 0, pending: 0, totalBags: 0 } },
+      ], base, "SSP20");
+      expect(resumo).toMatchObject({ rotas_totais: 1, pacotes: 99, bem_sucedidos: 10 });
+    }
+  });
+
+  it("não remove PM de bases que não são XPT", () => {
+    const resumo = resumirMonitoramento([
+      { routeId: "1", routeName: "N1_PM1", facilityId: "SSP20", counters: { total: 50, delivered: 0, notDelivered: 0, pending: 50, totalBags: 0 } },
+    ], "SSP20", "SSP20");
+    expect(resumo).toMatchObject({ rotas_totais: 1, pacotes: 50 });
+  });
+
   it("considera resumo com rotas_totais 0 e pacotes 0 inválido para persistência", () => {
     const resumoVazio: MonitoramentoResumo = {
       base_codigo: "ESP15",

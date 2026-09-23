@@ -105,6 +105,8 @@ export async function executarComRetry(
 
 export type RotaLista = {
   routeId: string;
+  /** Nome operacional exibido pelo AdminML (ex.: VR3_AM1). */
+  routeName?: string | null;
   status?: string | null;
   substatus?: string | null;
   facilityId?: string | null;
@@ -154,6 +156,16 @@ export function extrairRotasDaLista(body: unknown): RotaLista[] {
         vistos.add(key);
         encontrados.push({
           routeId: key,
+          routeName:
+            typeof obj["routeName"] === "string"
+              ? obj["routeName"]
+              : typeof obj["route_name"] === "string"
+                ? obj["route_name"]
+                : typeof obj["name"] === "string"
+                  ? obj["name"]
+                  : typeof obj["cluster"] === "string"
+                    ? obj["cluster"]
+                    : null,
           status: typeof obj["status"] === "string" ? (obj["status"] as string) : null,
           substatus: typeof obj["substatus"] === "string" ? (obj["substatus"] as string) : null,
           facilityId:

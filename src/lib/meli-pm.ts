@@ -1,15 +1,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Regra ÚNICA das rotas PM (ESP16) nos indicadores.
+// Regra ÚNICA das rotas PM nas bases XPT.
 // Espelha exatamente as funções SQL:
 //   public.meli_rota_pm(nome, route_id)
 //   public.meli_rota_estado_operacional(rota_id)
 //   public.meli_rota_pm_excluida(rota_id)
 //
-// Precedência obrigatória: o estado real da operação tem prioridade sobre o
-// marcador _PM.
-//   _PM + não iniciada  → fora dos indicadores de hoje (programada p/ amanhã)
-//   _PM + em andamento  → entra na conta de hoje
-//   _PM + finalizada    → entra na conta de hoje
+// O painel operacional das XPTs exibe somente a janela AM. Toda rota marcada
+// como PM fica fora dos totais e detalhes do dia, independentemente do estado.
 // Nenhuma tela deve reimplementar essa regra.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -17,8 +14,8 @@ import type { SituacaoMeli } from "./meli-status";
 
 export type EstadoOperacionalRota = "nao_iniciada" | "em_andamento" | "finalizada";
 
-/** Base piloto onde a regra PM se aplica. */
-export const BASE_REGRA_PM = "ESP16";
+/** Bases XPT cujo painel operacional representa exclusivamente a janela AM. */
+export const BASES_SOMENTE_AM = new Set(["ESP15", "ESP16", "ESP17", "ESP18"]);
 
 const SUB_NAO_INICIADA = new Set([
   "on_way_destination_facility",
@@ -89,7 +86,7 @@ export function estadoOperacionalRota(input: {
 
 /**
  * Regra central de exclusão dos indicadores do dia.
- * Só exclui PM da ESP16 enquanto NÃO iniciada.
+ * Exclui toda rota PM das quatro bases XPT que operam no painel AM.
  */
 export function pmExcluidaDosIndicadores(input: {
   base_codigo?: string | null;
@@ -106,10 +103,7 @@ export function pmExcluidaDosIndicadores(input: {
   cancelado?: number;
 }): boolean {
   const base = (input.base_codigo ?? "").trim().toUpperCase();
-  if (base !== BASE_REGRA_PM) return false;
-  if (!rotaEhPM(input.cluster, input.route_id)) return false;
-  const estado = input.estado ?? estadoOperacionalRota(input);
-  return estado === "nao_iniciada";
+  return BASES_SOMENTE_AM.has(base) && rotaEhPM(input.cluster, input.route_id);
 }
 
 /** Texto único do aviso exibido nos cartões de base. */
