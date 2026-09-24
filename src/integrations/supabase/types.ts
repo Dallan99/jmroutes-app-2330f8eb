@@ -1478,6 +1478,7 @@ export type Database = {
           com_falhas: number | null
           created_at: string
           data_operacional: string
+          escopo_rotas: string | null
           facility_id: string
           id: string
           pacotes: number | null
@@ -1505,6 +1506,7 @@ export type Database = {
           com_falhas?: number | null
           created_at?: string
           data_operacional: string
+          escopo_rotas?: string | null
           facility_id: string
           id?: string
           pacotes?: number | null
@@ -1532,6 +1534,7 @@ export type Database = {
           com_falhas?: number | null
           created_at?: string
           data_operacional?: string
+          escopo_rotas?: string | null
           facility_id?: string
           id?: string
           pacotes?: number | null
