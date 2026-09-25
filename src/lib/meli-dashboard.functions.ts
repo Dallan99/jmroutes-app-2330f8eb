@@ -173,20 +173,10 @@ async function carregarUltimoSnapshotMultibase(
     .limit(100);
   if (error || !leituras?.length) return null;
 
-  // Se o dia solicitado ainda não tem uma leitura válida, usa o último dia
-  // completo disponível. Nunca mistura dias diferentes no mesmo painel.
-  const dia = String(leituras[0].data_operacional);
-  // A consulta já vem da leitura mais recente para a mais antiga. Manter apenas
-  // a primeira por código evita cartões duplicados mesmo em bancos onde a
-  // restrição única ainda não tenha sido aplicada.
-  const snapshotPorBase = new Map<string, any>();
-  for (const linha of leituras.filter((item: any) => String(item.data_operacional) === dia)) {
-    const codigo = String(linha.base_codigo ?? "")
-      .trim()
-      .toUpperCase();
-    if (codigo && !snapshotPorBase.has(codigo)) snapshotPorBase.set(codigo, linha);
-  }
-  const snapshots = [...snapshotPorBase.values()];
+  // Cada base pode parar em um instante diferente. Preserva a leitura mais
+  // recente de cada uma em vez de transformar um ciclo parcial no estado total.
+  const dia = dataLimite;
+  const snapshots = selecionarUltimoSnapshotPorBase(leituras);
   const codigos = snapshots.map((linha: any) => linha.base_codigo);
   const { data: unidades } = await client
     .from("meli_unidades_operacionais")
@@ -366,6 +356,7 @@ async function carregarUltimoSnapshotMultibase(
 
 type MonitoramentoPreservado = {
   base_codigo: string;
+  data_operacional?: string | null;
   base_id?: string | null;
   base_nome?: string | null;
   service_center_id?: string | null;
@@ -377,6 +368,18 @@ type MonitoramentoPreservado = {
   performance_logistics_max: number | null;
   coletado_em?: string | null;
 };
+
+/** A consulta vem em ordem decrescente; mantém a primeira leitura de cada base. */
+export function selecionarUltimoSnapshotPorBase<T extends { base_codigo: string }>(
+  snapshots: T[],
+): T[] {
+  const porCodigo = new Map<string, T>();
+  for (const snapshot of snapshots) {
+    const codigo = String(snapshot.base_codigo ?? "").trim().toUpperCase();
+    if (codigo && !porCodigo.has(codigo)) porCodigo.set(codigo, snapshot);
+  }
+  return [...porCodigo.values()];
+}
 
 async function anexarSlaGeral(
   client: any,
@@ -453,6 +456,13 @@ export function aplicarMonitoramentoPreservado(
   const bases = (resultado.bases ?? []).map((base) => {
     const snapshot = porCodigo.get((base.base_codigo ?? "").toUpperCase());
     if (!snapshot) return base;
+    if (
+      snapshot.data_operacional &&
+      resultado.data_operacional &&
+      snapshot.data_operacional !== resultado.data_operacional
+    ) {
+      return base;
+    }
     return {
       ...base,
       rotas: maior(base.rotas, snapshot.rotas_totais),
@@ -762,10 +772,16 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
     const { data: snapshots } = await (context.supabase as any)
       .from("meli_monitoramento_snapshots")
       .select(
-        "base_codigo,service_center_id,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max,coletado_em",
+        "base_codigo,data_operacional,service_center_id,rotas_totais,pacotes,pendentes,com_falhas,bem_sucedidos,performance_logistics_max,coletado_em",
       )
-      .eq("data_operacional", dataOperacional);
-    const snapshotsTipados = (snapshots ?? []) as MonitoramentoPreservado[];
+      .lte("data_operacional", dataOperacional)
+      .or("pacotes.gt.0,rotas_totais.gt.0")
+      .order("data_operacional", { ascending: false })
+      .order("coletado_em", { ascending: false })
+      .limit(500);
+    const snapshotsTipados = selecionarUltimoSnapshotPorBase(
+      (snapshots ?? []) as MonitoramentoPreservado[],
+    );
     const codigos = [
       ...new Set(
         snapshotsTipados.map((snapshot) => snapshot.base_codigo.toUpperCase()).filter(Boolean),

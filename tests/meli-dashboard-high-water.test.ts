@@ -1,7 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { aplicarMonitoramentoPreservado, aplicarRotasRiscoPersistidas, temDadosDashboard, type MeliDashboardResult } from "../src/lib/meli-dashboard.functions";
+import { aplicarMonitoramentoPreservado, aplicarRotasRiscoPersistidas, selecionarUltimoSnapshotPorBase, temDadosDashboard, type MeliDashboardResult } from "../src/lib/meli-dashboard.functions";
 
 describe("Dashboard Meli — maior leitura do dia", () => {
+  it("mantém a leitura mais recente de cada base quando o último ciclo foi parcial", () => {
+    const resultado = selecionarUltimoSnapshotPorBase([
+      { base_codigo: "SSP3", data_operacional: "2026-09-25", pacotes: 10 },
+      { base_codigo: "SSP38", data_operacional: "2026-09-25", pacotes: 20 },
+      { base_codigo: "SSP3", data_operacional: "2026-09-24", pacotes: 9 },
+      { base_codigo: "ESP15", data_operacional: "2026-09-24", pacotes: 30 },
+    ]);
+
+    expect(resultado).toEqual([
+      { base_codigo: "SSP3", data_operacional: "2026-09-25", pacotes: 10 },
+      { base_codigo: "SSP38", data_operacional: "2026-09-25", pacotes: 20 },
+      { base_codigo: "ESP15", data_operacional: "2026-09-24", pacotes: 30 },
+    ]);
+  });
+
   it("não deixa uma base nem os cartões consolidados regredirem", () => {
     const atual: MeliDashboardResult = {
       status: "ok",
