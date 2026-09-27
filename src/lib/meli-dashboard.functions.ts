@@ -477,6 +477,13 @@ export function aplicarMonitoramentoPreservado(
   for (const snapshot of snapshots) {
     const codigo = snapshot.base_codigo.trim().toUpperCase();
     if (!codigo || codigosAtuais.has(codigo)) continue;
+    if (
+      snapshot.data_operacional &&
+      resultado.data_operacional &&
+      snapshot.data_operacional !== resultado.data_operacional
+    ) {
+      continue;
+    }
     const total = Number(snapshot.pacotes ?? 0);
     const entregue = Number(snapshot.bem_sucedidos ?? 0);
     bases.push({
