@@ -3394,6 +3394,34 @@ export type Database = {
         Args: { p_base_id: string; p_data: string }
         Returns: string
       }
+      gerencial_produtividade_agregada: {
+        Args: { p_inicio_mes: string }
+        Returns: {
+          dia: string
+          erros: number
+          nome: string
+          ok: number
+          operador_id: string
+          rotas: number
+          tempo_qtd: number
+          tempo_soma: number
+          total: number
+        }[]
+      }
+      gerencial_resumo_bases: {
+        Args: { p_fim: string; p_inicio: string }
+        Returns: {
+          base_id: string
+          codigo: string
+          contagens: number
+          devolucoes: number
+          inventario: number
+          nome: string
+          recebimentos: number
+          transferencias: number
+          triados: number
+        }[]
+      }
       gerencial_rotas_por_base: {
         Args: { p_importacao_ids: string[] }
         Returns: {
