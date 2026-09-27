@@ -180,32 +180,32 @@ export const gerencialData = createServerFn({ method: "POST" })
     const inicioMes = inicioPeriodo("30d");
 
     type Rec = {
-      created_at: string;
-      resultado: string;
-      tempo_desde_ultima_ms: number | null;
+      dia: string;
       operador_id: string | null;
-      rota_id: string | null;
+      nome: string | null;
+      total: number;
+      ok: number;
+      erros: number;
+      rotas: number;
+      tempo_soma: number;
+      tempo_qtd: number;
     };
-    const all = await buscarPaginado<Rec>(
-      (inicio, fim) =>
-        supabase
-          .from("recebimentos")
-          .select("created_at, resultado, tempo_desde_ultima_ms, operador_id, rota_id")
-          .gte("created_at", inicioMes.toISOString())
-          .order("created_at", { ascending: false })
-          .range(inicio, fim) as any,
+    const { data: rpcRows, error: rpcErro } = await (supabase as any).rpc(
+      "gerencial_produtividade_agregada",
+      { p_inicio_mes: inicioMes.toISOString() },
     );
-    const periodoRows = all.filter((r) => new Date(r.created_at) >= desde);
-
-    const operadorIds = Array.from(
-      new Set(all.map((r) => r.operador_id).filter(Boolean)),
-    ) as string[];
-    const { data: profs } = operadorIds.length
-      ? await supabase.from("profiles").select("id, nome, email").in("id", operadorIds)
-      : { data: [] as { id: string; nome: string; email: string }[] };
-    const perfilMap = new Map((profs ?? []).map((p) => [p.id, p.nome ?? p.email ?? "—"] as const));
-
-    const OK = new Set(["ok", "primeira_leitura", "concluiu_rota"]);
+    if (rpcErro) throw new Error(rpcErro.message);
+    const all = ((rpcRows ?? []) as Rec[]).map((r) => ({
+      ...r,
+      total: Number(r.total ?? 0),
+      ok: Number(r.ok ?? 0),
+      erros: Number(r.erros ?? 0),
+      rotas: Number(r.rotas ?? 0),
+      tempo_soma: Number(r.tempo_soma ?? 0),
+      tempo_qtd: Number(r.tempo_qtd ?? 0),
+    }));
+    const desdeDia = desde.toISOString().slice(0, 10);
+    const periodoRows = all.filter((r) => r.dia >= desdeDia);
 
     // Agrupamento por operador no período
     const grupos = new Map<string, Rec[]>();
@@ -217,48 +217,45 @@ export const gerencialData = createServerFn({ method: "POST" })
     }
 
     const porOperador: OperadorProd[] = Array.from(grupos.entries()).map(([id, arr]) => {
-      const ok = arr.filter((r) => OK.has(r.resultado)).length;
-      const total = arr.length;
-      const erros = total - ok;
-      const rotas = new Set(arr.map((r) => r.rota_id).filter(Boolean)).size;
-      const tempos = arr
-        .map((r) => r.tempo_desde_ultima_ms)
-        .filter((v): v is number => typeof v === "number" && v > 0 && v < 300000);
-      const tempoMedio = tempos.length ? tempos.reduce((a, b) => a + b, 0) / tempos.length : null;
+      const total = arr.reduce((s, r) => s + r.total, 0);
+      const ok = arr.reduce((s, r) => s + r.ok, 0);
+      const erros = arr.reduce((s, r) => s + r.erros, 0);
+      const rotas = arr.reduce((s, r) => s + r.rotas, 0);
+      const tempoSoma = arr.reduce((s, r) => s + r.tempo_soma, 0);
+      const tempoQtd = arr.reduce((s, r) => s + r.tempo_qtd, 0);
       return {
         operador_id: id,
-        nome: perfilMap.get(id) ?? "—",
+        nome: arr.find((r) => r.nome)?.nome ?? "—",
         total_leituras: total,
         ok,
         erros,
         rotas_atendidas: rotas,
-        tempo_medio_ms: tempoMedio,
+        tempo_medio_ms: tempoQtd ? tempoSoma / tempoQtd : null,
         taxa_acerto: total ? (ok / total) * 100 : 0,
       };
     });
     porOperador.sort((a, b) => b.total_leituras - a.total_leituras);
 
     const totais = {
-      total_leituras: periodoRows.length,
-      ok: periodoRows.filter((r) => OK.has(r.resultado)).length,
-      erros: periodoRows.filter((r) => !OK.has(r.resultado)).length,
+      total_leituras: periodoRows.reduce((s, r) => s + r.total, 0),
+      ok: periodoRows.reduce((s, r) => s + r.ok, 0),
+      erros: periodoRows.reduce((s, r) => s + r.erros, 0),
       operadores_ativos: porOperador.length,
       tempo_medio_ms: (() => {
-        const t = periodoRows
-          .map((r) => r.tempo_desde_ultima_ms)
-          .filter((v): v is number => typeof v === "number" && v > 0 && v < 300000);
-        return t.length ? t.reduce((a, b) => a + b, 0) / t.length : null;
+        const soma = periodoRows.reduce((s, r) => s + r.tempo_soma, 0);
+        const qtd = periodoRows.reduce((s, r) => s + r.tempo_qtd, 0);
+        return qtd ? soma / qtd : null;
       })(),
     };
 
     // Série por dia
     const porDiaMap = new Map<string, { total: number; ok: number; erros: number }>();
     for (const r of periodoRows) {
-      const dia = r.created_at.slice(0, 10);
+      const dia = r.dia;
       const cur = porDiaMap.get(dia) ?? { total: 0, ok: 0, erros: 0 };
-      cur.total++;
-      if (OK.has(r.resultado)) cur.ok++;
-      else cur.erros++;
+      cur.total += r.total;
+      cur.ok += r.ok;
+      cur.erros += r.erros;
       porDiaMap.set(dia, cur);
     }
     const porDia = Array.from(porDiaMap.entries())
@@ -266,9 +263,10 @@ export const gerencialData = createServerFn({ method: "POST" })
       .sort((a, b) => a.dia.localeCompare(b.dia));
 
     // Comparativo hoje / semana / mês por operador (top 10)
-    const contar = (rows: Rec[], id: string) => rows.filter((r) => r.operador_id === id).length;
-    const rowsHoje = all.filter((r) => new Date(r.created_at) >= inicioHoje);
-    const rowsSem = all.filter((r) => new Date(r.created_at) >= inicioSemana);
+    const contar = (rows: Rec[], id: string) =>
+      rows.filter((r) => r.operador_id === id).reduce((s, r) => s + r.total, 0);
+    const rowsHoje = all.filter((r) => r.dia >= inicioHoje.toISOString().slice(0, 10));
+    const rowsSem = all.filter((r) => r.dia >= inicioSemana.toISOString().slice(0, 10));
     const rowsMes = all;
     const comparativo = porOperador.slice(0, 10).map((op) => ({
       operador: op.nome,
@@ -747,15 +745,6 @@ export const resumoOperacionalPorBase = createServerFn({ method: "POST" })
       fim = inicio;
     }
 
-    const iniISO = `${inicio}T00:00:00.000Z`;
-    const fimISO = `${fim}T23:59:59.999Z`;
-
-    const { data: bases, error: basesErr } = await supabase
-      .from("bases")
-      .select("id, codigo, nome")
-      .order("codigo");
-    if (basesErr) throw new Error(basesErr.message);
-
     const zeroRow = () => ({
       triados: 0,
       recebimentos: 0,
@@ -764,94 +753,22 @@ export const resumoOperacionalPorBase = createServerFn({ method: "POST" })
       transferencias: 0,
       contagens: 0,
     });
-    const map = new Map<string, ReturnType<typeof zeroRow>>();
-    for (const b of bases ?? []) map.set(b.id, zeroRow());
+    const { data: rpcRows, error: rpcErro } = await (supabase as any).rpc(
+      "gerencial_resumo_bases",
+      { p_inicio: inicio, p_fim: fim },
+    );
+    if (rpcErro) throw new Error(rpcErro.message);
 
-    const OK = new Set(["ok", "primeira_leitura", "concluiu_rota"]);
-
-    const [recebimentos, devolucoes, inventario, transferencias, contagens] = await Promise.all([
-      buscarPaginado<any>(
-        (inicioPagina, fimPagina) =>
-          supabase
-            .from("recebimentos")
-            .select("base_id, resultado, data_operacional")
-            .gte("data_operacional", inicio)
-            .lte("data_operacional", fim)
-            .range(inicioPagina, fimPagina) as any,
-      ),
-      buscarPaginado<any>(
-        (inicioPagina, fimPagina) =>
-          supabase
-            .from("devolucoes")
-            .select("base_id, devolvido_em, cancelado")
-            .gte("devolvido_em", iniISO)
-            .lte("devolvido_em", fimISO)
-            .range(inicioPagina, fimPagina) as any,
-      ),
-      buscarPaginado<any>(
-        (inicioPagina, fimPagina) =>
-          supabase
-            .from("inventario_leituras")
-            .select("base_id, dia_operacional")
-            .gte("dia_operacional", inicio)
-            .lte("dia_operacional", fim)
-            .range(inicioPagina, fimPagina) as any,
-      ),
-      buscarPaginado<any>(
-        (inicioPagina, fimPagina) =>
-          supabase
-            .from("transferencias")
-            .select("base_id, data_operacional, status")
-            .gte("data_operacional", inicio)
-            .lte("data_operacional", fim)
-            .range(inicioPagina, fimPagina) as any,
-      ),
-      buscarPaginado<any>(
-        (inicioPagina, fimPagina) =>
-          supabase
-            .from("contagens")
-            .select("base_id, data_operacional")
-            .gte("data_operacional", inicio)
-            .lte("data_operacional", fim)
-            .range(inicioPagina, fimPagina) as any,
-      ),
-    ]);
-
-    for (const r of recebimentos as Array<{ base_id: string | null; resultado: string }>) {
-      if (!r.base_id) continue;
-      const cur = map.get(r.base_id);
-      if (!cur) continue;
-      cur.recebimentos++;
-      if (OK.has(r.resultado)) cur.triados++;
-    }
-    for (const d of devolucoes as Array<{ base_id: string | null; cancelado: boolean | null }>) {
-      if (!d.base_id || d.cancelado) continue;
-      const cur = map.get(d.base_id);
-      if (cur) cur.devolucoes++;
-    }
-    for (const r of inventario as Array<{ base_id: string | null }>) {
-      if (!r.base_id) continue;
-      const cur = map.get(r.base_id);
-      if (cur) cur.inventario++;
-    }
-    for (const r of transferencias as Array<{ base_id: string | null; status: string | null }>) {
-      if (!r.base_id) continue;
-      // Não conta transferências canceladas.
-      if (r.status === "cancelada") continue;
-      const cur = map.get(r.base_id);
-      if (cur) cur.transferencias++;
-    }
-    for (const r of contagens as Array<{ base_id: string | null }>) {
-      if (!r.base_id) continue;
-      const cur = map.get(r.base_id);
-      if (cur) cur.contagens++;
-    }
-
-    const rows: ResumoBaseRow[] = (bases ?? []).map((b) => ({
-      base_id: b.id,
-      codigo: b.codigo,
-      nome: b.nome,
-      ...(map.get(b.id) ?? zeroRow()),
+    const rows: ResumoBaseRow[] = ((rpcRows ?? []) as any[]).map((r) => ({
+      base_id: r.base_id,
+      codigo: r.codigo,
+      nome: r.nome,
+      triados: Number(r.triados ?? 0),
+      recebimentos: Number(r.recebimentos ?? 0),
+      devolucoes: Number(r.devolucoes ?? 0),
+      inventario: Number(r.inventario ?? 0),
+      transferencias: Number(r.transferencias ?? 0),
+      contagens: Number(r.contagens ?? 0),
     }));
 
     const totais = rows.reduce(
