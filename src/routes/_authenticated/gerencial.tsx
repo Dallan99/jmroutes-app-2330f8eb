@@ -14,8 +14,8 @@ import {
   type TransferenciasGerencialData,
   type MetricaResumo,
 } from "@/lib/gerencial.functions";
+import { meliResumoGerencial } from "@/lib/gerencial-meli.functions";
 import {
-  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
