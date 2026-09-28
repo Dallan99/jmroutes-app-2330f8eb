@@ -14,6 +14,7 @@ import {
   type TransferenciasGerencialData,
   type MetricaResumo,
 } from "@/lib/gerencial.functions";
+import { MeliEntregasPanel } from "@/components/gerencial-meli-panel";
 import {
   Dialog,
   DialogContent,
@@ -129,6 +130,8 @@ function GerencialPage() {
           </div>
         </div>
       </div>
+
+      <MeliEntregasPanel periodo={periodo} />
 
       <ResumoPorBasePanel periodo={periodo} />
 
