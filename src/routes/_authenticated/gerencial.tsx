@@ -1,3 +1,4 @@
+import { meliResumoGerencial } from "@/lib/gerencial-meli.functions";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -190,7 +191,7 @@ function GerencialPage() {
               ))}
               {!slaQuery.isLoading && !slaQuery.data?.length && (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-muted-foreground">
+                  <td colSpan={11} className="py-6 text-center text-muted-foreground">
                     Sem histórico Meli no período.
                   </td>
                 </tr>
@@ -894,6 +895,13 @@ function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
     refetchInterval: 30_000,
   });
 
+  const meliFn = useServerFn(meliResumoGerencial);
+  const mq = useQuery({
+    queryKey: ["gerencial-meli", periodo],
+    queryFn: () => meliFn({ data: { periodo } }),
+    refetchInterval: 120_000,
+  });
+  const meliPorBase = new Map((mq.data?.bases ?? []).map((m) => [m.base_codigo, m]));
   const bases = q.data?.bases ?? [];
   const totais = q.data?.totais;
   const baseAtiva = baseSel === "todas" ? null : bases.find((b) => b.base_id === baseSel);
@@ -1026,6 +1034,19 @@ function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
             </div>
           );
         })()}
+        {(() => {
+          const m = baseAtiva ? meliPorBase.get(baseAtiva.codigo) : mq.data?.totais;
+          const f = (n?: number) => (n ?? 0).toLocaleString("pt-BR");
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-3">
+              <Kpi label="Rotas (Meli)" value={f(m?.rotas)} icon={Truck} />
+              <Kpi label="Pacotes (Meli)" value={f(m?.pacotes)} icon={Package} accent="info" />
+              <Kpi label="Entregues (Meli)" value={f(m?.entregues)} icon={PackageCheck} accent="success" />
+              <Kpi label="Insucessos (Meli)" value={f(m?.insucessos)} icon={RotateCcw} accent="destructive" />
+              <Kpi label="% entrega (Meli)" value={`${(m?.perc_entrega ?? 0).toFixed(1)}%`} icon={Activity} />
+            </div>
+          );
+        })()}
       </div>
 
       <div className="overflow-x-auto -mx-4 px-4">
@@ -1039,6 +1060,10 @@ function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
               <th className="py-2 pr-3 text-right">Transferências</th>
               <th className="py-2 pr-3 text-right">Inventário</th>
               <th className="py-2 pr-3 text-right">Contagens</th>
+              <th className="py-2 pr-3 text-right">Pacotes Meli</th>
+              <th className="py-2 pr-3 text-right">Entregues Meli</th>
+              <th className="py-2 pr-3 text-right">Insucessos Meli</th>
+              <th className="py-2 pr-3 text-right">% entrega</th>
             </tr>
           </thead>
           <tbody>
@@ -1072,6 +1097,17 @@ function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
                   {cell("transferencias", b.transferencias)}
                   {cell("inventario", b.inventario)}
                   {cell("contagens", b.contagens)}
+                  {(() => {
+                    const m = meliPorBase.get(b.codigo);
+                    return (
+                      <>
+                        <td className="py-2 pr-3 text-right font-mono">{(m?.pacotes ?? 0).toLocaleString("pt-BR")}</td>
+                        <td className="py-2 pr-3 text-right font-mono text-success">{(m?.entregues ?? 0).toLocaleString("pt-BR")}</td>
+                        <td className="py-2 pr-3 text-right font-mono text-destructive">{(m?.insucessos ?? 0).toLocaleString("pt-BR")}</td>
+                        <td className="py-2 pr-3 text-right font-mono font-semibold">{m ? `${m.perc_entrega.toFixed(1)}%` : "—"}</td>
+                      </>
+                    );
+                  })()}
                 </tr>
               );
             })}
@@ -1096,11 +1132,15 @@ function ResumoPorBasePanel({ periodo }: { periodo: Periodo }) {
                 <td className="py-2 pr-3 text-right font-mono">
                   {totais.contagens.toLocaleString("pt-BR")}
                 </td>
+                <td className="py-2 pr-3 text-right font-mono">{(mq.data?.totais.pacotes ?? 0).toLocaleString("pt-BR")}</td>
+                <td className="py-2 pr-3 text-right font-mono text-success">{(mq.data?.totais.entregues ?? 0).toLocaleString("pt-BR")}</td>
+                <td className="py-2 pr-3 text-right font-mono text-destructive">{(mq.data?.totais.insucessos ?? 0).toLocaleString("pt-BR")}</td>
+                <td className="py-2 pr-3 text-right font-mono">{(mq.data?.totais.perc_entrega ?? 0).toFixed(1)}%</td>
               </tr>
             )}
             {!q.isLoading && basesOrdenadas.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                <td colSpan={11} className="py-8 text-center text-muted-foreground">
                   Sem atividades registradas nesse período.
                 </td>
               </tr>
