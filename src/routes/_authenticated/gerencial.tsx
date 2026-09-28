@@ -130,6 +130,8 @@ function GerencialPage() {
         </div>
       </div>
 
+      <MeliEntregasPanel periodo={periodo} />
+
       <ResumoPorBasePanel periodo={periodo} />
 
       <Card className="p-4">
