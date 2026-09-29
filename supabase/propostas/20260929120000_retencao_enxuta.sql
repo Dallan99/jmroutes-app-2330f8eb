@@ -260,7 +260,7 @@ begin
 
     -- telemetria do coletor
     v_corte := now() - make_interval(days => p_dias_execucoes);
-    delete from public.meli_worker_execucoes where created_at < v_corte;
+    delete from public.meli_worker_execucoes where criado_em < v_corte;
     get diagnostics v_n = row_count;
     v_res := v_res || jsonb_build_object('execucoes_apagadas', v_n);
 
@@ -288,14 +288,14 @@ begin
 end;
 $$;
 
-comment on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,boolean,boolean) is
+comment on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,integer,boolean,boolean) is
   'Rotina de retencao: consolida resumos e remove detalhe antigo em lotes. p_apagar=false roda em modo simulacao.';
 
 -- Execucao apenas pelo agendamento (service_role / postgres). Sem grant para
 -- authenticated: nenhum usuario comum consegue disparar a limpeza pela tela.
-revoke all on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,boolean,boolean) from public;
-revoke all on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,boolean,boolean) from authenticated;
-grant execute on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,boolean,boolean) to service_role;
+revoke all on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,integer,boolean,boolean) from public;
+revoke all on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,integer,boolean,boolean) from authenticated;
+grant execute on function public.meli_manutencao_retencao(integer,integer,integer,integer,integer,integer,integer,boolean,boolean) to service_role;
 
 commit;
 
@@ -304,9 +304,14 @@ commit;
 -- -----------------------------------------------------------------------------
 -- select cron.schedule(
 --   'meli-retencao-enxuta',
---   '30 1 * * *',
+--   '*/15 * * * *',
 --   $$select public.meli_manutencao_retencao(p_dias_detalhe => 7)$$
 -- );
+--
+-- No primeiro dia, o teto de lotes faz cada rodada apagar no maximo
+-- p_max_lotes x p_lote linhas (padrao: 200 mil). As rodadas seguintes
+-- completam o restante. Quando o disco estabilizar, trocar para uma unica
+-- rodada diaria: '30 1 * * *'.
 --
 -- Primeira execucao (simulacao, nao apaga nada):
 --   select public.meli_manutencao_retencao(p_apagar => false);
