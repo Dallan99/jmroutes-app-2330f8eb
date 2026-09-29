@@ -125,6 +125,12 @@ export function DashboardGeral({
     id: string | null;
     codigo: string;
     nome: string;
+    /** Resumo oficial do cartão (snapshot agregado) — repetido no topo do modal. */
+    rotasSnapshot: number;
+    total: number;
+    entregue: number;
+    em_rota: number;
+    insucesso: number;
   } | null>(null);
   const pmDaBase = useMemo(() => {
     if (!baseAberta) return [];
