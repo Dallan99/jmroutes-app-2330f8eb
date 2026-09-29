@@ -369,10 +369,13 @@ async function carregarUltimoSnapshotMultibase(
     snapshot_fallback: true,
     snapshot_at: snapshotAt,
     ultima_sincronizacao: snapshotAt,
-    sincronizacao_por_base: snapshots.map((snapshot: any) => ({
-      base_id: cadastroPorCodigo.get(snapshot.base_codigo)?.id ?? null,
-      base_codigo: snapshot.base_codigo,
-      last_synced_at: snapshot.coletado_em ?? null,
+    sincronizacao_por_base: bases.map((base) => ({
+      base_id: base.base_id,
+      base_codigo: base.base_codigo,
+      last_synced_at: base.base_codigo
+        ? (snapshotPorCodigo.get(String(base.base_codigo).trim().toUpperCase())?.coletado_em ??
+          null)
+        : null,
     })),
     area_risco: {
       rotas: totalRotasRisco,
