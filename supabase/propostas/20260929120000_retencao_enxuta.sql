@@ -155,6 +155,7 @@ create or replace function public.meli_manutencao_retencao(
   p_dias_importacoes    integer default 90,   -- log de importação
   p_dias_eventos        integer default 180,  -- trilha de devoluções (auditoria)
   p_lote                integer default 20000,
+  p_max_lotes           integer default 10,   -- teto de lotes por execucao
   p_consolidar          boolean default true,
   p_apagar              boolean default true  -- false = só mede, não apaga
 )
@@ -173,6 +174,7 @@ declare
   v_res      jsonb := '{}'::jsonb;
   v_tot      bigint;
   v_n        bigint;
+  v_lote     integer;
 begin
   -- Trava de segurança: quem estiver autenticado precisa ser da gestão.
   if auth.uid() is not null and not public.meli_pode_operar() then
@@ -205,12 +207,14 @@ begin
     end if;
   end if;
 
-  -- 4.2 Apaga em lotes, com commit entre lotes (evita trancao longa e trava).
+  -- 4.2 Apaga em lotes, com teto de lotes por execucao (transacao curta).
+  -- Rodadas repetidas pelo agendamento completam o que sobrou.
   if p_apagar then
     -- meli_pacotes: detalhe de pacote (nisto referencia esta tabela; FK de
     -- meli_tracking_eventos e ON DELETE SET NULL).
     v_corte := now() - make_interval(days => p_dias_detalhe);
     v_tot := 0;
+    v_lote := 0;
     loop
       delete from public.meli_pacotes p
        where p.id in (
@@ -221,14 +225,15 @@ begin
        );
       get diagnostics v_n = row_count;
       v_tot := v_tot + v_n;
-      exit when v_n = 0;
-      commit;
+      v_lote := v_lote + 1;
+      exit when v_n = 0 or v_lote >= p_max_lotes;
     end loop;
     v_res := v_res || jsonb_build_object('meli_pacotes_apagados', v_tot);
 
     -- escalas: mantem as que tem leitura de expedicao registrada (evidencia).
     v_data_ini := current_date - p_dias_detalhe;
     v_tot := 0;
+    v_lote := 0;
     loop
       delete from public.escalas e
        where e.id in (
@@ -242,8 +247,8 @@ begin
        );
       get diagnostics v_n = row_count;
       v_tot := v_tot + v_n;
-      exit when v_n = 0;
-      commit;
+      v_lote := v_lote + 1;
+      exit when v_n = 0 or v_lote >= p_max_lotes;
     end loop;
     v_res := v_res || jsonb_build_object('escalas_apagadas', v_tot);
 
