@@ -266,6 +266,15 @@ export function DashboardGeral({
                     <div className="text-xs text-muted-foreground truncate">
                       {b.base_nome ?? "—"}
                     </div>
+                    {b.sem_informacao ? (
+                      <div className="mt-1 text-[10px] font-semibold text-warning">
+                        Sem informação
+                      </div>
+                    ) : b.desatualizada ? (
+                      <div className="mt-1 text-[10px] font-semibold text-warning">
+                        Desatualizada · leitura de {b.snapshot_data ?? "dia anterior"}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="font-display text-2xl font-bold tabular-nums">
                     {perc.toFixed(1)}%

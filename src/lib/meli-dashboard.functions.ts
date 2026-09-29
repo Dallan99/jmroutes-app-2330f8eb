@@ -84,6 +84,12 @@ export type MeliDashboardBase = {
   /** PM não iniciadas desta base (não entram nos números acima). */
   pm_nao_iniciadas?: number;
   pm_pacotes_fora?: number;
+  /** Leitura usada no cartão é de um dia anterior ao dia consultado. */
+  desatualizada?: boolean;
+  /** Nunca houve leitura válida desta base. */
+  sem_informacao?: boolean;
+  /** Data operacional da leitura usada no cartão. */
+  snapshot_data?: string | null;
 };
 
 /** Rota PM da ESP16 ainda não iniciada — programada para o dia seguinte. */
@@ -170,7 +176,7 @@ async function carregarUltimoSnapshotMultibase(
     .or("pacotes.gt.0,rotas_totais.gt.0")
     .order("data_operacional", { ascending: false })
     .order("coletado_em", { ascending: false })
-    .limit(100);
+    .limit(500);
   if (error || !leituras?.length) return null;
 
   // Cada base pode parar em um instante diferente. Preserva a leitura mais
@@ -183,10 +189,12 @@ async function carregarUltimoSnapshotMultibase(
     .select("id,codigo,nome,ordem")
     .in("codigo", codigos)
     .eq("ativo", true);
+  // O cadastro de bases ativas é a fonte oficial: toda base ativa aparece no
+  // painel, mesmo sem leitura no dia (placeholder) ou sem histórico (zeros).
   const { data: cadastros } = await client
     .from("bases")
     .select("id,codigo,nome")
-    .in("codigo", codigos);
+    .eq("ativa", true);
   const unidadePorCodigo = new Map((unidades ?? []).map((base: any) => [base.codigo, base]));
   const cadastroPorCodigo = new Map<string, any>(
     (cadastros ?? []).map((base: any) => [base.codigo as string, base]),
@@ -212,37 +220,63 @@ async function carregarUltimoSnapshotMultibase(
     riscoPorBase.set(rota.base_id, atual);
   }
 
-  const bases: MeliDashboardBase[] = snapshots
-    .map((snapshot: any) => {
-      const unidade: any = unidadePorCodigo.get(snapshot.base_codigo);
-      const cadastro: any = cadastroPorCodigo.get(snapshot.base_codigo);
-      const total = Number(snapshot.pacotes ?? 0);
-      const entregue = Number(snapshot.bem_sucedidos ?? 0);
-      const risco = cadastro?.id ? riscoPorBase.get(cadastro.id) : undefined;
-      return {
-        // O filtro detalhado usa bases.id; o id da unidade operacional pertence
-        // a outro cadastro e não pode ser enviado como se fosse uma base.
-        base_id: cadastro?.id ?? null,
-        base_codigo: snapshot.base_codigo,
-        base_nome: unidade?.nome ?? cadastro?.nome ?? snapshot.base_codigo,
-        service_center: snapshot.service_center_id ?? null,
-        rotas: Number(snapshot.rotas_totais ?? 0),
-        rotas_risco: risco?.total ?? 0,
-        rotas_risco_integral: risco?.integrais ?? 0,
-        rotas_risco_parcial: risco?.parciais ?? 0,
-        total,
-        pacotes_risco: 0,
-        entregue,
-        em_rota: Number(snapshot.pendentes ?? 0),
-        insucesso: Number(snapshot.com_falhas ?? 0),
-        perc_entrega: Number(
-          snapshot.performance_logistics_max ?? (total > 0 ? (100 * entregue) / total : 0),
-        ),
-        pm_nao_iniciadas: 0,
-        pm_pacotes_fora: 0,
-        _ordem: Number(unidade?.ordem ?? 9999),
-      };
+  const snapshotPorCodigo = new Map<string, any>(
+    snapshots.map((s: any) => [String(s.base_codigo ?? "").trim().toUpperCase(), s]),
+  );
+  const montarBase = (snapshot: any | null, cadastro: any | null, codigo: string) => {
+    const unidade: any =
+      unidadePorCodigo.get(snapshot?.base_codigo ?? codigo) ?? unidadePorCodigo.get(codigo);
+    const risco = cadastro?.id ? riscoPorBase.get(cadastro.id) : undefined;
+    const total = Number(snapshot?.pacotes ?? 0);
+    const entregue = Number(snapshot?.bem_sucedidos ?? 0);
+    return {
+      // O filtro detalhado usa bases.id; o id da unidade operacional pertence
+      // a outro cadastro e não pode ser enviado como se fosse uma base.
+      base_id: cadastro?.id ?? null,
+      base_codigo: cadastro?.codigo ?? snapshot?.base_codigo ?? codigo,
+      base_nome: unidade?.nome ?? cadastro?.nome ?? codigo,
+      service_center: snapshot?.service_center_id ?? null,
+      rotas: Number(snapshot?.rotas_totais ?? 0),
+      rotas_risco: risco?.total ?? 0,
+      rotas_risco_integral: risco?.integrais ?? 0,
+      rotas_risco_parcial: risco?.parciais ?? 0,
+      total,
+      pacotes_risco: 0,
+      entregue,
+      em_rota: Number(snapshot?.pendentes ?? 0),
+      insucesso: Number(snapshot?.com_falhas ?? 0),
+      perc_entrega: Number(
+        snapshot?.performance_logistics_max ?? (total > 0 ? (100 * entregue) / total : 0),
+      ),
+      pm_nao_iniciadas: 0,
+      pm_pacotes_fora: 0,
+      desatualizada: Boolean(snapshot?.data_operacional && snapshot.data_operacional < dia),
+      sem_informacao: !snapshot,
+      snapshot_data: snapshot?.data_operacional ?? null,
+      _ordem: Number(unidade?.ordem ?? 9999),
+    };
+  };
+  const codigosCadastrados = new Set<string>();
+  const bases: MeliDashboardBase[] = (cadastros ?? [])
+    .map((cadastro: any) => {
+      const codigo = String(cadastro.codigo ?? "").trim().toUpperCase();
+      codigosCadastrados.add(codigo);
+      return montarBase(snapshotPorCodigo.get(codigo) ?? null, cadastro, codigo);
     })
+    // Leituras de bases fora do cadastro ativo continuam visíveis (legado).
+    .concat(
+      snapshots
+        .filter(
+          (s: any) => !codigosCadastrados.has(String(s.base_codigo ?? "").trim().toUpperCase()),
+        )
+        .map((s: any) =>
+          montarBase(
+            s,
+            cadastroPorCodigo.get(s.base_codigo) ?? null,
+            String(s.base_codigo ?? "").trim().toUpperCase(),
+          ),
+        ),
+    )
     .sort(
       (a: any, b: any) =>
         a._ordem - b._ordem || String(a.base_codigo).localeCompare(String(b.base_codigo)),
@@ -335,10 +369,13 @@ async function carregarUltimoSnapshotMultibase(
     snapshot_fallback: true,
     snapshot_at: snapshotAt,
     ultima_sincronizacao: snapshotAt,
-    sincronizacao_por_base: snapshots.map((snapshot: any) => ({
-      base_id: cadastroPorCodigo.get(snapshot.base_codigo)?.id ?? null,
-      base_codigo: snapshot.base_codigo,
-      last_synced_at: snapshot.coletado_em ?? null,
+    sincronizacao_por_base: bases.map((base) => ({
+      base_id: base.base_id,
+      base_codigo: base.base_codigo,
+      last_synced_at: base.base_codigo
+        ? (snapshotPorCodigo.get(String(base.base_codigo).trim().toUpperCase())?.coletado_em ??
+          null)
+        : null,
     })),
     area_risco: {
       rotas: totalRotasRisco,
