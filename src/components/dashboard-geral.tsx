@@ -371,7 +371,16 @@ function BaseDetalheDialog({
   pmProgramadas,
   onClose,
 }: {
-  base: { id: string | null; codigo: string; nome: string } | null;
+  base: {
+    id: string | null;
+    codigo: string;
+    nome: string;
+    rotasSnapshot: number;
+    total: number;
+    entregue: number;
+    em_rota: number;
+    insucesso: number;
+  } | null;
   data: string;
   rotas: MeliDashboardRota[];
   pmProgramadas: MeliDashboardPmProgramada[];
