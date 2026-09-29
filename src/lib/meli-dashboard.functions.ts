@@ -84,6 +84,12 @@ export type MeliDashboardBase = {
   /** PM não iniciadas desta base (não entram nos números acima). */
   pm_nao_iniciadas?: number;
   pm_pacotes_fora?: number;
+  /** Leitura usada no cartão é de um dia anterior ao dia consultado. */
+  desatualizada?: boolean;
+  /** Nunca houve leitura válida desta base. */
+  sem_informacao?: boolean;
+  /** Data operacional da leitura usada no cartão. */
+  snapshot_data?: string | null;
 };
 
 /** Rota PM da ESP16 ainda não iniciada — programada para o dia seguinte. */
@@ -170,7 +176,7 @@ async function carregarUltimoSnapshotMultibase(
     .or("pacotes.gt.0,rotas_totais.gt.0")
     .order("data_operacional", { ascending: false })
     .order("coletado_em", { ascending: false })
-    .limit(100);
+    .limit(500);
   if (error || !leituras?.length) return null;
 
   // Cada base pode parar em um instante diferente. Preserva a leitura mais
