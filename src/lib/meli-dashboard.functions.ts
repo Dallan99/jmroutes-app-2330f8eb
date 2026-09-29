@@ -189,10 +189,12 @@ async function carregarUltimoSnapshotMultibase(
     .select("id,codigo,nome,ordem")
     .in("codigo", codigos)
     .eq("ativo", true);
+  // O cadastro de bases ativas é a fonte oficial: toda base ativa aparece no
+  // painel, mesmo sem leitura no dia (placeholder) ou sem histórico (zeros).
   const { data: cadastros } = await client
     .from("bases")
     .select("id,codigo,nome")
-    .in("codigo", codigos);
+    .eq("ativa", true);
   const unidadePorCodigo = new Map((unidades ?? []).map((base: any) => [base.codigo, base]));
   const cadastroPorCodigo = new Map<string, any>(
     (cadastros ?? []).map((base: any) => [base.codigo as string, base]),
