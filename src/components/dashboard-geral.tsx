@@ -497,33 +497,33 @@ function BaseDetalheDialog({
             <div className="grid grid-cols-2 gap-1.5 md:grid-cols-5">
               <MiniBox
                 label="Rotas"
-                value={nf(rotasDetalhadas.length)}
+                value={nf(resumo.rotas)}
                 ativo={situacaoBase === "rotas"}
                 onClick={() => setSituacaoBase("rotas")}
               />
               <MiniBox
                 label="Pacotes"
-                value={nf(totais.total)}
+                value={nf(resumo.total)}
                 ativo={situacaoBase === "total"}
                 onClick={() => setSituacaoBase("total")}
               />
               <MiniBox
                 label="Entregues"
-                value={nf(totais.entregue)}
+                value={nf(resumo.entregue)}
                 tone="text-success"
                 ativo={situacaoBase === "entregue"}
                 onClick={() => setSituacaoBase("entregue")}
               />
               <MiniBox
                 label="Em rota"
-                value={nf(totais.em_rota)}
+                value={nf(resumo.em_rota)}
                 tone="text-[var(--info)]"
                 ativo={situacaoBase === "em_rota"}
                 onClick={() => setSituacaoBase("em_rota")}
               />
               <MiniBox
                 label="Falhas"
-                value={nf(totais.insucesso)}
+                value={nf(resumo.insucesso)}
                 tone="text-destructive"
                 ativo={situacaoBase === "insucesso"}
                 onClick={() => setSituacaoBase("insucesso")}
