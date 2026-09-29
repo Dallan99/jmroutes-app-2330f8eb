@@ -530,12 +530,19 @@ function BaseDetalheDialog({
               />
             </div>
 
+            {base && rotasDetalhadas.length < base.rotasSnapshot && (
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {nf(rotasDetalhadas.length)} de {nf(base.rotasSnapshot)} rotas têm detalhes
+                carregados — o detalhamento ainda está sendo completado.
+              </p>
+            )}
+
             {situacaoBase === "insucesso" && (
               <div className="rounded-md border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold">Status dos insucessos — {base?.codigo}</h3>
                   <span className="text-xs text-muted-foreground tabular-nums">
-                    {nf(totais.insucesso)} pacote(s)
+                    {nf(resumo.insucesso)} pacote(s)
                   </span>
                 </div>
                 {motivosQuery.isLoading ? (
