@@ -245,6 +245,11 @@ export function DashboardGeral({
                     id: b.base_id,
                     codigo: b.base_codigo ?? "—",
                     nome: b.base_nome ?? "—",
+                    rotasSnapshot: b.rotas ?? 0,
+                    total: b.total ?? 0,
+                    entregue: b.entregue ?? 0,
+                    em_rota: b.em_rota ?? 0,
+                    insucesso: b.insucesso ?? 0,
                   })
                 }
                 onKeyDown={(e) => {
@@ -254,6 +259,11 @@ export function DashboardGeral({
                       id: b.base_id,
                       codigo: b.base_codigo ?? "—",
                       nome: b.base_nome ?? "—",
+                      rotasSnapshot: b.rotas ?? 0,
+                      total: b.total ?? 0,
+                      entregue: b.entregue ?? 0,
+                      em_rota: b.em_rota ?? 0,
+                      insucesso: b.insucesso ?? 0,
                     });
                   }
                 }}
