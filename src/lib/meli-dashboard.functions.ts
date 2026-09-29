@@ -220,37 +220,63 @@ async function carregarUltimoSnapshotMultibase(
     riscoPorBase.set(rota.base_id, atual);
   }
 
-  const bases: MeliDashboardBase[] = snapshots
-    .map((snapshot: any) => {
-      const unidade: any = unidadePorCodigo.get(snapshot.base_codigo);
-      const cadastro: any = cadastroPorCodigo.get(snapshot.base_codigo);
-      const total = Number(snapshot.pacotes ?? 0);
-      const entregue = Number(snapshot.bem_sucedidos ?? 0);
-      const risco = cadastro?.id ? riscoPorBase.get(cadastro.id) : undefined;
-      return {
-        // O filtro detalhado usa bases.id; o id da unidade operacional pertence
-        // a outro cadastro e não pode ser enviado como se fosse uma base.
-        base_id: cadastro?.id ?? null,
-        base_codigo: snapshot.base_codigo,
-        base_nome: unidade?.nome ?? cadastro?.nome ?? snapshot.base_codigo,
-        service_center: snapshot.service_center_id ?? null,
-        rotas: Number(snapshot.rotas_totais ?? 0),
-        rotas_risco: risco?.total ?? 0,
-        rotas_risco_integral: risco?.integrais ?? 0,
-        rotas_risco_parcial: risco?.parciais ?? 0,
-        total,
-        pacotes_risco: 0,
-        entregue,
-        em_rota: Number(snapshot.pendentes ?? 0),
-        insucesso: Number(snapshot.com_falhas ?? 0),
-        perc_entrega: Number(
-          snapshot.performance_logistics_max ?? (total > 0 ? (100 * entregue) / total : 0),
-        ),
-        pm_nao_iniciadas: 0,
-        pm_pacotes_fora: 0,
-        _ordem: Number(unidade?.ordem ?? 9999),
-      };
+  const snapshotPorCodigo = new Map<string, any>(
+    snapshots.map((s: any) => [String(s.base_codigo ?? "").trim().toUpperCase(), s]),
+  );
+  const montarBase = (snapshot: any | null, cadastro: any | null, codigo: string) => {
+    const unidade: any =
+      unidadePorCodigo.get(snapshot?.base_codigo ?? codigo) ?? unidadePorCodigo.get(codigo);
+    const risco = cadastro?.id ? riscoPorBase.get(cadastro.id) : undefined;
+    const total = Number(snapshot?.pacotes ?? 0);
+    const entregue = Number(snapshot?.bem_sucedidos ?? 0);
+    return {
+      // O filtro detalhado usa bases.id; o id da unidade operacional pertence
+      // a outro cadastro e não pode ser enviado como se fosse uma base.
+      base_id: cadastro?.id ?? null,
+      base_codigo: cadastro?.codigo ?? snapshot?.base_codigo ?? codigo,
+      base_nome: unidade?.nome ?? cadastro?.nome ?? codigo,
+      service_center: snapshot?.service_center_id ?? null,
+      rotas: Number(snapshot?.rotas_totais ?? 0),
+      rotas_risco: risco?.total ?? 0,
+      rotas_risco_integral: risco?.integrais ?? 0,
+      rotas_risco_parcial: risco?.parciais ?? 0,
+      total,
+      pacotes_risco: 0,
+      entregue,
+      em_rota: Number(snapshot?.pendentes ?? 0),
+      insucesso: Number(snapshot?.com_falhas ?? 0),
+      perc_entrega: Number(
+        snapshot?.performance_logistics_max ?? (total > 0 ? (100 * entregue) / total : 0),
+      ),
+      pm_nao_iniciadas: 0,
+      pm_pacotes_fora: 0,
+      desatualizada: Boolean(snapshot?.data_operacional && snapshot.data_operacional < dia),
+      sem_informacao: !snapshot,
+      snapshot_data: snapshot?.data_operacional ?? null,
+      _ordem: Number(unidade?.ordem ?? 9999),
+    };
+  };
+  const codigosCadastrados = new Set<string>();
+  const bases: MeliDashboardBase[] = (cadastros ?? [])
+    .map((cadastro: any) => {
+      const codigo = String(cadastro.codigo ?? "").trim().toUpperCase();
+      codigosCadastrados.add(codigo);
+      return montarBase(snapshotPorCodigo.get(codigo) ?? null, cadastro, codigo);
     })
+    // Leituras de bases fora do cadastro ativo continuam visíveis (legado).
+    .concat(
+      snapshots
+        .filter(
+          (s: any) => !codigosCadastrados.has(String(s.base_codigo ?? "").trim().toUpperCase()),
+        )
+        .map((s: any) =>
+          montarBase(
+            s,
+            cadastroPorCodigo.get(s.base_codigo) ?? null,
+            String(s.base_codigo ?? "").trim().toUpperCase(),
+          ),
+        ),
+    )
     .sort(
       (a: any, b: any) =>
         a._ordem - b._ordem || String(a.base_codigo).localeCompare(String(b.base_codigo)),
