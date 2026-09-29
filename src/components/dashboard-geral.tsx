@@ -449,19 +449,17 @@ function BaseDetalheDialog({
       .sort((a, b) => (b[situacaoBase] ?? 0) - (a[situacaoBase] ?? 0));
   }, [rotasDetalhadas, busca, situacaoBase]);
 
-  const totais = useMemo(
-    () =>
-      rotasDetalhadas.reduce(
-        (acc, r) => ({
-          total: acc.total + (r.total ?? 0),
-          entregue: acc.entregue + (r.entregue ?? 0),
-          em_rota: acc.em_rota + (r.em_rota ?? 0),
-          insucesso: acc.insucesso + (r.insucesso ?? 0),
-        }),
-        { total: 0, entregue: 0, em_rota: 0, insucesso: 0 },
-      ),
-    [rotasDetalhadas],
-  );
+  // Totais oficiais do cartão (snapshot agregado) — o modal não recalcula
+  // pelas rotas detalhadas, que podem estar parciais.
+  const resumo = base
+    ? {
+        rotas: base.rotasSnapshot,
+        total: base.total,
+        entregue: base.entregue,
+        em_rota: base.em_rota,
+        insucesso: base.insucesso,
+      }
+    : { rotas: 0, total: 0, entregue: 0, em_rota: 0, insucesso: 0 };
 
   const pacotes = pacotesQuery.data?.status === "ok" ? (pacotesQuery.data.pacotes ?? []) : [];
   const pacotesVisiveis = useMemo(() => {
