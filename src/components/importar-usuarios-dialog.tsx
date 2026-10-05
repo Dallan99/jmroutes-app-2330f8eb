@@ -166,10 +166,12 @@ function parseCsv(texto: string): string[][] {
   return linhas.filter((l) => l.some((c) => c.trim().length > 0));
 }
 
-const SENHA_PADRAO = "JM@transportes";
-
+// Senha temporária aleatória e única por usuário (nunca uma senha fixa compartilhada).
 function gerarSenha(): string {
-  return SENHA_PADRAO;
+  const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#%";
+  const bytes = new Uint32Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join("");
 }
 
 function validar(l: Omit<Linha, "linha" | "erro">): string | undefined {
