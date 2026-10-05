@@ -15,6 +15,7 @@ import { listarRiscoSemanal, semanaAtual } from "./meli/risk.js";
 import { enviarRiscoRostering } from "./pipeline/risk.js";
 import { CircuitBreaker } from "./state/breaker.js";
 import { registrarExecucao, type Execucao } from "./telemetry/report.js";
+import { enviarHeartbeat, executarCicloPiloto, instanciaPadrao } from "./pipeline/piloto.js";
 import { descobrirIndicadoresMonitoramento } from "./meli/monitoring-discovery.js";
 
 let encerrando = false;
@@ -94,6 +95,11 @@ async function main() {
       base: base.baseCode,
       dry_run: true,
     });
+    return;
+  }
+
+  if (cfg.pilotWrite) {
+    await loopPiloto(cfg);
     return;
   }
 
@@ -256,6 +262,42 @@ async function main() {
   }
 
   logger.info("Worker Meli local encerrado.");
+}
+
+/** Loop do piloto isolado: só AdminML -> /api/public/meli/piloto/*. */
+async function loopPiloto(cfg: WorkerConfig) {
+  const instancia = instanciaPadrao();
+  logger.info("Modo piloto ativo (DRY_RUN + PILOT_WRITE).", { instancia, bases: cfg.bases.map((b) => b.baseCode) });
+  while (!encerrando) {
+    let sessao;
+    try {
+      sessao = await abrirSessaoAdminML(cfg);
+    } catch (err) {
+      await enviarHeartbeat(cfg, { instancia, sessao: "desconhecida", detalhe: { erro: String((err as Error)?.message ?? err).slice(0, 300) } });
+      await sleep(Math.max(cfg.syncIntervalSeconds, 60) * 1000);
+      continue;
+    }
+    if (sessao.status !== "ok") {
+      await enviarHeartbeat(cfg, { instancia, sessao: "ausente", detalhe: { motivo: sessao.motivo } });
+      logger.warn("Piloto aguardando sessão AdminML válida em SESSION_FILE_PATH.", { motivo: sessao.motivo, arquivo: cfg.sessionFilePath });
+      await sleep(Math.max(cfg.syncIntervalSeconds, 300) * 1000);
+      continue;
+    }
+    await enviarHeartbeat(cfg, { instancia, sessao: "valida" });
+    let expirou = false;
+    try {
+      for (const base of cfg.bases) {
+        if (encerrando) break;
+        const r = await executarCicloPiloto({ cfg: configParaBase(cfg, base), transport: sessao.transport, instancia });
+        logger.info("Ciclo do piloto concluído.", { ...r });
+        await enviarHeartbeat(cfg, { instancia, sessao: r.sessao_expirada ? "expirada" : "valida", ultimoCicloId: r.ciclo_id });
+        if (r.sessao_expirada) { expirou = true; break; }
+      }
+    } finally {
+      await sessao.fechar();
+    }
+    await sleep((expirou ? Math.max(cfg.syncIntervalSeconds, 300) : cfg.syncIntervalSeconds) * 1000);
+  }
 }
 
 main().catch((err) => {
