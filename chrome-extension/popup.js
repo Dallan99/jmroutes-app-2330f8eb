@@ -4,7 +4,7 @@
 
 const JMROUTES_ORIGIN = "https://jmroutes.app";
 const IMPORT_ENDPOINT = JMROUTES_ORIGIN + "/api/public/meli/importar-rota-bruta";
-const SUPABASE_PROJECT_REF = "ieqvzndvkzozqvseubuc";
+const SUPABASE_PROJECT_REF = "zfmwojloamwggahjxlyt";
 const STORAGE_KEY = "sb-" + SUPABASE_PROJECT_REF + "-auth-token";
 
 const MELI_DETAIL_PATH = /^\/logistics\/monitoring-distribution\/detail\/(\d+)\/?$/;
