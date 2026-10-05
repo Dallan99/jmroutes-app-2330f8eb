@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -129,7 +130,7 @@ export const meliSlaHistorico = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => inputSchema.parse(d ?? {}))
   .handler(async ({ data, context }): Promise<MeliSlaDiario[]> => {
     const inicio = inicioPeriodo(data.periodo).toISOString().slice(0, 10);
-    const { data: linhas, error } = await context.supabase
+    const { data: linhas, error } = await clienteDeModulo(context.supabase)
       .from("meli_sla_diario")
       .select(
         "data_operacional,bases_total,rotas_total,pacotes_total,entregues_total,insucessos_total,sla_geral,ultima_coleta",

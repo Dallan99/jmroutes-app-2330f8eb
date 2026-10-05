@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -228,7 +229,7 @@ export const meliPublicarRotaOperacional = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => publicarSchema.parse(data))
   .handler(async ({ data, context }): Promise<MeliPublicarResult> => {
     const { data: res, error } = await (
-      context.supabase as unknown as {
+      clienteDeModulo(context.supabase) as unknown as {
         rpc: (
           fn: string,
           args: Record<string, unknown>,

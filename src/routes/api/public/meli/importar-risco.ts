@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { clienteDoUsuario, extrairBearer, json, MAX_BODY_BYTES } from "@/lib/meli-api-http";
@@ -28,7 +29,7 @@ export const Route = createFileRoute("/api/public/meli/importar-risco")({
 
         const usuario = await clienteDoUsuario(token);
         if (usuario.status !== "ok") return json({ ok: false, codigo: usuario.status }, usuario.status === "config" ? 500 : 401, origin);
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
         const { data: papel } = await supabaseAdmin
           .from("user_roles")
           .select("role")

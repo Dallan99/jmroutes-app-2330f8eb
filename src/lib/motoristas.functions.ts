@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -11,7 +12,7 @@ export type MotoristaCadastro = { id: string; nome: string; placa: string; meliD
 
 export const listarMotoristasCadastrados = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }): Promise<MotoristaCadastro[]> => {
   await assertAdmin(context.supabase, context.userId);
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
   const [{ data: motoristas, error }, { data: catalogo }] = await Promise.all([
     supabaseAdmin.from("motoristas").select("id, nome, placa, meli_driver_id, ativo, created_at, usuario, bases(nome)").not("meli_driver_id", "is", null).order("nome"),
     supabaseAdmin.from("meli_motoristas_catalogo").select("meli_driver_id, nome"),
@@ -23,7 +24,7 @@ export const listarMotoristasCadastrados = createServerFn({ method: "GET" }).mid
 
 export const listarBasesParaMotorista = createServerFn({ method: "GET" }).middleware([requireSupabaseAuth]).handler(async ({ context }) => {
   await assertAdmin(context.supabase, context.userId);
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
   const { data, error } = await supabaseAdmin.from("bases").select("id, codigo, nome").eq("ativa", true).order("codigo");
   if (error) throw new Error(error.message);
   return data ?? [];
@@ -33,7 +34,7 @@ const acessoSchema = z.object({ usuario: z.string().trim().min(3).max(50).regex(
 
 export const criarAcessoMotorista = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((entrada: unknown) => acessoSchema.parse(entrada)).handler(async ({ data, context }) => {
   await assertAdmin(context.supabase, context.userId);
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
   const { data: identidade, error: identidadeErro } = await supabaseAdmin.from("meli_motoristas_catalogo").select("meli_driver_id, nome, status").eq("meli_driver_id", data.meliDriverId).single();
   if (identidadeErro || !identidade) throw new Error("Motorista Meli não encontrado no catálogo.");
   if (identidade.status !== "active") throw new Error("Este motorista está pausado ou bloqueado no Meli.");
@@ -55,7 +56,7 @@ export const criarAcessoMotorista = createServerFn({ method: "POST" }).middlewar
 const ativoSchema = z.object({ id: z.string().uuid(), ativo: z.boolean() });
 export const definirMotoristaAtivo = createServerFn({ method: "POST" }).middleware([requireSupabaseAuth]).inputValidator((entrada: unknown) => ativoSchema.parse(entrada)).handler(async ({ data, context }) => {
   await assertAdmin(context.supabase, context.userId);
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
   const { data: motorista, error } = await supabaseAdmin.from("motoristas").update({ ativo: data.ativo }).eq("id", data.id).select("meli_driver_id, auth_user_id").single();
   if (error) throw new Error(error.message);
   if (motorista.auth_user_id) await supabaseAdmin.auth.admin.updateUserById(motorista.auth_user_id, { ban_duration: data.ativo ? "none" : "876000h" });

@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -89,7 +90,7 @@ export const concluirRotaComRessalva = createServerFn({
   .handler(async ({ data, context }): Promise<ConclusaoRotaRessalva> => {
     const { supabase, userId } = context;
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
     const { auditRequestMeta } = await import("./audit.server");
 
@@ -444,7 +445,7 @@ export const biparTriagem = createServerFn({ method: "POST" })
      * Uma falha isolada na auditoria não deve derrubar toda a bipagem.
      */
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
       const { data: rotaEncerradaComRessalva, error: ressalvaErro } = await supabaseAdmin
         .from("audit_logs")
@@ -483,7 +484,7 @@ export const biparTriagem = createServerFn({ method: "POST" })
     }
 
     const countRota = async () => {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
       let previstosQuery = supabaseAdmin
         .from("escalas")
         .select("id", { count: "exact", head: true })
@@ -642,7 +643,7 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
       return [] as RotaTriagemDia[];
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
     const PAGE_SIZE = ESCALAS_PAGE_SIZE;
 
@@ -698,7 +699,7 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
     }));
 
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
       const { data: conclusoes, error: conclusoesErro } = await supabaseAdmin
         .from("audit_logs")
@@ -839,7 +840,7 @@ export const localizarShipmentTriagem = createServerFn({ method: "POST" })
 export const ultimasTriagens = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data } = await context.supabase
+    const { data } = await clienteDeModulo(context.supabase)
       .from("recebimentos")
       .select("id, codigo_bipado, resultado, mensagem, created_at")
       .eq("stage", "triagem")
@@ -881,7 +882,7 @@ export const triagemResumoDia = createServerFn({ method: "GET" })
     let totalPrev = 0;
     let triados = 0;
     if (impAtiva) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
       const [{ count: p }, { count: t }] = await Promise.all([
         supabaseAdmin
           .from("escalas")
@@ -945,7 +946,7 @@ export const triagemShipmentsPendentes = createServerFn({ method: "GET" })
         triados: [] as Array<{ shipment: string; cidade: string | null }>,
       };
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
     const PAGE = ESCALAS_PAGE_SIZE;
     type LinhaRota = {

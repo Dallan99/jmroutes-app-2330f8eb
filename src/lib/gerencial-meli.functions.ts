@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -37,7 +38,7 @@ export const meliResumoGerencial = createServerFn({ method: "POST" })
     const dias = data.periodo === "hoje" ? 0 : data.periodo === "7d" ? 6 : 29;
     const inicio = ymdBrasilia(new Date(hoje.getTime() - dias * 86400000));
 
-    const { data: rows, error } = await context.supabase
+    const { data: rows, error } = await clienteDeModulo(context.supabase)
       .from("meli_monitoramento_snapshots")
       .select("data_operacional, base_codigo, rotas_totais, pacotes, bem_sucedidos, com_falhas, pendentes")
       .gte("data_operacional", inicio)
