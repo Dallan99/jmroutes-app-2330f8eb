@@ -2,8 +2,45 @@
 -- Gate de segurança da parte 1 — JM novo (zfmwojloamwggahjxlyt)
 -- PROPOSTA. Não executar sem aprovação explícita.
 -- Repetível: pode rodar mais de uma vez sem efeito colateral.
+-- Transação única: qualquer exceção antes do COMMIT desfaz tudo.
+--
+-- Como conceder o primeiro administrador (depois do convite aceito):
+--   SQL Editor do Supabase (sessão postgres), em transação própria:
+--     SELECT privado.conceder_admin_inicial('dallanr@gmail.com');
+--   O schema privado não é exposto pela API; não usar supabase.rpc().
 -- Não cria usuários, senhas, sessões, convites nem dados de teste.
 -- =====================================================================
+
+BEGIN;
+
+-- ---------------------------------------------------------------------
+-- Pré-validações (abortam e desfazem tudo se o banco divergir do esperado)
+-- ---------------------------------------------------------------------
+DO $$
+BEGIN
+  -- audit_logs.entidade_id precisa ser texto (compatível com length())
+  IF (SELECT data_type FROM information_schema.columns
+       WHERE table_schema='public' AND table_name='audit_logs' AND column_name='entidade_id')
+     NOT IN ('text','character varying') THEN
+    RAISE EXCEPTION 'Pré-validação: audit_logs.entidade_id não é texto.';
+  END IF;
+  -- audit_logs.user_id precisa aceitar NULL (registros feitos pelo servidor)
+  IF (SELECT is_nullable FROM information_schema.columns
+       WHERE table_schema='public' AND table_name='audit_logs' AND column_name='user_id') <> 'YES' THEN
+    RAISE EXCEPTION 'Pré-validação: audit_logs.user_id não aceita NULL.';
+  END IF;
+  -- user_roles precisa ter índice único exatamente em (user_id, role)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_index i
+     WHERE i.indrelid = 'public.user_roles'::regclass AND i.indisunique
+       AND (SELECT array_agg(a.attname::text ORDER BY k.ord)
+              FROM unnest(i.indkey) WITH ORDINALITY k(attnum, ord)
+              JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = k.attnum)
+           = ARRAY['user_id','role']
+  ) THEN
+    RAISE EXCEPTION 'Pré-validação: user_roles sem índice único (user_id, role).';
+  END IF;
+END $$;
 
 -- ---------------------------------------------------------------------
 -- 0) Schema privado para funções privilegiadas
@@ -12,6 +49,8 @@
 CREATE SCHEMA IF NOT EXISTS privado;
 REVOKE ALL ON SCHEMA privado FROM PUBLIC, anon, authenticated;
 GRANT USAGE ON SCHEMA privado TO service_role;
+-- Funções criadas no futuro neste schema não nascem executáveis por PUBLIC.
+ALTER DEFAULT PRIVILEGES IN SCHEMA privado REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
 
 -- ---------------------------------------------------------------------
 -- 1) Funções usadas pelas RLS
@@ -203,7 +242,10 @@ RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   uid uuid;
 BEGIN
-  IF NOT privado.eh_servidor() AND current_user NOT IN ('postgres', 'service_role') THEN
+  -- Autorizado somente: (a) JWT com role=service_role, ou
+  -- (b) execução administrativa direta, quando a sessão foi aberta como postgres.
+  -- current_user não é usado: em SECURITY DEFINER ele é sempre o dono da função.
+  IF NOT (privado.eh_servidor() OR session_user = 'postgres') THEN
     RAISE EXCEPTION 'Somente o servidor pode conceder o administrador inicial.' USING ERRCODE = '42501';
   END IF;
   -- Serializa chamadas concorrentes (trava da transação).
@@ -231,6 +273,11 @@ END;
 $$;
 REVOKE ALL ON FUNCTION privado.conceder_admin_inicial(text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION privado.conceder_admin_inicial(text) TO service_role;
+
+-- Remoção explícita das versões públicas antigas (se existirem).
+DROP FUNCTION IF EXISTS public.bloquear_autoprivilegio();
+DROP FUNCTION IF EXISTS public.proteger_campos_perfil();
+DROP FUNCTION IF EXISTS public.conceder_admin_inicial(text);
 
 -- Funções privadas: ninguém além do servidor executa diretamente.
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA privado FROM PUBLIC, anon, authenticated;
@@ -295,11 +342,13 @@ BEGIN
   IF n > 0 THEN RAISE EXCEPTION 'Verificação de FKs falhou: % FK(s) ainda em cascata.', n; END IF;
 
   -- Nenhuma função SECURITY DEFINER executável por PUBLIC ou anon
+  -- ACL efetiva: grantee = 0 significa PUBLIC.
   SELECT count(*) INTO n FROM pg_proc p
+   CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl, acldefault('f', p.proowner))) acl
    WHERE p.pronamespace IN ('public'::regnamespace, 'privado'::regnamespace)
      AND p.prosecdef
-     AND (has_function_privilege('anon', p.oid, 'EXECUTE')
-          OR has_function_privilege('public', p.oid, 'EXECUTE'));
+     AND acl.privilege_type = 'EXECUTE'
+     AND (acl.grantee = 0 OR acl.grantee = 'anon'::regrole);
   IF n > 0 THEN RAISE EXCEPTION 'Verificação falhou: % função(ões) privilegiada(s) acessível(is) a PUBLIC/anon.', n; END IF;
 
   -- Funções das RLS continuam executáveis por usuários autenticados
@@ -315,7 +364,25 @@ BEGIN
      AND NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) cfg WHERE cfg IN ('search_path=""', 'search_path='));
   IF n > 0 THEN RAISE EXCEPTION 'Verificação falhou: % função(ões) privilegiada(s) sem search_path vazio.', n; END IF;
 
+  -- Dono do schema privado e das funções privilegiadas deve ser postgres
+  IF (SELECT nspowner::regrole::text FROM pg_namespace WHERE nspname = 'privado') <> 'postgres' THEN
+    RAISE EXCEPTION 'Verificação falhou: schema privado não pertence a postgres.';
+  END IF;
+  SELECT count(*) INTO n FROM pg_proc p
+   WHERE p.pronamespace IN ('public'::regnamespace, 'privado'::regnamespace)
+     AND p.prosecdef AND p.proowner::regrole::text <> 'postgres';
+  IF n > 0 THEN RAISE EXCEPTION 'Verificação falhou: % função(ões) privilegiada(s) com dono diferente de postgres.', n; END IF;
+
+  -- Nenhuma versão pública antiga sobrou
+  SELECT count(*) INTO n FROM pg_proc p
+   WHERE p.pronamespace = 'public'::regnamespace
+     AND p.proname IN ('handle_new_user','prevent_admin_role_grant','bloquear_autoprivilegio',
+                       'proteger_campos_perfil','conceder_admin_inicial');
+  IF n > 0 THEN RAISE EXCEPTION 'Verificação falhou: % função(ões) antiga(s) ainda em public.', n; END IF;
+
   -- RLS ligada em todas as tabelas públicas
   SELECT count(*) INTO n FROM pg_tables WHERE schemaname = 'public' AND NOT rowsecurity;
   IF n > 0 THEN RAISE EXCEPTION 'Verificação falhou: % tabela(s) sem RLS.', n; END IF;
 END $$;
+
+COMMIT;
