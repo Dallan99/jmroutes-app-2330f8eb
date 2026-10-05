@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { previaPagamento } from "@/lib/pagamentos.functions";
 import { PENDENCIA_LABEL, TIPO_VEICULO_LABEL, semanaAnterior, semanaPagamento, type MotoristaResumo } from "@/lib/pagamentos-domain";
+import { ModuloEmImplantacao } from "@/components/ModuloEmImplantacao";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -60,6 +61,8 @@ function PagamentosPage() {
     const [y, mo, d] = semana.inicio.split("-").map(Number);
     setDataRef(new Date(Date.UTC(y, mo - 1, d + dias)).toISOString().slice(0, 10));
   };
+
+  if (q.data?.status === "implantacao") return <ModuloEmImplantacao titulo="Prévia de pagamentos" />;
 
   return (
     <div className="p-4 md:p-6 space-y-4">

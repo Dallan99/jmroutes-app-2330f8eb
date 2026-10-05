@@ -15,11 +15,26 @@ import {
   type Tarifa,
   type TipoVeiculo,
 } from "@/lib/pagamentos-domain";
+import { tabelaImplantada } from "@/lib/modulo-em-implantacao";
+
+/** Tabelas exigidas pelo módulo de pagamentos (incluindo integração Meli). */
+export const TABELAS_PAGAMENTOS = ["meli_rotas", "pagamento_tarifas", "pagamento_veiculos", "pagamento_adicionais"] as const;
+export const TABELAS_VEICULOS = ["pagamento_veiculos"] as const;
+
+/** Retorna as tabelas ausentes e registra no log do servidor o erro exato da consulta. */
+async function tabelasAusentes(db: SupabaseClient, tabelas: readonly string[], modulo: string) {
+  const faltando = tabelas.filter((t) => !tabelaImplantada(t));
+  for (const t of faltando) {
+    const { error } = await db.from(t).select("*", { head: true, count: "exact" }).limit(0);
+    console.error(`[modulo-em-implantacao] ${modulo}: tabela ${t} indisponível`, error ? { code: error.code, message: error.message, details: error.details, hint: error.hint } : "consulta sem erro, mas tabela não liberada no guard");
+  }
+  return faltando;
+}
 
 export const BASES_PAGAMENTO = ["ESP15", "ESP16", "ESP17", "ESP18"] as const;
 
 export type PreviaPagamento = {
-  status: "ok" | "erro";
+  status: "ok" | "erro" | "implantacao";
   erro?: string;
   avisos: string[];
   podeCadastrar: boolean;
@@ -41,6 +56,9 @@ export const previaPagamento = createServerFn({ method: "POST" })
     const roles = (papeis ?? []).map((r: { role: string }) => r.role);
     if (!roles.some((r) => ["admin", "gerente", "supervisor"].includes(r))) {
       return { ...vazio, podeCadastrar: false, status: "erro", erro: "Acesso restrito à gestão." };
+    }
+    if ((await tabelasAusentes(db, TABELAS_PAGAMENTOS, "previaPagamento")).length) {
+      return { ...vazio, status: "implantacao" };
     }
 
     const { data: bases, error: eb } = await db.from("bases").select("id,codigo,nome").in("codigo", [...BASES_PAGAMENTO]);
@@ -112,12 +130,16 @@ export const listarVeiculos = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const db = context.supabase as unknown as SupabaseClient;
+    if ((await tabelasAusentes(db, TABELAS_VEICULOS, "listarVeiculos")).length) {
+      return { implantacao: true as const, podeEditar: false, erro: null, veiculos: [] as VeiculoCadastro[], bases: [] as Array<{ id: string; codigo: string; nome: string }> };
+    }
     const [roles, res, bases] = await Promise.all([
       papeisDe(db, context.userId),
       db.from("pagamento_veiculos").select("*").order("placa").order("vigencia_inicio", { ascending: false }),
       db.from("bases").select("id,codigo,nome").in("codigo", [...BASES_PAGAMENTO]),
     ]);
     return {
+      implantacao: false as const,
       podeEditar: roles.some((r) => GESTAO.includes(r)),
       erro: res.error ? "Cadastro de veículos ainda não disponível neste banco." : null,
       veiculos: (res.data ?? []) as VeiculoCadastro[],
@@ -147,6 +169,7 @@ export const salvarVeiculo = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as SupabaseClient;
     const roles = await papeisDe(db, context.userId);
     if (!roles.some((r) => GESTAO.includes(r))) return { ok: false as const, erro: "Somente Administrador, Gerente ou Supervisor." };
+    if ((await tabelasAusentes(db, TABELAS_VEICULOS, "salvarVeiculo")).length) return { ok: false as const, erro: "Módulo em implantação." };
     const placa = normalizarPlaca(data.placa);
     if (!placa || !/^[A-Z0-9]{5,8}$/.test(placa)) return { ok: false as const, erro: "Placa inválida." };
 

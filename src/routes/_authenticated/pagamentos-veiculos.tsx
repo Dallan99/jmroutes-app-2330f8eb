@@ -1,3 +1,4 @@
+import { ModuloEmImplantacao } from "@/components/ModuloEmImplantacao";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -62,6 +63,8 @@ function VeiculosPage() {
     ativo: v.ativo, vigencia_inicio: v.vigencia_inicio, observacao: "",
   });
   const lista = (q.data?.veiculos ?? []).filter((v) => !busca || v.placa.includes(busca.toUpperCase().replace(/[^A-Z0-9]/g, "")));
+
+  if (q.data?.implantacao) return <ModuloEmImplantacao titulo="Cadastro de veículos" />;
 
   return (
     <div className="p-4 md:p-6 space-y-4">
