@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -30,7 +31,7 @@ export const listarUsuarios = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<UsuarioRow[]> => {
     await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
     const { data: profiles, error: pErr } = await supabaseAdmin
       .from("profiles")
@@ -108,7 +109,7 @@ export const listarUsuarios = createServerFn({ method: "GET" })
         meli_driver_id: p.meli_driver_id,
         meli_driver_nome: p.meli_driver_id ? nomeMeliPorId.get(p.meli_driver_id) ?? null : null,
         base_id: p.base_id,
-        base_nome: p.bases?.nome ?? null,
+        base_nome: (p.bases as unknown as { nome?: string | null } | null)?.nome ?? null,
         ativo: p.ativo,
         roles: rolesByUser.get(p.id) ?? [],
         last_sign_in_at: lastByUser.get(p.id) ?? null,
@@ -139,7 +140,7 @@ export const criarUsuario = createServerFn({ method: "POST" })
     if (data.role === "operador" && !data.base_id) {
       throw new Error("Operadores devem estar vinculados a uma base.");
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
     const { data: created, error } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
@@ -190,7 +191,7 @@ export const atualizarUsuario = createServerFn({ method: "POST" })
     if (data.role === "operador" && !data.base_id) {
       throw new Error("Operadores devem estar vinculados a uma base.");
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
     const { error: upErr } = await supabaseAdmin
       .from("profiles")
@@ -224,7 +225,7 @@ export const setUsuarioAtivo = createServerFn({ method: "POST" })
     if (data.user_id === context.userId && !data.ativo) {
       throw new Error("Você não pode desativar sua própria conta.");
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     await supabaseAdmin.from("profiles").update({ ativo: data.ativo }).eq("id", data.user_id);
     // Bloqueia login via ban se desativado
     await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
@@ -247,7 +248,7 @@ export const resetSenhaUsuario = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => resetSchema.parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { error } = await supabaseAdmin.auth.admin.updateUserById(data.user_id, {
       password: data.senha,
     });
@@ -272,7 +273,7 @@ export const excluirUsuario = createServerFn({ method: "POST" })
     if (data.user_id === context.userId) {
       throw new Error("Você não pode excluir sua própria conta.");
     }
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     // Remove role admin primeiro (trigger prevent_admin_role_grant permite service_role)
     await supabaseAdmin.from("user_roles").delete().eq("user_id", data.user_id);
     const { error } = await supabaseAdmin.auth.admin.deleteUser(data.user_id);
@@ -291,7 +292,7 @@ export const listarBasesUsuario = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await assertAdmin(context.supabase, context.userId);
-    const { data, error } = await context.supabase
+    const { data, error } = await clienteDeModulo(context.supabase)
       .from("bases")
       .select("id, codigo, nome, cidade, uf")
       .order("codigo");
@@ -306,7 +307,7 @@ export const listarUserBases = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => listUserBasesSchema.parse(d))
   .handler(async ({ data, context }): Promise<string[]> => {
     await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: rows, error } = await supabaseAdmin
       .from("user_bases")
       .select("base_id")
@@ -325,7 +326,7 @@ export const setUserBases = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => setUserBasesSchema.parse(d))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     await supabaseAdmin.from("user_bases").delete().eq("user_id", data.user_id);
     if (data.base_ids.length > 0) {
       const rows = data.base_ids.map((base_id) => ({ user_id: data.user_id, base_id }));
@@ -371,7 +372,7 @@ export const importarUsuarios = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => importarSchema.parse(d))
   .handler(async ({ data, context }): Promise<ImportarUsuarioResultado[]> => {
     await assertAdmin(context.supabase, context.userId);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
     // Mapa codigo -> base_id
     const { data: basesRows } = await supabaseAdmin.from("bases").select("id, codigo");

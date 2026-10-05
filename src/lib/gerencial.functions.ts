@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -129,7 +130,7 @@ export const meliSlaHistorico = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => inputSchema.parse(d ?? {}))
   .handler(async ({ data, context }): Promise<MeliSlaDiario[]> => {
     const inicio = inicioPeriodo(data.periodo).toISOString().slice(0, 10);
-    const { data: linhas, error } = await context.supabase
+    const { data: linhas, error } = await clienteDeModulo(context.supabase)
       .from("meli_sla_diario")
       .select(
         "data_operacional,bases_total,rotas_total,pacotes_total,entregues_total,insucessos_total,sla_geral,ultima_coleta",
@@ -172,7 +173,7 @@ export const gerencialData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data, context }): Promise<GerencialData> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const desde = inicioPeriodo(data.periodo);
 
     const inicioHoje = inicioPeriodo("hoje");
@@ -294,7 +295,7 @@ export const transferenciasGerencial = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data, context }): Promise<TransferenciasGerencialData> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const desde = inicioPeriodo(data.periodo).toISOString().slice(0, 10);
 
     type TransferenciaRow = {
@@ -529,7 +530,8 @@ export const rotasPorBase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => rotasInputSchema.parse(input))
   .handler(async ({ data, context }): Promise<RotasPorBaseData> => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     let dia = data.data ?? hojeYMD();
 
     // Bases permitidas ao usuário (RLS já filtra, mas garantimos ordenação/uso)
@@ -726,7 +728,7 @@ export const resumoOperacionalPorBase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => resumoInputSchema.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<ResumoPorBaseData> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
 
     // Define intervalo. Se `periodo` for informado, prevalece sobre `dia`.
     let inicio: string;
@@ -919,7 +921,7 @@ export const detalhesResumoPorBase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => detalhesInput.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<DetalhesMetricaData> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
 
     const hoje = new Date();
     const fim = data.dia ?? ymd(hoje);

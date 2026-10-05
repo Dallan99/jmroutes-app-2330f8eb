@@ -47,7 +47,7 @@ describe("App do motorista vinculado ao catálogo Meli", () => {
   });
 
   it("envia contas vinculadas diretamente para a experiência móvel", () => {
-    expect(auth).toContain('perfil?.meli_driver_id ? "/motorista" : "/dashboard"');
+    expect(auth).toContain('return vinculoMotorista ? "/motorista" : "/dashboard"');
     expect(app).toContain("Iniciar conferência");
   });
 });

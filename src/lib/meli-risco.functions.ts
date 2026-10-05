@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -121,12 +122,12 @@ export const importarRiscoRostering = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ImportacaoRiscoRosteringResultado> => {
     const permissoes = await Promise.all(
       (["admin", "supervisor", "gerente"] as const).map((role) =>
-        context.supabase.rpc("has_role", { _user_id: context.userId, _role: role }),
+        clienteDeModulo(context.supabase).rpc("has_role", { _user_id: context.userId, _role: role }),
       ),
     );
     if (!permissoes.some((p) => !p.error && p.data)) throw new Error("Acesso negado para importar o CSV de risco.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const datas = [...new Set(data.linhas.map((l) => l.data))];
     const { data: rotas, error } = await supabaseAdmin
       .from("meli_rotas")

@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -129,7 +130,7 @@ export type TransferenciaFiltros = z.infer<typeof filtrosSchema>;
 export const listarMotivosTransferencia = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<TransferenciaMotivo[]> => {
-    const { data, error } = await context.supabase
+    const { data, error } = await clienteDeModulo(context.supabase)
       .from("transferencia_motivos")
       .select("id, codigo, nome, responsabilidade, etapa, exige_descricao, ordem")
       .eq("ativo", true)
@@ -142,7 +143,7 @@ export const listarTransferencias = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => filtrosSchema.parse(input))
   .handler(async ({ data: filtros, context }): Promise<TransferenciaDetalhe[]> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     type TransferenciaRow = Omit<
       TransferenciaDetalhe,
       "base_codigo" | "base_nome" | "eventos" | "ocorrencias" | "evidencias"
@@ -438,14 +439,14 @@ export const corrigirMarcoTransferencia = createServerFn({ method: "POST" })
 
     // Compatibilidade temporária para ambientes que ainda não aplicaram a
     // migração da RPC acima. Pode usar uma das duas nomenclaturas de chave.
-    const { data: transferencia, error: transferenciaError } = await context.supabase
+    const { data: transferencia, error: transferenciaError } = await clienteDeModulo(context.supabase)
       .from("transferencias")
       .select("id, base_id, data_operacional, service, finalizada_em")
       .eq("id", data.transferenciaId)
       .single();
     if (transferenciaError) throw new Error(transferenciaError.message);
 
-    const { data: eventos, error: eventosError } = await context.supabase
+    const { data: eventos, error: eventosError } = await clienteDeModulo(context.supabase)
       .from("transferencia_eventos")
       .select("id, etapa, ocorrido_em, localizacao_texto, minutos_atraso")
       .eq("transferencia_id", data.transferenciaId)
@@ -462,7 +463,7 @@ export const corrigirMarcoTransferencia = createServerFn({ method: "POST" })
     if (anterior && novoHorario < Date.parse(anterior.ocorrido_em)) throw new Error("O horário não pode ser anterior à etapa precedente.");
     if (seguinte && novoHorario > Date.parse(seguinte.ocorrido_em)) throw new Error("O horário não pode ser posterior à etapa seguinte.");
 
-    const { data: sla } = await context.supabase
+    const { data: sla } = await clienteDeModulo(context.supabase)
       .from("transferencia_slas")
       .select("chegada_service_limite, saida_service_limite, transito_max_minutos")
       .eq("base_id", transferencia.base_id)
@@ -478,7 +479,7 @@ export const corrigirMarcoTransferencia = createServerFn({ method: "POST" })
     const minutosAtraso = Math.max(0, Math.ceil((novoHorario - referencia) / 60_000));
 
     try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
       const { error: updateError } = await supabaseAdmin
         .from("transferencia_eventos")
         .update({ ocorrido_em: data.ocorridoEm, localizacao_texto: data.localizacaoTexto || null, minutos_atraso: minutosAtraso })
@@ -600,7 +601,7 @@ export const cancelarTransferencia = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: result, error } = await context.supabase.rpc("cancelar_transferencia", {
+    const { data: result, error } = await clienteDeModulo(context.supabase).rpc("cancelar_transferencia", {
       p_transferencia_id: data.transferenciaId,
       p_justificativa: data.justificativa,
     });
@@ -621,7 +622,7 @@ export const editarTransferencia = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => editarSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: anterior, error: leituraError } = await context.supabase
+    const { data: anterior, error: leituraError } = await clienteDeModulo(context.supabase)
       .from("transferencias")
       .select("id, service, motorista, placa, tipo_veiculo, status, observacao")
       .eq("id", data.transferenciaId)
@@ -644,7 +645,7 @@ export const editarTransferencia = createServerFn({ method: "POST" })
     if (data.observacao !== undefined) {
       novo.observacao = data.observacao.trim() || null;
     }
-    const { data: result, error } = await context.supabase
+    const { data: result, error } = await clienteDeModulo(context.supabase)
       .from("transferencias")
       .update(novo)
       .eq("id", data.transferenciaId)
@@ -678,7 +679,7 @@ export const salvarSlaTransferencia = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: result, error } = await context.supabase.rpc("salvar_sla_transferencia", {
+    const { data: result, error } = await clienteDeModulo(context.supabase).rpc("salvar_sla_transferencia", {
       p_base_id: data.baseId,
       p_service: data.service,
       p_chegada_service_limite: data.chegadaServiceLimite,

@@ -1,3 +1,4 @@
+import { clienteDeModulo, type ClienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -29,7 +30,7 @@ export const listarMotoristasMeli = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => z.object({ baseId: z.string().uuid().optional() }).parse(entrada))
   .handler(async (): Promise<MotoristaMeli[]> => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: linhas, error } = await supabaseAdmin
       .from("meli_motoristas_catalogo")
       .select("meli_driver_id, nome, ultima_rota_em, origem, status")
@@ -87,7 +88,7 @@ function rotaEfetiva(linha: Pick<LinhaEscala, "planejada" | "otimizada">) {
 }
 
 async function carregarEscalas(
-  supabase: SupabaseClient<Database>,
+  supabase: ClienteDeModulo,
   importacaoId: string,
 ): Promise<LinhaEscala[]> {
   const resultado: LinhaEscala[] = [];
@@ -113,7 +114,7 @@ export const listarRotasExpedicao = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => baseDiaSchema.parse(entrada))
   .handler(async ({ data, context }): Promise<RotaExpedicao[]> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: importacao, error } = await supabase
       .from("importacoes_escala")
       .select("id")
@@ -131,7 +132,7 @@ export const listarRotasExpedicao = createServerFn({ method: "GET" })
         .select("id, rota, status, motorista, quantidade_conferida")
         .eq("importacao_id", importacao.id),
       (async () => {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
         return supabaseAdmin
           .from("audit_logs")
           .select("detalhes")
@@ -198,7 +199,8 @@ export const iniciarExpedicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => iniciarSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: importacao, error: importacaoErro } = await supabase
       .from("importacoes_escala")
       .select("id")
@@ -213,7 +215,7 @@ export const iniciarExpedicao = createServerFn({ method: "POST" })
     );
     if (!linhas.length) throw new Error("Rota não encontrada na importação ativa.");
     const recebidos = linhas.filter((linha) => linha.triado).length;
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: ressalva } = await supabaseAdmin
       .from("audit_logs")
       .select("id")
@@ -277,7 +279,7 @@ export const iniciarExpedicao = createServerFn({ method: "POST" })
 export const listarMinhasExpedicoesMotorista = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: perfil, error: perfilErro } = await supabaseAdmin
       .from("profiles")
       .select("meli_driver_id")
@@ -317,7 +319,7 @@ export type MinhaRotaMotorista = {
 export const listarMinhasRotasMeliMotorista = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<MinhaRotaMotorista[]> => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: perfil, error: perfilErro } = await supabaseAdmin
       .from("profiles")
       .select("meli_driver_id, placa")
@@ -410,7 +412,7 @@ export const iniciarMinhaExpedicaoMotorista = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => iniciarMinhaSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: perfil, error: perfilErro } = await supabaseAdmin
       .from("profiles")
       .select("meli_driver_id")
@@ -487,7 +489,7 @@ export const detalharExpedicao = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => z.object({ expedicaoId: z.string().uuid() }).parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: expedicao, error } = await supabase
       .from("expedicoes")
       .select("*")
@@ -508,7 +510,8 @@ export const biparExpedicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => biparSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: expedicao, error } = await supabase
       .from("expedicoes")
       .select("id, importacao_id, rota, status, quantidade_prevista, quantidade_conferida")
@@ -534,7 +537,7 @@ export const biparExpedicao = createServerFn({ method: "POST" })
       };
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: divergencia } = await supabaseAdmin
       .from("audit_logs")
       .select("id")
@@ -607,7 +610,8 @@ export const concluirExpedicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => concluirSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: expedicao, error } = await supabase
       .from("expedicoes")
       .select("quantidade_prevista, quantidade_conferida")
@@ -644,7 +648,8 @@ export const reconciliarFechamentoOperacional = createServerFn({ method: "POST" 
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => baseDiaSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: importacao, error: importacaoErro } = await supabase
       .from("importacoes_escala")
       .select("id")
@@ -655,7 +660,7 @@ export const reconciliarFechamentoOperacional = createServerFn({ method: "POST" 
     if (importacaoErro) throw new Error(importacaoErro.message);
     if (!importacao) throw new Error("Não existe importação ativa para este fechamento.");
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
     const { data: divergencias, error: divergenciasErro } = await supabaseAdmin
       .from("audit_logs")
       .select("detalhes")

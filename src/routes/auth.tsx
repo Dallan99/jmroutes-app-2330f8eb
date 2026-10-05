@@ -73,10 +73,12 @@ function traduzirErroAuth(mensagem: string): string {
 async function destinoAposLogin(userId: string) {
   const { data: perfil } = await supabase
     .from("profiles")
-    .select("meli_driver_id")
+    .select("*")
     .eq("id", userId)
     .maybeSingle();
-  return perfil?.meli_driver_id ? "/motorista" : "/dashboard";
+  // meli_driver_id chega com o módulo do app do motorista (parte em implantação).
+  const vinculoMotorista = (perfil as { meli_driver_id?: string | null } | null)?.meli_driver_id;
+  return vinculoMotorista ? "/motorista" : "/dashboard";
 }
 
 function AuthPage() {
