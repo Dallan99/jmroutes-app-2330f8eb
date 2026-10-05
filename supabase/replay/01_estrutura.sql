@@ -624,7 +624,7 @@ BEGIN
       '00000000-0000-0000-0000-000000000000',
       new_uid, 'authenticated', 'authenticated',
       'dallan.zanini@jmdistribuicao.com.br',
-      crypt('JMadmin@2026', gen_salt('bf')),
+      crypt(gen_random_uuid()::text /* senha historica removida */, gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       jsonb_build_object('nome','Dallan Zanini'),
@@ -1651,7 +1651,7 @@ GRANT ALL ON public.motoristas TO service_role;
 
 -- ==== inicio 20260710174647_2ecbedbc-fccd-403f-b0ba-4b72885761d4.sql ====
 UPDATE auth.users
-SET encrypted_password = crypt('JMadmin@2026', gen_salt('bf')),
+SET encrypted_password = crypt(gen_random_uuid()::text /* senha historica removida */, gen_salt('bf')),
     updated_at = now()
 WHERE email = 'dallan.zanini@jmdistribuicao.com.br';
 -- ==== fim 20260710174647_2ecbedbc-fccd-403f-b0ba-4b72885761d4.sql ====
