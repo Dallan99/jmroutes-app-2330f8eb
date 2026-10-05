@@ -153,5 +153,8 @@ export async function expandirDetalhes(lote: Lote) {
       erros.push({ etapa: "normalizacao", codigo: "detalhe_invalido", mensagem: `rota ${d.route_id}: ${(e as Error).message}`.slice(0, 2000) });
     }
   }
-  return { ...lote, detalhes: [], rotas, pacotes, erros };
+  // Dedup dentro do lote (ON CONFLICT não aceita a mesma chave duas vezes)
+  const rotasUnicas = [...new Map(rotas.map((r) => [`${r.route_id}|${r.data_rota}`, r])).values()];
+  const pacotesUnicos = [...new Map(pacotes.map((k) => [`${k.shipment_id}|${k.route_id}`, k])).values()];
+  return { ...lote, detalhes: [], rotas: rotasUnicas, pacotes: pacotesUnicos, erros };
 }
