@@ -109,7 +109,7 @@ export const listarUsuarios = createServerFn({ method: "GET" })
         meli_driver_id: p.meli_driver_id,
         meli_driver_nome: p.meli_driver_id ? nomeMeliPorId.get(p.meli_driver_id) ?? null : null,
         base_id: p.base_id,
-        base_nome: p.bases?.nome ?? null,
+        base_nome: (p.bases as unknown as { nome?: string | null } | null)?.nome ?? null,
         ativo: p.ativo,
         roles: rolesByUser.get(p.id) ?? [],
         last_sign_in_at: lastByUser.get(p.id) ?? null,
