@@ -15,15 +15,16 @@ describe("App do motorista vinculado ao catálogo Meli", () => {
   it("mantém o cadastro operacional separado dos funcionários", () => {
     expect(migracao).toContain("ALTER TABLE public.motoristas");
     expect(migracao).toContain("motoristas_meli_driver_id_uidx");
-    expect(motoristas).toContain("Cadastro independente dos funcionários da JM");
+    expect(motoristas).toContain("Cadastro separado dos funcionários");
     expect(usuarios).not.toContain("Identidade no app do motorista");
   });
 
-  it("pede somente nome, placa e vínculo com o motorista Meli", () => {
-    expect(motoristas).toContain("Nome do motorista");
-    expect(motoristas).toContain("Placa do veículo");
-    expect(motoristas).toContain("Vincular ao motorista do Meli");
-    expect(motoristas).not.toContain("Senha inicial");
+  it("pede usuário, motorista do AdminML, estação e senha definida pela operação", () => {
+    expect(motoristas).toContain("<Label>Usuário</Label>");
+    expect(motoristas).toContain("Motorista existente no AdminML");
+    expect(motoristas).toContain("<Label>Estação</Label>");
+    expect(motoristas).toContain("Confirmar senha");
+    expect(motoristas).toContain("minLength={8}");
     expect(motoristas).not.toContain("Email");
   });
 
@@ -36,7 +37,7 @@ describe("App do motorista vinculado ao catálogo Meli", () => {
   it("materializa o vínculo do cadastro nas rotas atuais e futuras", () => {
     expect(migracao).toContain("trg_vincular_motorista_cadastrado_na_rota_meli");
     expect(cadastro).toContain('.from("meli_rotas")');
-    expect(cadastro).toContain("motorista_id: motoristaId!");
+    expect(cadastro).toContain("update({ motorista_id: criado.id })");
   });
 
   it("não deixa o motorista iniciar rota alheia ou ainda não recebida", () => {
