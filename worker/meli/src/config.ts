@@ -103,6 +103,9 @@ export type WorkerConfig = {
   discoveryOnly: boolean;
   discoveryBaseCode: string | null;
   monitoringConcurrency: number;
+  /** PILOT_WRITE=true (exige DRY_RUN=true): grava só nas tabelas isoladas do piloto. */
+  pilotWrite: boolean;
+  pilotSecret: string;
 };
 
 export class ConfigError extends Error {}
@@ -138,6 +141,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const discoveryOnly = (env["DISCOVERY_ONLY"] ?? "").trim().toLowerCase() === "true";
   const discoveryBaseCode = (env["DISCOVERY_BASE_CODE"] ?? "").trim().toUpperCase() || null;
 
+  const pilotWrite = (env["PILOT_WRITE"] ?? "").trim().toLowerCase() === "true";
+  if (pilotWrite && !dryRun) {
+    throw new ConfigError("PILOT_WRITE exige DRY_RUN=true.");
+  }
+  const pilotSecret = (env["MELI_PILOTO_INGEST_SECRET"] ?? "").trim();
+  if (pilotWrite && pilotSecret.length < 32) {
+    throw new ConfigError("PILOT_WRITE exige MELI_PILOTO_INGEST_SECRET (mínimo 32 caracteres).");
+  }
   if (discoveryOnly && !dryRun) {
     throw new ConfigError("DISCOVERY_ONLY exige DRY_RUN=true.");
   }
@@ -185,6 +196,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     discoveryOnly,
     discoveryBaseCode,
     monitoringConcurrency: parseMonitoringConcurrency(env["MONITORING_CONCURRENCY"]),
+    pilotWrite,
+    pilotSecret,
   };
 }
 

@@ -29,12 +29,22 @@ export const TABELAS_IMPLANTADAS: ReadonlySet<string> = new Set([
   "user_bases",
   "user_roles",
   "volumes",
+  // Piloto Meli isolado (somente leitura pelo app; escrita só via servidor)
+  "meli_piloto_ciclos",
+  "meli_piloto_paginas",
+  "meli_piloto_staging",
+  "meli_piloto_rotas",
+  "meli_piloto_pacotes",
+  "meli_piloto_erros",
+  "meli_piloto_heartbeat",
 ]);
 
 export const RPCS_IMPLANTADAS: ReadonlySet<string> = new Set([
   "has_role",
   "has_base_access",
   "get_allowed_bases",
+  "meli_piloto_ingerir_lote",
+  "meli_piloto_registrar_heartbeat",
 ]);
 
 export const MENSAGEM_MODULO_EM_IMPLANTACAO =
