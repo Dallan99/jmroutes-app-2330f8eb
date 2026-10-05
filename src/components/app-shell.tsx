@@ -31,6 +31,7 @@ import {
   Smartphone,
   Truck,
   Activity,
+  WalletCards,
 } from "lucide-react";
 import { JmLogo, JmWordmark } from "@/components/jm-logo";
 import { Button } from "@/components/ui/button";
@@ -99,6 +100,7 @@ const NAV_OPERACIONAL: NavItem[] = [
 ];
 const NAV_GESTAO: NavItem[] = [
   { title: "Gerencial", to: "/gerencial", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Pagamentos", to: "/pagamentos", icon: WalletCards, roles: ["admin", "supervisor", "gerente"] },
   { title: "Auditoria", to: "/auditoria", icon: ShieldCheck, roles: ["admin"] },
   { title: "Usuários", to: "/usuarios", icon: Users, roles: ["admin"] },
   { title: "Integração Meli", to: "/integracao-meli", icon: PackageSearch, roles: ["admin", "supervisor", "gerente"] },
