@@ -8,3 +8,4 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+- Pagamentos de motoristas: regras de cálculo ficam puras em src/lib/pagamentos-domain.ts (testáveis); tarifas e tipo de veículo vêm de tabelas, nunca do código — valores mudam por base/região/vigência.
