@@ -38,6 +38,7 @@ import { Route as AuthenticatedMeliRiscoRouteImport } from './routes/_authentica
 import { Route as AuthenticatedMonitoramentoWorkersRouteImport } from './routes/_authenticated/monitoramento-workers'
 import { Route as AuthenticatedMotoristaRouteImport } from './routes/_authenticated/motorista'
 import { Route as AuthenticatedMotoristasRouteImport } from './routes/_authenticated/motoristas'
+import { Route as AuthenticatedPagamentosMotoristasRouteImport } from './routes/_authenticated/pagamentos-motoristas'
 import { Route as AuthenticatedPainelOperacionalRouteImport } from './routes/_authenticated/painel-operacional'
 import { Route as AuthenticatedRecebimentoRouteImport } from './routes/_authenticated/recebimento'
 import { Route as AuthenticatedTransferenciasRouteImport } from './routes/_authenticated/transferencias'
@@ -209,6 +210,12 @@ const AuthenticatedMotoristasRoute = AuthenticatedMotoristasRouteImport.update({
   path: '/motoristas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPagamentosMotoristasRoute =
+  AuthenticatedPagamentosMotoristasRouteImport.update({
+    id: '/pagamentos-motoristas',
+    path: '/pagamentos-motoristas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPainelOperacionalRoute =
   AuthenticatedPainelOperacionalRouteImport.update({
     id: '/painel-operacional',
@@ -339,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/monitoramento-workers': typeof AuthenticatedMonitoramentoWorkersRoute
   '/motorista': typeof AuthenticatedMotoristaRoute
   '/motoristas': typeof AuthenticatedMotoristasRoute
+  '/pagamentos-motoristas': typeof AuthenticatedPagamentosMotoristasRoute
   '/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
   '/recebimento': typeof AuthenticatedRecebimentoRoute
   '/transferencias': typeof AuthenticatedTransferenciasRoute
@@ -387,6 +395,7 @@ export interface FileRoutesByTo {
   '/monitoramento-workers': typeof AuthenticatedMonitoramentoWorkersRoute
   '/motorista': typeof AuthenticatedMotoristaRoute
   '/motoristas': typeof AuthenticatedMotoristasRoute
+  '/pagamentos-motoristas': typeof AuthenticatedPagamentosMotoristasRoute
   '/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
   '/recebimento': typeof AuthenticatedRecebimentoRoute
   '/transferencias': typeof AuthenticatedTransferenciasRoute
@@ -437,6 +446,7 @@ export interface FileRoutesById {
   '/_authenticated/monitoramento-workers': typeof AuthenticatedMonitoramentoWorkersRoute
   '/_authenticated/motorista': typeof AuthenticatedMotoristaRoute
   '/_authenticated/motoristas': typeof AuthenticatedMotoristasRoute
+  '/_authenticated/pagamentos-motoristas': typeof AuthenticatedPagamentosMotoristasRoute
   '/_authenticated/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
   '/_authenticated/recebimento': typeof AuthenticatedRecebimentoRoute
   '/_authenticated/transferencias': typeof AuthenticatedTransferenciasRoute
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
     | '/monitoramento-workers'
     | '/motorista'
     | '/motoristas'
+    | '/pagamentos-motoristas'
     | '/painel-operacional'
     | '/recebimento'
     | '/transferencias'
@@ -535,6 +546,7 @@ export interface FileRouteTypes {
     | '/monitoramento-workers'
     | '/motorista'
     | '/motoristas'
+    | '/pagamentos-motoristas'
     | '/painel-operacional'
     | '/recebimento'
     | '/transferencias'
@@ -584,6 +596,7 @@ export interface FileRouteTypes {
     | '/_authenticated/monitoramento-workers'
     | '/_authenticated/motorista'
     | '/_authenticated/motoristas'
+    | '/_authenticated/pagamentos-motoristas'
     | '/_authenticated/painel-operacional'
     | '/_authenticated/recebimento'
     | '/_authenticated/transferencias'
@@ -830,6 +843,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMotoristasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/pagamentos-motoristas': {
+      id: '/_authenticated/pagamentos-motoristas'
+      path: '/pagamentos-motoristas'
+      fullPath: '/pagamentos-motoristas'
+      preLoaderRoute: typeof AuthenticatedPagamentosMotoristasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/painel-operacional': {
       id: '/_authenticated/painel-operacional'
       path: '/painel-operacional'
@@ -980,6 +1000,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMonitoramentoWorkersRoute: typeof AuthenticatedMonitoramentoWorkersRoute
   AuthenticatedMotoristaRoute: typeof AuthenticatedMotoristaRoute
   AuthenticatedMotoristasRoute: typeof AuthenticatedMotoristasRoute
+  AuthenticatedPagamentosMotoristasRoute: typeof AuthenticatedPagamentosMotoristasRoute
   AuthenticatedPainelOperacionalRoute: typeof AuthenticatedPainelOperacionalRoute
   AuthenticatedRecebimentoRoute: typeof AuthenticatedRecebimentoRoute
   AuthenticatedTransferenciasRoute: typeof AuthenticatedTransferenciasRoute
@@ -1010,6 +1031,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedMonitoramentoWorkersRoute,
   AuthenticatedMotoristaRoute: AuthenticatedMotoristaRoute,
   AuthenticatedMotoristasRoute: AuthenticatedMotoristasRoute,
+  AuthenticatedPagamentosMotoristasRoute:
+    AuthenticatedPagamentosMotoristasRoute,
   AuthenticatedPainelOperacionalRoute: AuthenticatedPainelOperacionalRoute,
   AuthenticatedRecebimentoRoute: AuthenticatedRecebimentoRoute,
   AuthenticatedTransferenciasRoute: AuthenticatedTransferenciasRoute,
