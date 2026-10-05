@@ -143,7 +143,7 @@ export const listarTransferencias = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => filtrosSchema.parse(input))
   .handler(async ({ data: filtros, context }): Promise<TransferenciaDetalhe[]> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     type TransferenciaRow = Omit<
       TransferenciaDetalhe,
       "base_codigo" | "base_nome" | "eventos" | "ocorrencias" | "evidencias"

@@ -1,4 +1,4 @@
-import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
+import { clienteDeModulo, type ClienteDeModulo } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -88,7 +88,7 @@ function rotaEfetiva(linha: Pick<LinhaEscala, "planejada" | "otimizada">) {
 }
 
 async function carregarEscalas(
-  supabase: SupabaseClient<Database>,
+  supabase: ClienteDeModulo,
   importacaoId: string,
 ): Promise<LinhaEscala[]> {
   const resultado: LinhaEscala[] = [];
@@ -114,7 +114,7 @@ export const listarRotasExpedicao = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => baseDiaSchema.parse(entrada))
   .handler(async ({ data, context }): Promise<RotaExpedicao[]> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: importacao, error } = await supabase
       .from("importacoes_escala")
       .select("id")
@@ -199,7 +199,8 @@ export const iniciarExpedicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => iniciarSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: importacao, error: importacaoErro } = await supabase
       .from("importacoes_escala")
       .select("id")
@@ -488,7 +489,7 @@ export const detalharExpedicao = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => z.object({ expedicaoId: z.string().uuid() }).parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: expedicao, error } = await supabase
       .from("expedicoes")
       .select("*")
@@ -509,7 +510,8 @@ export const biparExpedicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => biparSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: expedicao, error } = await supabase
       .from("expedicoes")
       .select("id, importacao_id, rota, status, quantidade_prevista, quantidade_conferida")
@@ -608,7 +610,8 @@ export const concluirExpedicao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => concluirSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: expedicao, error } = await supabase
       .from("expedicoes")
       .select("quantidade_prevista, quantidade_conferida")
@@ -645,7 +648,8 @@ export const reconciliarFechamentoOperacional = createServerFn({ method: "POST" 
   .middleware([requireSupabaseAuth])
   .inputValidator((entrada: unknown) => baseDiaSchema.parse(entrada))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { data: importacao, error: importacaoErro } = await supabase
       .from("importacoes_escala")
       .select("id")

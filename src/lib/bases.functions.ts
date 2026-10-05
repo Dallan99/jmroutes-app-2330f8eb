@@ -85,7 +85,8 @@ export function dataOperacionalDeInstante(instante: string | Date): string {
 export const listarBasesComResumo = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<BaseResumo[]> => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const hoje = dataOperacionalHoje();
 
     // Restringe a lista de bases: somente admin vê todas.
@@ -221,7 +222,8 @@ export const listarBasesComResumo = createServerFn({ method: "GET" })
 export const listarBasesSimples = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     // Verifica se é admin/gerente (acesso total)
     const [{ data: rolesRows }, { data: perfil }, { data: extras }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId),
@@ -322,7 +324,8 @@ export const importarEscala = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => importSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
 
     // 1) Determina próxima versão e arquiva versões ativas anteriores
     const { data: existentes, error: e1 } = await supabase
@@ -612,7 +615,7 @@ export const listarHistoricoImportacoes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => filtroHistoricoSchema.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<ImportacaoHistorico[]> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: bases } = await supabase.from("bases").select("id, codigo, nome");
     const baseMap = new Map((bases ?? []).map((b) => [b.id, b]));
 
@@ -671,7 +674,8 @@ export const excluirImportacao = createServerFn({ method: "POST" })
     z.object({ importacaoId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
 
     const { data: roles } = await supabase
       .from("user_roles")
@@ -747,7 +751,8 @@ export const renomearBase = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
 
     const { data: roles } = await supabase
       .from("user_roles")

@@ -88,7 +88,8 @@ export const concluirRotaComRessalva = createServerFn({
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => concluirRotaRessalvaSchema.parse(data))
   .handler(async ({ data, context }): Promise<ConclusaoRotaRessalva> => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
 
     const supabaseAdmin = clienteDeModulo((await import("@/integrations/supabase/client.server")).supabaseAdmin);
 
@@ -286,7 +287,8 @@ export const biparTriagem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => bipSchema.parse(data))
   .handler(async ({ data, context }): Promise<TriagemResult> => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const { auditRequestMeta, registrarAuditInterno } = await import("./audit.server");
     const hora = new Date().toISOString();
     const { ip, user_agent: userAgent } = auditRequestMeta();
@@ -608,7 +610,7 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
 
     type RotaTriagemDia = {
       rota: string;
@@ -784,7 +786,7 @@ export const localizarShipmentTriagem = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }): Promise<LocalizacaoShipmentTriagem> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: impAtiva, error: impErro } = await supabase
       .from("importacoes_escala")
       .select("id")
@@ -867,7 +869,8 @@ export const triagemResumoDia = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
+    const { userId } = context;
     const start = new Date();
     start.setHours(0, 0, 0, 0);
 
@@ -931,7 +934,7 @@ export const triagemShipmentsPendentes = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: impAtiva } = await supabase
       .from("importacoes_escala")
       .select("id")
