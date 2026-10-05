@@ -3,7 +3,7 @@ import {
   clienteDeModulo,
   ModuloEmImplantacaoError,
   tabelaImplantada,
-} from "@/lib/modulo-em-implantacao";
+} from "../src/lib/modulo-em-implantacao";
 
 function clienteFalso() {
   const chamadas: string[] = [];
