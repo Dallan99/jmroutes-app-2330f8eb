@@ -4,7 +4,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   calcularRotas,
-  chaveMotorista,
   resumirMotoristas,
   semanaPagamento,
   type Adicional,
@@ -85,6 +84,5 @@ export const previaPagamento = createServerFn({ method: "POST" })
     const adicionais = ((adicionaisRes.data ?? []) as Adicional[]).map((a) => ({ ...a, valor: Number(a.valor) }));
 
     const calculadas = calcularRotas(rotas, tipos, tarifas);
-    void chaveMotorista;
     return { status: "ok", avisos, semana, bases: (bases ?? []) as PreviaPagamento["bases"], motoristas: resumirMotoristas(calculadas, adicionais) };
   });
