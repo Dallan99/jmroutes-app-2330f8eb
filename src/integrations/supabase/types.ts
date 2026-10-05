@@ -717,6 +717,53 @@ export type Database = {
           },
         ]
       }
+      meli_piloto_estacoes: {
+        Row: {
+          ativa_no_piloto: boolean
+          base_codigo: string
+          base_id: string
+          confirmada: boolean
+          confirmada_em: string | null
+          created_at: string
+          estacao_externa: string | null
+          id: string
+          observacao: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativa_no_piloto?: boolean
+          base_codigo: string
+          base_id: string
+          confirmada?: boolean
+          confirmada_em?: string | null
+          created_at?: string
+          estacao_externa?: string | null
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativa_no_piloto?: boolean
+          base_codigo?: string
+          base_id?: string
+          confirmada?: boolean
+          confirmada_em?: string | null
+          created_at?: string
+          estacao_externa?: string | null
+          id?: string
+          observacao?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_piloto_estacoes_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: true
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meli_piloto_heartbeat: {
         Row: {
           ambiente: string | null
@@ -1494,6 +1541,10 @@ export type Database = {
       }
       meli_piloto_ingerir_lote: { Args: { p: Json }; Returns: Json }
       meli_piloto_registrar_heartbeat: { Args: { p: Json }; Returns: undefined }
+      meli_piloto_validar_estacao: {
+        Args: { _base: string; _estacao: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "supervisor" | "operador" | "gerente"

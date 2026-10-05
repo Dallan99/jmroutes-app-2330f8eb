@@ -10,6 +10,8 @@ export type BaseJm = {
   serviceCenterIds?: readonly string[];
   siteId: string;
   nome: string;
+  /** false = estação externa ainda não confirmada no AdminML; base não pode ser usada. */
+  estacaoConfirmada?: boolean;
 };
 
 export const BASES_JM = [
@@ -21,7 +23,8 @@ export const BASES_JM = [
   { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "XPT Embu Guaçu" },
   { baseCode: "ESP16", serviceCenterId: "SSP15", siteId: "MLB", nome: "Guarujá" },
   { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "ABC" },
-  { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Atibaia" },
+  // Base interna ESP18 = Franco da Rocha. Estação externa AdminML ainda NÃO confirmada.
+  { baseCode: "ESP18", serviceCenterId: "", siteId: "MLB", nome: "Franco da Rocha", estacaoConfirmada: false },
   { baseCode: "SSP6", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
   { baseCode: "SSP45", serviceCenterId: "SSP45", siteId: "MLB", nome: "Itaquera" },
   { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "Santos" },
@@ -127,6 +130,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const invalida = codigos.find((_, i) => !bases[i]);
   if (invalida) throw new ConfigError(`Base Meli não permitida: ${invalida}`);
   const selecionadas = bases as BaseJm[];
+  const semEstacao = selecionadas.find((b) => b.estacaoConfirmada === false || !b.serviceCenterId);
+  if (semEstacao) throw new ConfigError(`Base ${semEstacao.baseCode} sem estação AdminML confirmada; remova de BASE_CODES.`);
   const primeira = selecionadas[0];
   if (!primeira) throw new ConfigError("Nenhuma base configurada em BASE_CODES.");
 
