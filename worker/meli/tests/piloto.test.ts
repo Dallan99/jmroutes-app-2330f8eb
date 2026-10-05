@@ -66,3 +66,9 @@ describe("piloto Meli", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe("ESP18 sem estação confirmada", () => {
+  it("recusa ESP18 em BASE_CODES", () => {
+    expect(() => loadConfig({ ...ENV, BASE_CODES: "ESP16,ESP18" })).toThrow(/ESP18/);
+  });
+});
