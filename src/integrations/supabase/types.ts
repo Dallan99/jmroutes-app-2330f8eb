@@ -595,6 +595,420 @@ export type Database = {
           },
         ]
       }
+      meli_piloto_ciclos: {
+        Row: {
+          base_codigo: string
+          base_id: string
+          created_at: string
+          dry_run: boolean
+          erro: string | null
+          finalizado_em: string | null
+          id: string
+          iniciado_em: string
+          instancia: string
+          pacotes_esperados: number | null
+          pacotes_recebidos: number
+          paginas_esperadas: number | null
+          paginas_lidas: number
+          rotas_esperadas: number | null
+          rotas_recebidas: number
+          service_center: string
+          status: string
+          updated_at: string
+          versao_worker: string | null
+        }
+        Insert: {
+          base_codigo: string
+          base_id: string
+          created_at?: string
+          dry_run: boolean
+          erro?: string | null
+          finalizado_em?: string | null
+          id: string
+          iniciado_em: string
+          instancia: string
+          pacotes_esperados?: number | null
+          pacotes_recebidos?: number
+          paginas_esperadas?: number | null
+          paginas_lidas?: number
+          rotas_esperadas?: number | null
+          rotas_recebidas?: number
+          service_center: string
+          status?: string
+          updated_at?: string
+          versao_worker?: string | null
+        }
+        Update: {
+          base_codigo?: string
+          base_id?: string
+          created_at?: string
+          dry_run?: boolean
+          erro?: string | null
+          finalizado_em?: string | null
+          id?: string
+          iniciado_em?: string
+          instancia?: string
+          pacotes_esperados?: number | null
+          pacotes_recebidos?: number
+          paginas_esperadas?: number | null
+          paginas_lidas?: number
+          rotas_esperadas?: number | null
+          rotas_recebidas?: number
+          service_center?: string
+          status?: string
+          updated_at?: string
+          versao_worker?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_piloto_ciclos_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meli_piloto_erros: {
+        Row: {
+          base_id: string
+          ciclo_id: string | null
+          codigo: string | null
+          detalhe: Json | null
+          etapa: string
+          id: string
+          mensagem: string
+          ocorrido_em: string
+        }
+        Insert: {
+          base_id: string
+          ciclo_id?: string | null
+          codigo?: string | null
+          detalhe?: Json | null
+          etapa: string
+          id?: string
+          mensagem: string
+          ocorrido_em?: string
+        }
+        Update: {
+          base_id?: string
+          ciclo_id?: string | null
+          codigo?: string | null
+          detalhe?: Json | null
+          etapa?: string
+          id?: string
+          mensagem?: string
+          ocorrido_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_piloto_erros_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meli_piloto_erros_ciclo_id_fkey"
+            columns: ["ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "meli_piloto_ciclos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meli_piloto_heartbeat: {
+        Row: {
+          ambiente: string | null
+          bases: string[]
+          created_at: string
+          detalhe: Json | null
+          dry_run: boolean
+          host: string | null
+          instancia: string
+          regiao: string | null
+          sessao_adminml: string
+          sessao_verificada_em: string | null
+          ultimo_ciclo_id: string | null
+          ultimo_sinal_em: string
+          versao_worker: string | null
+        }
+        Insert: {
+          ambiente?: string | null
+          bases: string[]
+          created_at?: string
+          detalhe?: Json | null
+          dry_run: boolean
+          host?: string | null
+          instancia: string
+          regiao?: string | null
+          sessao_adminml: string
+          sessao_verificada_em?: string | null
+          ultimo_ciclo_id?: string | null
+          ultimo_sinal_em: string
+          versao_worker?: string | null
+        }
+        Update: {
+          ambiente?: string | null
+          bases?: string[]
+          created_at?: string
+          detalhe?: Json | null
+          dry_run?: boolean
+          host?: string | null
+          instancia?: string
+          regiao?: string | null
+          sessao_adminml?: string
+          sessao_verificada_em?: string | null
+          ultimo_ciclo_id?: string | null
+          ultimo_sinal_em?: string
+          versao_worker?: string | null
+        }
+        Relationships: []
+      }
+      meli_piloto_pacotes: {
+        Row: {
+          base_id: string
+          coletado_em: string
+          created_at: string
+          id: string
+          payload: Json
+          route_id: string
+          shipment_id: string
+          status: string | null
+          ultimo_ciclo_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_id: string
+          coletado_em: string
+          created_at?: string
+          id?: string
+          payload: Json
+          route_id: string
+          shipment_id: string
+          status?: string | null
+          ultimo_ciclo_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_id?: string
+          coletado_em?: string
+          created_at?: string
+          id?: string
+          payload?: Json
+          route_id?: string
+          shipment_id?: string
+          status?: string | null
+          ultimo_ciclo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_piloto_pacotes_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meli_piloto_pacotes_ultimo_ciclo_id_fkey"
+            columns: ["ultimo_ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "meli_piloto_ciclos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meli_piloto_paginas: {
+        Row: {
+          base_id: string
+          ciclo_id: string
+          coletado_em: string
+          created_at: string
+          id: string
+          itens_recebidos: number
+          numero: number
+          offset_inicial: number | null
+          payload_hash: string
+          recurso: string
+          status: string
+          total_informado: number | null
+        }
+        Insert: {
+          base_id: string
+          ciclo_id: string
+          coletado_em: string
+          created_at?: string
+          id?: string
+          itens_recebidos: number
+          numero: number
+          offset_inicial?: number | null
+          payload_hash: string
+          recurso?: string
+          status?: string
+          total_informado?: number | null
+        }
+        Update: {
+          base_id?: string
+          ciclo_id?: string
+          coletado_em?: string
+          created_at?: string
+          id?: string
+          itens_recebidos?: number
+          numero?: number
+          offset_inicial?: number | null
+          payload_hash?: string
+          recurso?: string
+          status?: string
+          total_informado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_piloto_paginas_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meli_piloto_paginas_ciclo_id_fkey"
+            columns: ["ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "meli_piloto_ciclos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meli_piloto_rotas: {
+        Row: {
+          base_codigo: string
+          base_id: string
+          coletado_em: string
+          created_at: string
+          data_rota: string
+          driver_id: string | null
+          id: string
+          motorista_nome: string | null
+          payload: Json
+          placa: string | null
+          primeiro_ciclo_id: string
+          route_id: string
+          total_entregue: number | null
+          total_pedidos: number | null
+          ultimo_ciclo_id: string
+          updated_at: string
+        }
+        Insert: {
+          base_codigo: string
+          base_id: string
+          coletado_em: string
+          created_at?: string
+          data_rota: string
+          driver_id?: string | null
+          id?: string
+          motorista_nome?: string | null
+          payload: Json
+          placa?: string | null
+          primeiro_ciclo_id: string
+          route_id: string
+          total_entregue?: number | null
+          total_pedidos?: number | null
+          ultimo_ciclo_id: string
+          updated_at?: string
+        }
+        Update: {
+          base_codigo?: string
+          base_id?: string
+          coletado_em?: string
+          created_at?: string
+          data_rota?: string
+          driver_id?: string | null
+          id?: string
+          motorista_nome?: string | null
+          payload?: Json
+          placa?: string | null
+          primeiro_ciclo_id?: string
+          route_id?: string
+          total_entregue?: number | null
+          total_pedidos?: number | null
+          ultimo_ciclo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_piloto_rotas_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meli_piloto_rotas_primeiro_ciclo_id_fkey"
+            columns: ["primeiro_ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "meli_piloto_ciclos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meli_piloto_rotas_ultimo_ciclo_id_fkey"
+            columns: ["ultimo_ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "meli_piloto_ciclos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meli_piloto_staging: {
+        Row: {
+          base_id: string
+          ciclo_id: string
+          coletado_em: string
+          created_at: string
+          id: string
+          pagina: number | null
+          payload: Json
+          payload_hash: string
+          recurso: string
+        }
+        Insert: {
+          base_id: string
+          ciclo_id: string
+          coletado_em: string
+          created_at?: string
+          id?: string
+          pagina?: number | null
+          payload: Json
+          payload_hash: string
+          recurso: string
+        }
+        Update: {
+          base_id?: string
+          ciclo_id?: string
+          coletado_em?: string
+          created_at?: string
+          id?: string
+          pagina?: number | null
+          payload?: Json
+          payload_hash?: string
+          recurso?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meli_piloto_staging_base_id_fkey"
+            columns: ["base_id"]
+            isOneToOne: false
+            referencedRelation: "bases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meli_piloto_staging_ciclo_id_fkey"
+            columns: ["ciclo_id"]
+            isOneToOne: false
+            referencedRelation: "meli_piloto_ciclos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       motoristas: {
         Row: {
           ativo: boolean
@@ -1078,6 +1492,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      meli_piloto_ingerir_lote: { Args: { p: Json }; Returns: Json }
+      meli_piloto_registrar_heartbeat: { Args: { p: Json }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "supervisor" | "operador" | "gerente"
