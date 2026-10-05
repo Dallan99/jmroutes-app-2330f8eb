@@ -15,7 +15,7 @@ const ENV = {
   MELI_PILOTO_INGEST_SECRET: SEGREDO,
 };
 
-const resp = (body: unknown): MeliResposta => ({ status: 200, headers: {}, body } as MeliResposta);
+const resp = (body: unknown): MeliResposta => ({ status: 200, headers: {}, body, ok: true });
 
 function transporte(totalRotas: number): MeliTransport {
   const rotas = Array.from({ length: totalRotas }, (_, i) => ({ routeId: String(1000 + i), counters: { total: 3, delivered: 2 } }));
