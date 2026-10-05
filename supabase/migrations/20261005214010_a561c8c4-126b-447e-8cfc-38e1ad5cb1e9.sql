@@ -1,0 +1,1 @@
+SELECT privado.conceder_admin_inicial('dallanr@gmail.com');
