@@ -31,6 +31,7 @@ import {
   Smartphone,
   Truck,
   Activity,
+  Wallet,
 } from "lucide-react";
 import { JmLogo, JmWordmark } from "@/components/jm-logo";
 import { Button } from "@/components/ui/button";
@@ -105,6 +106,7 @@ const NAV_GESTAO: NavItem[] = [
   { title: "Monitoramento de Workers", to: "/monitoramento-workers", icon: Activity, roles: ["admin", "supervisor", "gerente"] },
   { title: "Histórico", to: "/historico", icon: History, roles: ["admin", "supervisor", "gerente"] },
   { title: "Área de Risco", to: "/meli-risco", icon: ShieldAlert, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Prévia de pagamentos", to: "/pagamentos-motoristas", icon: Wallet, roles: ["admin", "supervisor", "gerente"] },
 ];
 const NAV_ADMIN: NavItem[] = [
   { title: "Motoristas", to: "/motoristas", icon: Truck, roles: ["admin"] },

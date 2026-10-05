@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
@@ -53,6 +53,8 @@ function PagamentosPage() {
   const totalRotas = soma(todos, (m) => m.rotas.length);
   const pagaveis = soma(todos, (m) => m.pagaveis);
   const comPendencia = todos.filter((m) => m.pendencias.length).length;
+  const semClass = [...new Set(todos.flatMap((m) => m.rotas.filter((r) => r.pendencias.includes("placa_sem_tipo")).map((r) => r.placa!)))];
+  const podeCadastrar = q.data?.podeCadastrar ?? false;
 
   const mudarSemana = (dias: number) => {
     const [y, mo, d] = semana.inicio.split("-").map(Number);
@@ -73,12 +75,19 @@ function PagamentosPage() {
           </p>
         </div>
         <div className="ml-auto flex flex-wrap gap-2 items-center">
+          <Button variant="outline" asChild><Link to="/pagamentos-veiculos">Cadastro de veículos</Link></Button>
           <Button variant="outline" onClick={() => mudarSemana(-7)}>‹ Semana anterior</Button>
           <Input type="date" className="w-40" value={dataRef} onChange={(e) => e.target.value && setDataRef(e.target.value)} />
           <Button variant="outline" onClick={() => mudarSemana(7)}>Próxima ›</Button>
         </div>
       </div>
 
+      {comPendencia > 0 && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm">
+          <strong>Validação da prévia bloqueada:</strong> {comPendencia} motorista(s) com pendência
+          {semClass.length > 0 && <> · {semClass.length} placa(s) sem classificação</>}. Corrija antes da conferência.
+        </div>
+      )}
       {q.data?.avisos.map((a) => (
         <div key={a} className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm">{a}</div>
       ))}
@@ -169,7 +178,7 @@ function PagamentosPage() {
                         <td className="p-1">{r.total_pedidos ?? "—"}</td>
                         <td className="p-1">{r.entregues ?? "—"}</td>
                         <td className="p-1">{pct(r.percentual)}</td>
-                        <td className="p-1">{r.pagavel ? <Badge variant="secondary">Pagável</Badge> : <Badge variant="outline">Não pagável</Badge>}{r.motivo && <div className="text-muted-foreground">{r.motivo}</div>}{r.pendencias.map((p) => <div key={p} className="text-destructive">{PENDENCIA_LABEL[p]}</div>)}</td>
+                        <td className="p-1">{r.pagavel ? <Badge variant="secondary">Pagável</Badge> : <Badge variant="outline">Não pagável</Badge>}{r.motivo && <div className="text-muted-foreground">{r.motivo}</div>}{r.pendencias.map((p) => <div key={p} className="text-destructive">{PENDENCIA_LABEL[p]}</div>)}{podeCadastrar && r.placa && r.pendencias.includes("placa_sem_tipo") && <Link to="/pagamentos-veiculos" search={{ placa: r.placa }} className="text-primary underline">Cadastrar veículo</Link>}</td>
                         <td className="p-1">{r.tarifa !== null ? brl(r.tarifa) : "—"}</td>
                         <td className="p-1">{brl(r.valor)}</td>
                       </tr>

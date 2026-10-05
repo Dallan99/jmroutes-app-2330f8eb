@@ -19,15 +19,38 @@ create table if not exists public.pagamento_tarifas (
 create unique index if not exists pagamento_tarifas_uk
   on public.pagamento_tarifas (tipo_veiculo, coalesce(base_id,'00000000-0000-0000-0000-000000000000'::uuid), coalesce(regiao,''), vigencia_inicio);
 
+-- Classificação por placa com vigência: mudar categoria = nova linha (histórico preservado).
 create table if not exists public.pagamento_veiculos (
-  placa text primary key check (placa ~ '^[A-Z0-9]{5,8}$'),
+  id uuid primary key default gen_random_uuid(),
+  placa text not null check (placa ~ '^[A-Z0-9]{5,8}$'),
   tipo_veiculo text not null check (tipo_veiculo in ('carro','utilitario','vuc')),
+  base_padrao_id uuid references public.bases(id),
   descricao text,
   ativo boolean not null default true,
+  vigencia_inicio date not null default current_date,
+  observacao text,
+  criado_por uuid not null default auth.uid(),
   atualizado_por uuid,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (placa, vigencia_inicio)
 );
+
+create or replace function public.pagamento_veiculos_auditar()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'UPDATE' then
+    if new.tipo_veiculo is distinct from old.tipo_veiculo or new.vigencia_inicio is distinct from old.vigencia_inicio then
+      raise exception 'Categoria e vigência não podem ser alteradas: cadastre uma nova vigência.';
+    end if;
+    new.updated_at := now();
+    new.atualizado_por := auth.uid();
+  end if;
+  insert into public.pagamento_auditoria (entidade, entidade_id, acao, motivo, antes, depois, base_id, usuario_id)
+  values ('pagamento_veiculos', new.placa, lower(tg_op), new.observacao,
+          case when tg_op = 'UPDATE' then to_jsonb(old) end, to_jsonb(new), new.base_padrao_id, auth.uid());
+  return new;
+end $$;
 
 create table if not exists public.pagamento_adicionais (
   id uuid primary key default gen_random_uuid(),
@@ -99,6 +122,10 @@ create table if not exists public.pagamento_auditoria (
   created_at timestamptz not null default now()
 );
 
+drop trigger if exists trg_pagamento_veiculos_auditar on public.pagamento_veiculos;
+create trigger trg_pagamento_veiculos_auditar before insert or update on public.pagamento_veiculos
+  for each row execute function public.pagamento_veiculos_auditar();
+
 grant select, insert, update on public.pagamento_tarifas, public.pagamento_veiculos, public.pagamento_adicionais, public.pagamento_fechamentos, public.pagamento_fechamento_rotas to authenticated;
 grant select, insert on public.pagamento_auditoria to authenticated;
 grant all on public.pagamento_tarifas, public.pagamento_veiculos, public.pagamento_adicionais, public.pagamento_fechamentos, public.pagamento_fechamento_rotas, public.pagamento_auditoria to service_role;
@@ -114,7 +141,7 @@ alter table public.pagamento_auditoria enable row level security;
 do $$
 declare t text;
 begin
-  foreach t in array array['pagamento_tarifas','pagamento_veiculos','pagamento_adicionais','pagamento_fechamentos','pagamento_fechamento_rotas','pagamento_auditoria'] loop
+  foreach t in array array['pagamento_tarifas','pagamento_adicionais','pagamento_fechamentos','pagamento_fechamento_rotas','pagamento_auditoria'] loop
     execute format('drop policy if exists "gestao le %1$s" on public.%1$s', t);
     execute format($p$create policy "gestao le %1$s" on public.%1$s for select to authenticated using (
       public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente') or public.has_role(auth.uid(),'supervisor'))$p$, t);
@@ -124,9 +151,13 @@ end $$;
 create policy "gestao edita tarifas" on public.pagamento_tarifas for all to authenticated
   using (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente'))
   with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente'));
-create policy "gestao edita veiculos" on public.pagamento_veiculos for all to authenticated
-  using (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente'))
-  with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente'));
+-- Veículos: qualquer usuário autenticado lê; admin/gerente/supervisor cadastram e editam (sem apagar).
+create policy "autenticados leem veiculos" on public.pagamento_veiculos for select to authenticated using (true);
+create policy "gestao cadastra veiculos" on public.pagamento_veiculos for insert to authenticated
+  with check (criado_por = auth.uid() and (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente') or public.has_role(auth.uid(),'supervisor')));
+create policy "gestao edita veiculos" on public.pagamento_veiculos for update to authenticated
+  using (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente') or public.has_role(auth.uid(),'supervisor'))
+  with check (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente') or public.has_role(auth.uid(),'supervisor'));
 create policy "gestao lanca adicionais" on public.pagamento_adicionais for insert to authenticated
   with check (lancado_por = auth.uid() and (public.has_role(auth.uid(),'admin') or public.has_role(auth.uid(),'gerente') or public.has_role(auth.uid(),'supervisor')));
 create policy "auditoria insere" on public.pagamento_auditoria for insert to authenticated
