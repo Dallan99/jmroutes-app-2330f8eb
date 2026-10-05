@@ -54,14 +54,17 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
+  const emImplantacao = String((error as Error)?.message ?? "").includes("Módulo em implantação");
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
+          {emImplantacao ? "Módulo em implantação" : "Esta página não carregou"}
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          {emImplantacao
+            ? "Este módulo ainda está sendo implantado no banco novo e estará disponível em uma próxima etapa."
+            : "Ocorreu um erro. Tente atualizar ou volte ao início."}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
