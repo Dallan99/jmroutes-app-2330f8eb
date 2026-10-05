@@ -51,7 +51,7 @@ async function enviar(cfg: WorkerConfig, caminho: "ingest" | "heartbeat", corpo:
     try {
       const res = await f(`${cfg.jmrBaseUrl}/api/public/meli/piloto/${caminho}`, {
         method: "POST",
-        headers: { "content-type": "application/json", "x-jm-timestamp": ts, "x-jm-signature": assinar(cfg.pilotSecret, ts, json) },
+        headers: { "content-type": "application/json", "user-agent": `jmroutes-meli-worker/${WORKER_VERSAO}`, "x-jm-timestamp": ts, "x-jm-signature": assinar(cfg.pilotSecret, ts, json) },
         body: json,
       });
       if (res.ok) return { ok: true as const };
