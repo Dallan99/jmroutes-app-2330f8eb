@@ -44,3 +44,7 @@ Cada mudança de status é registrada em histórico e no log de auditoria. Fecha
 7. Só depois aprovar implantação em produção.
 
 Esta entrega não substitui a planilha nem altera o worker do Mercado Livre.
+
+## Prévia temporária sem login
+
+A branch possui a rota pública `/preview-pagamentos`, alimentada exclusivamente por dados demonstrativos. O redirecionamento inicial da branch aponta para essa prévia. Ela não consulta o Supabase e não permite ações. Produção continua exigindo autenticação.
