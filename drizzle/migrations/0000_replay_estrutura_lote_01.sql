@@ -560,7 +560,7 @@ BEGIN
       '00000000-0000-0000-0000-000000000000',
       new_uid, 'authenticated', 'authenticated',
       'dallan.zanini@jmdistribuicao.com.br',
-      crypt('JMadmin@2026', gen_salt('bf')),
+      crypt(gen_random_uuid()::text /* senha historica removida */, gen_salt('bf')),
       now(),
       '{"provider":"email","providers":["email"]}'::jsonb,
       jsonb_build_object('nome','Dallan Zanini'),

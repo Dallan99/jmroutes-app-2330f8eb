@@ -1656,7 +1656,7 @@ REVOKE EXECUTE ON FUNCTION public.transferencia_access(uuid, uuid) FROM PUBLIC, 
 
 -- Reset senha do admin
 UPDATE auth.users
-SET encrypted_password = crypt('JM@transportes', gen_salt('bf')),
+SET encrypted_password = crypt(gen_random_uuid()::text /* senha historica removida */, gen_salt('bf')),
     email_confirmed_at = COALESCE(email_confirmed_at, now()),
     updated_at = now()
 WHERE email = 'dallan.zanini@jmdistribuicao.com.br';
@@ -1669,7 +1669,7 @@ DECLARE
   v_id uuid;
   v_base_esp16 uuid := 'a5ae8637-1e33-40e3-8fdb-d1a464628ab9';
   v_base_esp17 uuid := 'e4e9b675-6cff-4d6b-b7db-684573f58294';
-  v_pwd text := crypt('JM@transportes', gen_salt('bf'));
+  v_pwd text := crypt(gen_random_uuid()::text /* senha historica removida */, gen_salt('bf'));
 BEGIN
   FOR v_user IN
     SELECT * FROM (VALUES

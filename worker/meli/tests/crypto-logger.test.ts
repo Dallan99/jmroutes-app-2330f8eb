@@ -40,12 +40,12 @@ describe("redação de logs", () => {
   it("oculta cookies, tokens e senhas", () => {
     const linha = formatLog("info", "ciclo", {
       cookies: [{ name: "session", value: "abc" }],
-      password: "JM@transportes",
+      password: "senha-ficticia-de-teste-123",
       authorization: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.abc.def",
       payload: { stops: [1, 2, 3] },
       base: "ESP16",
     });
-    expect(linha).not.toContain("JM@transportes");
+    expect(linha).not.toContain("senha-ficticia-de-teste-123");
     expect(linha).not.toContain("abc.def");
     expect(linha).toContain("REDACTED");
     expect(linha).toContain("ESP16");
