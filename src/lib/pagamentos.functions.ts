@@ -169,6 +169,7 @@ export const salvarVeiculo = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as SupabaseClient;
     const roles = await papeisDe(db, context.userId);
     if (!roles.some((r) => GESTAO.includes(r))) return { ok: false as const, erro: "Somente Administrador, Gerente ou Supervisor." };
+    if ((await tabelasAusentes(db, TABELAS_VEICULOS, "salvarVeiculo")).length) return { ok: false as const, erro: "Módulo em implantação." };
     const placa = normalizarPlaca(data.placa);
     if (!placa || !/^[A-Z0-9]{5,8}$/.test(placa)) return { ok: false as const, erro: "Placa inválida." };
 
