@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularRotas, resumirMotoristas, semanaAnterior, semanaPagamento, type Tarifa, type RotaEntrada } from "../src/lib/pagamentos-domain";
+import { calcularRotas, criarClassificador, resumirMotoristas, semanaAnterior, semanaPagamento, type Tarifa, type RotaEntrada } from "../src/lib/pagamentos-domain";
 
 const tarifas: Tarifa[] = [
   { tipo_veiculo: "carro", base_id: null, regiao: null, valor: 200, vigencia_inicio: "2026-01-01", vigencia_fim: null },
@@ -40,5 +40,17 @@ describe("elegibilidade", () => {
     const [m] = resumirMotoristas(rs, [{ motorista_chave: "ESP15::m1", valor: 30, motivo: "domingo", observacao: null, data_relacionada: null }]);
     expect(m.media_ponderada).toBeCloseTo(90.909, 2);
     expect(m.total).toBe(230);
+  });
+});
+
+describe("vigência da placa", () => {
+  it("rota antiga mantém a categoria da época", () => {
+    const c = criarClassificador([
+      { placa: "ABC1D23", tipo_veiculo: "carro", vigencia_inicio: "2026-01-01", ativo: true },
+      { placa: "ABC1D23", tipo_veiculo: "vuc", vigencia_inicio: "2026-10-06", ativo: true },
+    ]);
+    const [a, b] = calcularRotas([rota({ route_id: "1", data_rota: "2026-10-05" }), rota({ route_id: "2", data_rota: "2026-10-07" })], c, tarifas);
+    expect(a.valor).toBe(200);
+    expect(b.valor).toBe(500);
   });
 });

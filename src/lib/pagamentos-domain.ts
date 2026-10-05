@@ -48,7 +48,7 @@ export type Pendencia =
 export const PENDENCIA_LABEL: Record<Pendencia, string> = {
   motorista_sem_identificacao: "Motorista sem identificação",
   placa_ausente: "Rota sem placa",
-  placa_sem_tipo: "Placa sem tipo de veículo",
+  placa_sem_tipo: "Placa sem classificação",
   rota_sem_base: "Rota sem base",
   rota_sem_pedidos: "Rota sem total de pedidos",
   percentual_impossivel: "Percentual impossível",
@@ -134,7 +134,31 @@ export function escolherTarifa(tarifas: Tarifa[], tipo: TipoVeiculo, baseId: str
   );
 }
 
-export function calcularRotas(rotas: RotaEntrada[], tiposPorPlaca: Map<string, TipoVeiculo>, tarifas: Tarifa[]): RotaCalculada[] {
+export type VeiculoVigencia = { placa: string; tipo_veiculo: TipoVeiculo; vigencia_inicio: string; ativo: boolean };
+
+/** Categoria da placa vigente na data da rota (a mais recente com início <= data). */
+export function criarClassificador(veiculos: VeiculoVigencia[]) {
+  const porPlaca = new Map<string, VeiculoVigencia[]>();
+  for (const v of veiculos) {
+    const p = normalizarPlaca(v.placa);
+    if (!p) continue;
+    porPlaca.set(p, [...(porPlaca.get(p) ?? []), v]);
+  }
+  return (placa: string, data: string | null): TipoVeiculo | null => {
+    const dia = data ?? "9999-12-31";
+    const v = (porPlaca.get(placa) ?? [])
+      .filter((x) => x.vigencia_inicio <= dia)
+      .sort((a, b) => b.vigencia_inicio.localeCompare(a.vigencia_inicio))[0];
+    return v && v.ativo ? v.tipo_veiculo : null;
+  };
+}
+
+export function calcularRotas(
+  rotas: RotaEntrada[],
+  classificar: Map<string, TipoVeiculo> | ((placa: string, data: string | null) => TipoVeiculo | null),
+  tarifas: Tarifa[],
+): RotaCalculada[] {
+  const tipoDe = typeof classificar === "function" ? classificar : (p: string) => classificar.get(p) ?? null;
   const contagem = new Map<string, number>();
   const motoristasPorRota = new Map<string, Set<string>>();
   for (const r of rotas) {
@@ -148,7 +172,7 @@ export function calcularRotas(rotas: RotaEntrada[], tiposPorPlaca: Map<string, T
     if (!r.motorista_id && !r.motorista_nome) pend.push("motorista_sem_identificacao");
     if (!r.base_id) pend.push("rota_sem_base");
     const placa = normalizarPlaca(r.placa);
-    const tipo = placa ? tiposPorPlaca.get(placa) ?? null : null;
+    const tipo = placa ? tipoDe(placa, r.data_rota) : null;
     if (!placa) pend.push("placa_ausente");
     else if (!tipo) pend.push("placa_sem_tipo");
     if ((contagem.get(r.route_id) ?? 0) > 1) pend.push("rota_duplicada");
