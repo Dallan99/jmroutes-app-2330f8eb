@@ -73,6 +73,13 @@ export const adicionarExtraPagamento = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertGestao(context.supabase, context.userId, true);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const fim = new Date(`${data.semanaInicio}T12:00:00Z`); fim.setUTCDate(fim.getUTCDate() + 6);
+    const { data: rota, error: rotaErro } = await supabaseAdmin.from("meli_rotas").select("data_rota,bases!inner(codigo)").eq("id", data.rotaUuid).single();
+    if (rotaErro || !rota) throw new Error("Rota não encontrada.");
+    const codigoBase = (rota.bases as unknown as { codigo: string }).codigo;
+    if (!BASES_PAGAMENTO.includes(codigoBase as (typeof BASES_PAGAMENTO)[number])) throw new Error("A rota não pertence a uma das quatro bases de pagamento.");
+    if (!rota.data_rota || rota.data_rota < data.semanaInicio || rota.data_rota > fim.toISOString().slice(0, 10)) throw new Error("A rota não pertence à semana selecionada.");
+    if (data.motivo === "domingo" && new Date(`${rota.data_rota}T12:00:00Z`).getUTCDay() !== 0) throw new Error("O motivo Domingo só pode ser usado em uma rota de domingo.");
     const agora = new Date().toISOString();
     const { data: criado, error } = await (supabaseAdmin as any).from("pagamento_extras").insert({
       semana_inicio: data.semanaInicio, meli_rota_id: data.rotaUuid, valor: data.valor, motivo: data.motivo,
