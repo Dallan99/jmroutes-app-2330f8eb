@@ -51,37 +51,52 @@ export function montarPainel(
   const inicioCiclo = new Map(ciclos.map((c) => [c.id, c.iniciado_em]));
   return bases.map((b) => {
     const vazio = { rotas: null, pacotes: null, entregues: null, falhas: null, perc_entregue: null, lista: [] as RotaRow[], integridade: [] as string[] };
-    if (!b.ativa_no_piloto || !b.estacao_confirmada) {
+    // Allowlist confirmada do piloto: ESP15/16/17. ESP18 sempre desativada.
+    // Não depende de meli_piloto_estacoes (pode vir vazia para a sessão).
+    if (!BASES_ATIVAS_PILOTO.includes(b.codigo as (typeof BASES_ATIVAS_PILOTO)[number])) {
       return { base_codigo: b.codigo, base_nome: b.nome, situacao: "desativada", ultimo_ciclo: null, ultima_sincronizacao: null, ...vazio };
     }
     const ciclo = ultimos.get(b.id) ?? null;
-    if (!ciclo) return { base_codigo: b.codigo, base_nome: b.nome, situacao: "sem_dados", ultimo_ciclo: null, ultima_sincronizacao: null, ...vazio };
+    const daBase = rotas.filter((r) => r.base_id === b.id && r.data_rota === data);
+    const integridade: string[] = [];
     // Uma linha por rota/dia (chave única); só rotas vistas no último ciclo válido ou depois.
     const unicas = new Map<string, RotaRow>();
-    for (const r of rotas) {
-      if (r.base_id !== b.id || r.data_rota !== data) continue;
-      const ini = inicioCiclo.get(r.ultimo_ciclo_id);
-      if (!ini || ini < ciclo.iniciado_em) continue;
-      unicas.set(r.route_id, r);
+    if (ciclo) {
+      for (const r of daBase) {
+        const ini = inicioCiclo.get(r.ultimo_ciclo_id);
+        if (!ini || ini < ciclo.iniciado_em) continue;
+        unicas.set(r.route_id, r);
+      }
+    }
+    if (!unicas.size && daBase.length) {
+      // Rotas visíveis sem ciclo correspondente: mostra por rota, sem inventar status de ciclo.
+      for (const r of daBase) unicas.set(r.route_id, r);
+      integridade.push(ciclo ? "rotas fora do último ciclo concluído — exibidas por rota" : "ciclo de coleta não visível — dados exibidos por rota, sem status de ciclo");
     }
     const lista = [...unicas.values()].sort((x, y) => x.route_id.localeCompare(y.route_id));
-    if (!lista.length) return { base_codigo: b.codigo, base_nome: b.nome, situacao: "sem_dados", ultimo_ciclo: ciclo, ultima_sincronizacao: ciclo.finalizado_em, ...vazio };
+    if (!lista.length) return { base_codigo: b.codigo, base_nome: b.nome, situacao: "sem_dados", ultimo_ciclo: ciclo, ultima_sincronizacao: ciclo?.finalizado_em ?? null, ...vazio };
     const pacotes = somaOuNull(lista.map((r) => r.total_pedidos));
     const entregues = somaOuNull(lista.map((r) => r.total_entregue));
-    const integridade: string[] = [];
-    if (ciclo.rotas_esperadas != null && ciclo.rotas_esperadas !== ciclo.rotas_recebidas) integridade.push(`rotas esperadas ${ciclo.rotas_esperadas} × recebidas ${ciclo.rotas_recebidas}`);
-    if (ciclo.pacotes_esperados != null && ciclo.pacotes_esperados !== ciclo.pacotes_recebidos) integridade.push(`pacotes esperados ${ciclo.pacotes_esperados} × recebidos ${ciclo.pacotes_recebidos}`);
-    if (ciclo.paginas_esperadas != null && ciclo.paginas_esperadas !== ciclo.paginas_lidas) integridade.push(`páginas esperadas ${ciclo.paginas_esperadas} × lidas ${ciclo.paginas_lidas}`);
+    const cicloUsado = integridade.length ? null : ciclo;
+    if (cicloUsado) {
+      if (cicloUsado.rotas_esperadas != null && cicloUsado.rotas_esperadas !== cicloUsado.rotas_recebidas) integridade.push(`rotas esperadas ${cicloUsado.rotas_esperadas} × recebidas ${cicloUsado.rotas_recebidas}`);
+      if (cicloUsado.pacotes_esperados != null && cicloUsado.pacotes_esperados !== cicloUsado.pacotes_recebidos) integridade.push(`pacotes esperados ${cicloUsado.pacotes_esperados} × recebidos ${cicloUsado.pacotes_recebidos}`);
+      if (cicloUsado.paginas_esperadas != null && cicloUsado.paginas_esperadas !== cicloUsado.paginas_lidas) integridade.push(`páginas esperadas ${cicloUsado.paginas_esperadas} × lidas ${cicloUsado.paginas_lidas}`);
+    }
     const semEntregue = lista.filter((r) => r.total_entregue == null).length;
     if (semEntregue) integridade.push(`${semEntregue} rota(s) sem total entregue informado`);
+    const ultimaColeta = lista.map((r) => r.coletado_em).filter(Boolean).sort().pop() ?? null;
     return {
-      base_codigo: b.codigo, base_nome: b.nome, situacao: "ativa", ultimo_ciclo: ciclo,
+      base_codigo: b.codigo, base_nome: b.nome, situacao: "ativa", ultimo_ciclo: cicloUsado,
       rotas: lista.length, pacotes, entregues, falhas: null,
       perc_entregue: pacotes && entregues != null ? Math.round((entregues / pacotes) * 1000) / 10 : null,
-      ultima_sincronizacao: ciclo.finalizado_em, integridade, lista,
+      ultima_sincronizacao: cicloUsado?.finalizado_em ?? ultimaColeta, integridade, lista,
     };
   });
 }
+
+export const BASES_ATIVAS_PILOTO = ["ESP15", "ESP16", "ESP17"] as const;
+
 
 /** Data a exibir: a escolhida, ou — se não foi escolha manual e está vazia — a mais recente com dados. Nunca mistura datas. */
 export function escolherDataEfetiva(pedida: string, manual: boolean, temDados: boolean, maisRecente: string | null) {

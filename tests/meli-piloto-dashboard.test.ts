@@ -27,7 +27,7 @@ describe("Dashboard piloto Meli", () => {
     expect(p[0]).toMatchObject({ situacao: "ativa", rotas: 2, pacotes: 20, entregues: 10, perc_entregue: 50 });
   });
 
-  it("ESP18 desativada não mostra dados", () => {
+  it("ESP18 desativada não mostra dados (mesmo com rotas)", () => {
     const p = montarPainel(bases, [], [rota("X", "c9", { base_id: "b18" })], "2026-10-06");
     expect(p[1]).toMatchObject({ situacao: "desativada", rotas: null, pacotes: null });
   });
@@ -59,5 +59,18 @@ describe("Adaptador piloto → layout do Dashboard", () => {
     expect(r.cards).toMatchObject({ rotas: 1, total: 10, entregue: 5, em_rota: 5, perc_entrega: 50, insucesso: null });
     expect(r.bases?.[1]).toMatchObject({ base_codigo: "ESP18", sem_informacao: true, total: null });
     expect(r.rotas?.[0]).toMatchObject({ rota_id: "u1", driver_name: "Ana", vehicle_license: "ABC1D23" });
+  });
+});
+
+describe("estação invisível/vazia com rotas visíveis", () => {
+  it("ESP15/16/17 ativas sem meli_piloto_estacoes e sem ciclo; ESP18 segue desativada", () => {
+    const semEst: BaseInfo[] = [
+      { id: "b15", codigo: "ESP15", nome: "A", ativa_no_piloto: false, estacao_confirmada: false },
+      { id: "b18", codigo: "ESP18", nome: "Franco da Rocha", ativa_no_piloto: false, estacao_confirmada: false },
+    ];
+    const p = montarPainel(semEst, [], [rota("R1", "cX"), rota("R2", "cX"), rota("Z", "cX", { base_id: "b18" })], "2026-10-06");
+    expect(p[0]).toMatchObject({ situacao: "ativa", rotas: 2, pacotes: 20, ultimo_ciclo: null });
+    expect(p[0].integridade.join(" ")).toMatch(/ciclo de coleta não visível/);
+    expect(p[1]).toMatchObject({ situacao: "desativada", rotas: null });
   });
 });
