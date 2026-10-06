@@ -8,14 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 const ND = "não disponível";
+const br = (ymd: string) => ymd.split("-").reverse().join("/");
 const n = (v: number | null) => (v == null ? ND : v.toLocaleString("pt-BR"));
 const hora = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" }) : ND);
 
-export function MeliPilotoDashboard({ data }: { data: string }) {
+export function MeliPilotoDashboard({ data, manual = false }: { data: string; manual?: boolean }) {
   const fn = useServerFn(pilotoDashboard);
   const q = useQuery({
-    queryKey: ["piloto-dashboard", data],
-    queryFn: () => fn({ data: { data } }),
+    queryKey: ["piloto-dashboard", data, manual],
+    queryFn: () => fn({ data: { data, manual } }),
     refetchInterval: 60_000,
   });
   if (q.isLoading) return <Card className="p-4 text-sm text-muted-foreground">Carregando dados do piloto…</Card>;
@@ -31,7 +32,9 @@ export function MeliPilotoDashboard({ data }: { data: string }) {
     <section className="space-y-3">
       <div>
         <h2 className="font-display text-lg font-bold">Operação Meli — piloto (somente leitura)</h2>
-        <p className="text-xs text-muted-foreground">Último ciclo concluído de cada base no dia {data}. Ciclos repetidos não são somados.</p>
+        <p className="text-sm font-semibold">Dados operacionais de {br(q.data?.data ?? data)}</p>
+        {q.data?.fallback && <p className="text-xs text-warning">Sem dados em {br(q.data.pedida)} — exibindo a última data disponível.</p>}
+        <p className="text-xs text-muted-foreground">Último ciclo concluído de cada base. Ciclos repetidos não são somados.</p>
       </div>
       {!ativas.length && <Card className="p-4 text-sm text-muted-foreground">Sem dados do piloto para este dia.</Card>}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

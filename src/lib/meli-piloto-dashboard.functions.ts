@@ -1,12 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { BASES_PILOTO, montarPainel, type BaseInfo, type CicloRow, type RotaRow } from "@/lib/meli-piloto-dashboard";
+import { BASES_PILOTO, escolherDataEfetiva, montarPainel, type BaseInfo, type CicloRow, type RotaRow } from "@/lib/meli-piloto-dashboard";
 
 /** Painel do piloto Meli. Somente leitura, como o usuário (RLS por base). */
 export const pilotoDashboard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).parse(i))
+  .inputValidator((i: unknown) => z.object({ data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), manual: z.boolean().default(false) }).parse(i))
   .handler(async ({ data, context }) => {
     const sb = context.supabase;
     const [bRes, eRes, cRes, rRes] = await Promise.all([
@@ -32,6 +32,22 @@ export const pilotoDashboard = createServerFn({ method: "POST" })
         ativa_no_piloto: !!est.get(b.id)?.ativa_no_piloto,
         estacao_confirmada: !!est.get(b.id)?.confirmada,
       }));
-    const painel = montarPainel(bases, (cRes.data ?? []) as CicloRow[], (rRes.data ?? []) as RotaRow[], data.data);
-    return { data: data.data, painel, rotasTruncadas: (rRes.data?.length ?? 0) >= 1000 };
+    const ciclos = (cRes.data ?? []) as CicloRow[];
+    let rotas = (rRes.data ?? []) as RotaRow[];
+    let painel = montarPainel(bases, ciclos, rotas, data.data);
+    const temDados = painel.some((b) => b.situacao === "ativa");
+    let escolha = { data: data.data, fallback: false };
+    if (!temDados && !data.manual) {
+      const { data: ult } = await sb.from("meli_piloto_rotas").select("data_rota").order("data_rota", { ascending: false }).limit(1);
+      escolha = escolherDataEfetiva(data.data, data.manual, temDados, ult?.[0]?.data_rota ?? null);
+      if (escolha.fallback) {
+        const r2 = await sb.from("meli_piloto_rotas")
+          .select("base_id, route_id, data_rota, ultimo_ciclo_id, motorista_nome, placa, total_pedidos, total_entregue, coletado_em")
+          .eq("data_rota", escolha.data).limit(1000);
+        if (r2.error) throw new Error("Não foi possível ler os dados do piloto.");
+        rotas = (r2.data ?? []) as RotaRow[];
+        painel = montarPainel(bases, ciclos, rotas, escolha.data);
+      }
+    }
+    return { data: escolha.data, pedida: data.data, fallback: escolha.fallback, painel, rotasTruncadas: rotas.length >= 1000 };
   });

@@ -81,3 +81,9 @@ export function montarPainel(
     };
   });
 }
+
+/** Data a exibir: a escolhida, ou — se não foi escolha manual e está vazia — a mais recente com dados. Nunca mistura datas. */
+export function escolherDataEfetiva(pedida: string, manual: boolean, temDados: boolean, maisRecente: string | null) {
+  if (manual || temDados || !maisRecente || maisRecente === pedida) return { data: pedida, fallback: false };
+  return { data: maisRecente, fallback: true };
+}
