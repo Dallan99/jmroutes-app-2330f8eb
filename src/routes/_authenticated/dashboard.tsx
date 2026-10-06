@@ -100,6 +100,7 @@ export function DashboardPage() {
 
   function setF<K extends keyof DashboardFilters>(k: K, v: DashboardFilters[K]) {
     if (k === "date") setDataManual(true);
+    if (k === "date") setDataManual(true);
     if (k === "date" && typeof v === "string" && v) salvarDiaEscolhido(CHAVE_DIA_DASHBOARD, v);
     setFilters((prev) => ({ ...prev, [k]: v }));
   }
