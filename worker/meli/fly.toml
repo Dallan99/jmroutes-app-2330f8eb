@@ -10,12 +10,13 @@ kill_timeout = "30s"
   dockerfile = "Dockerfile"
 
 # Variáveis NÃO sensíveis. Segredos (SUPABASE_ANON_KEY, WORKER_EMAIL,
-# WORKER_PASSWORD, WORKER_SESSION_KEY) vão apenas em `fly secrets set`.
+# WORKER_PASSWORD, WORKER_SESSION_KEY, MELI_PILOTO_INGEST_SECRET) vão apenas em `fly secrets set`.
 [env]
   JMR_BASE_URL = "https://jmroutes.app"
-  SUPABASE_URL = "https://ieqvzndvkzozqvseubuc.supabase.co"
-  BASE_CODE = "ESP16"
-  SERVICE_CENTER_ID = "SSP15"
+  SUPABASE_URL = "https://zfmwojloamwggahjxlyt.supabase.co"
+  # Piloto isolado: 4 bases, grava só em meli_piloto_* (exige DRY_RUN=true).
+  BASE_CODES = "ESP15,ESP16,ESP17"  # ESP18 só após confirmar a estação no AdminML
+  PILOT_WRITE = "true"
   SITE_ID = "MLB"
   SESSION_FILE_PATH = "/data/adminml-session.enc"
   SYNC_INTERVAL_SECONDS = "60"

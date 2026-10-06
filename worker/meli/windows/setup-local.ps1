@@ -33,7 +33,7 @@ New-Item -ItemType Directory -Force (Split-Path $sessionPath) | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $workerDir 'logs') | Out-Null
 $lines = @(
   'JMR_BASE_URL=https://jmroutes.app'
-  'SUPABASE_URL=https://ieqvzndvkzozqvseubuc.supabase.co'
+  'SUPABASE_URL=https://zfmwojloamwggahjxlyt.supabase.co'
   "SUPABASE_ANON_KEY=$publicKey"
   "WORKER_EMAIL=$email"
   "WORKER_PASSWORD_BASE64=$passwordBase64"
