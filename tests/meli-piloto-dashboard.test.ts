@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { montarPainel, ultimoCicloValidoPorBase, type CicloRow, type RotaRow, type BaseInfo } from "../src/lib/meli-piloto-dashboard";
+import { escolherDataEfetiva, montarPainel, ultimoCicloValidoPorBase, type CicloRow, type RotaRow, type BaseInfo } from "../src/lib/meli-piloto-dashboard";
 
 const ciclo = (id: string, ini: string, status = "concluido", extra: Partial<CicloRow> = {}): CicloRow => ({
   id, base_id: "b15", base_codigo: "ESP15", status, iniciado_em: ini, finalizado_em: ini,
@@ -41,5 +41,12 @@ describe("Dashboard piloto Meli", () => {
   it("aponta divergência entre esperado e recebido", () => {
     const p = montarPainel(bases, [ciclo("c1", "2026-10-06T10:00", "concluido", { pacotes_recebidos: 31 })], [rota("R1", "c1")], "2026-10-06");
     expect(p[0].integridade.join()).toContain("pacotes esperados 30 × recebidos 31");
+  });
+
+  it("cai para a última data disponível só quando a data não foi escolhida manualmente", () => {
+    expect(escolherDataEfetiva("2026-10-07", false, false, "2026-10-06")).toEqual({ data: "2026-10-06", fallback: true });
+    expect(escolherDataEfetiva("2026-10-07", true, false, "2026-10-06")).toEqual({ data: "2026-10-07", fallback: false });
+    expect(escolherDataEfetiva("2026-10-06", false, true, "2026-10-06")).toEqual({ data: "2026-10-06", fallback: false });
+    expect(escolherDataEfetiva("2026-10-07", false, false, null)).toEqual({ data: "2026-10-07", fallback: false });
   });
 });

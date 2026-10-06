@@ -49,6 +49,7 @@ function fmtDuration(ms: number | null | undefined) {
 export function DashboardPage() {
   const qc = useQueryClient();
   const [verInternos, setVerInternos] = useState(false);
+  const [dataManual, setDataManual] = useState(false);
   const sync = useMeliSync();
 
   const fetchOpcoes = useServerFn(dashboardFiltrosOpcoes);
@@ -98,6 +99,7 @@ export function DashboardPage() {
   const op = opcoesQuery.data;
 
   function setF<K extends keyof DashboardFilters>(k: K, v: DashboardFilters[K]) {
+    if (k === "date") setDataManual(true);
     if (k === "date" && typeof v === "string" && v) salvarDiaEscolhido(CHAVE_DIA_DASHBOARD, v);
     setFilters((prev) => ({ ...prev, [k]: v }));
   }
@@ -154,7 +156,7 @@ export function DashboardPage() {
       {/* ── Operação Meli: fonte = tabelas isoladas do piloto (somente leitura).
            DashboardGeral/MeliDashboardSection dependem de RPCs operacionais ainda
            não implantadas no banco novo; voltam quando a fonte operacional existir. ── */}
-      <MeliPilotoDashboard data={filters.date || hojeOperacional()} />
+      <MeliPilotoDashboard data={filters.date || hojeOperacional()} manual={dataManual} />
 
 
       {/* ── Indicadores internos JM (Recebimento / Triagem) — sob demanda ── */}
