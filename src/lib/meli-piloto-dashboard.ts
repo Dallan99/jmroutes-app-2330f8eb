@@ -96,20 +96,7 @@ export function montarPainel(
 }
 
 export const BASES_ATIVAS_PILOTO = ["ESP15", "ESP16", "ESP17"] as const;
-const _fimMontarPainel = true;
-void _fimMontarPainel;
-function _noop() {
-  {
-    {
 
-    return {
-      base_codigo: b.codigo, base_nome: b.nome, situacao: "ativa", ultimo_ciclo: ciclo,
-      rotas: lista.length, pacotes, entregues, falhas: null,
-      perc_entregue: pacotes && entregues != null ? Math.round((entregues / pacotes) * 1000) / 10 : null,
-      ultima_sincronizacao: ciclo.finalizado_em, integridade, lista,
-    };
-  });
-}
 
 /** Data a exibir: a escolhida, ou — se não foi escolha manual e está vazia — a mais recente com dados. Nunca mistura datas. */
 export function escolherDataEfetiva(pedida: string, manual: boolean, temDados: boolean, maisRecente: string | null) {
