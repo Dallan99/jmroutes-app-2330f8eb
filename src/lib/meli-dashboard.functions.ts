@@ -17,6 +17,8 @@ const filtroSchema = z.object({
     .nullable(),
   transportadora: z.string().trim().max(120).optional().nullable(),
   risco: z.enum(["qualquer", "integral", "parcial"]).optional().nullable(),
+  /** Data escolhida manualmente: não cai para a última data disponível. */
+  manual: z.boolean().optional().nullable(),
 });
 
 export type MeliDashboardFiltros = z.infer<typeof filtroSchema>;
@@ -760,6 +762,14 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
         day: "2-digit",
       }).format(new Date());
 
+    // Fonte atual no banco novo: tabelas isoladas do piloto (somente leitura).
+    // A RPC operacional antiga não existe aqui e não é mais consultada.
+    {
+      const { carregarPilotoComoResultado } = await import("@/lib/meli-piloto-adapter");
+      const piloto = await carregarPilotoComoResultado(context.supabase, data, dataSolicitada);
+      if (piloto) return piloto;
+      return { status: "erro", erro: "Sem dados do piloto disponíveis." };
+    }
     // A consulta operacional também traz os motivos de insucesso. Os snapshots
     // são usados como proteção dos acumulados e como fallback, mas não podem
     // substituir esta leitura antecipadamente — isso deixava o Modo TV sem os
@@ -912,6 +922,31 @@ export const meliDashboardPacotesRota = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => pacotesSchema.parse(d))
   .handler(async ({ data, context }): Promise<MeliDashboardPacotesResult> => {
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = context.supabase as any;
+      const { data: rota } = await sb.from("meli_piloto_rotas")
+        .select("id, base_id, route_id, data_rota, motorista_nome, placa, coletado_em").eq("id", data.rota_id).maybeSingle();
+      if (!rota) return { status: "erro", erro: "Rota não encontrada nos dados do piloto." };
+      const { data: base } = await sb.from("bases").select("codigo, nome").eq("id", rota.base_id).maybeSingle();
+      const { data: pk, error: e } = await sb.from("meli_piloto_pacotes").select("shipment_id, status, coletado_em")
+        .eq("base_id", rota.base_id).eq("route_id", rota.route_id).limit(data.limit ?? 500);
+      if (e) return { status: "erro", erro: "Não foi possível ler os pacotes do piloto." };
+      return {
+        status: "ok",
+        rota: { id: rota.id, route_id: rota.route_id, cluster: null, nome_operacional: rota.route_id,
+          base_codigo: base?.codigo ?? null, base_nome: base?.nome ?? null, driver_name: rota.motorista_nome,
+          vehicle_license: rota.placa, data_rota: rota.data_rota, last_synced_at: rota.coletado_em,
+          rota_area_risco: false, area_risco_parcial: false, motivo_area_risco: null, origem_area_risco: null, dia_anterior: false },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        pacotes: (pk ?? []).map((p: any) => ({
+          tracking_id: p.shipment_id, shipment_id: p.shipment_id, stop_id: null, ordem: null, status: p.status, substatus: null,
+          occurrence_code: null, situacao: p.status === "delivered" ? "entregue" : p.status === "pending" ? "em_rota" : "desconhecido",
+          descricao_ocorrencia: null, pacote_area_risco: false, motivo_area_risco: null, origem_area_risco: null,
+          ultima_atualizacao_meli: p.coletado_em, jm_recebido: null, jm_recebido_em: null, jm_triado: null, jm_triado_em: null,
+        })),
+      };
+    }
     const { data: res, error } = await (context.supabase as unknown as RpcClient).rpc(
       "meli_dashboard_pacotes_rota",
       { p_rota_id: data.rota_id, p_limit: data.limit ?? 500 },

@@ -28,7 +28,8 @@ import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
 const CORES = ["var(--info)", "var(--success)", "var(--warning)", "var(--destructive)"] as const;
 
 function nf(n: number | null | undefined) {
-  return typeof n === "number" ? n.toLocaleString("pt-BR") : "—";
+  if (n === null) return "não disponível";
+  return typeof n === "number" && !Number.isNaN(n) ? n.toLocaleString("pt-BR") : "—";
 }
 
 function obterMelhorSync(
@@ -64,9 +65,11 @@ function obterMelhorSync(
  */
 export function DashboardGeral({
   data: dataProp,
+  manual,
   syncPorCodigo,
 }: {
   data?: string;
+  manual?: boolean;
   /** Situação real de sincronização por código de base (backend/worker). */
   syncPorCodigo?: Map<
     string,
@@ -83,7 +86,7 @@ export function DashboardGeral({
 
   const fetchDados = useServerFn(meliDashboardOperacional);
 
-  const filtros = useMemo(() => ({ data: dataRef }), [dataRef]);
+  const filtros = useMemo(() => ({ data: dataRef, manual: !!manual }), [dataRef, manual]);
 
   // Se o dataRef for vazio ou null, o componente renderizará vazio até o carregamento.
   // Mas como dataRef tem fallback para hojeOperacional(), ele sempre terá um valor.
@@ -177,6 +180,14 @@ export function DashboardGeral({
 
       <Card className="p-4 md:p-5">
         <h2 className="text-sm font-semibold">Indicadores de entrega</h2>
+        {d?.data_operacional && (
+          <p className="text-xs font-semibold">
+            Dados operacionais de {d.data_operacional.split("-").reverse().join("/")}
+            {(d as { fallback_data?: boolean }).fallback_data && (
+              <span className="ml-1 font-normal text-warning">— última data disponível (sem dados em {dataRef.split("-").reverse().join("/")})</span>
+            )}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           Posição atual das rotas ativas e falhas em tempo real.
         </p>

@@ -10,6 +10,7 @@ export type CicloRow = {
   paginas_esperadas: number | null; paginas_lidas: number;
 };
 export type RotaRow = {
+  id?: string;
   base_id: string; route_id: string; data_rota: string; ultimo_ciclo_id: string;
   motorista_nome: string | null; placa: string | null;
   total_pedidos: number | null; total_entregue: number | null; coletado_em: string;

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { dashboardData, dashboardFiltrosOpcoes, type DashboardFilters } from "@/lib/dashboard.functions";
-import { MeliPilotoDashboard } from "@/components/meli-piloto-dashboard";
+import { MeliDashboardSection } from "@/components/meli-dashboard";
 import { fmtDataHora, useMeliSync } from "@/components/meli-sync-monitor";
 
 import { DashboardGeral } from "@/components/dashboard-geral";
@@ -154,10 +154,16 @@ export function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Operação Meli: fonte = tabelas isoladas do piloto (somente leitura).
-           DashboardGeral/MeliDashboardSection dependem de RPCs operacionais ainda
-           não implantadas no banco novo; voltam quando a fonte operacional existir. ── */}
-      <MeliPilotoDashboard data={filters.date || hojeOperacional()} manual={dataManual} />
+      {/* ── Cartões da operação (primeiro de tudo) ── */}
+      <DashboardGeral data={filters.date || undefined} manual={dataManual} syncPorCodigo={sync.porCodigo} />
+
+      {/* ── Detalhamento da operação (mesmo dashboard) ── */}
+      <MeliDashboardSection
+        data={filters.date || undefined}
+        manual={dataManual}
+        bases={op?.bases ?? []}
+        baseId={filters.base_id ?? null}
+      />
 
 
       {/* ── Indicadores internos JM (Recebimento / Triagem) — sob demanda ── */}
