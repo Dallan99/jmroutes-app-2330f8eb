@@ -82,10 +82,13 @@ export async function carregarPilotoComoResultado(sb: Sb, f: FiltrosPiloto, hoje
       .select("id, base_id, base_codigo, status, iniciado_em, finalizado_em, rotas_esperadas, rotas_recebidas, pacotes_esperados, pacotes_recebidos, paginas_esperadas, paginas_lidas")
       .order("iniciado_em", { ascending: false }).limit(500),
   ]);
-  if (bRes.error || eRes.error || cRes.error) {
-    console.error("[piloto-adapter]", bRes.error?.message ?? eRes.error?.message ?? cRes.error?.message);
+  if (bRes.error) {
+    console.error("[piloto-adapter] bases:", bRes.error.message);
     return null;
   }
+  // Estações e ciclos são complementares: falha/vazio não pode zerar rotas visíveis.
+  if (eRes.error) console.error("[piloto-adapter] estacoes:", eRes.error.message);
+  if (cRes.error) console.error("[piloto-adapter] ciclos:", cRes.error.message);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const est = new Map<string, any>((eRes.data ?? []).map((e: any) => [e.base_id, e]));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
