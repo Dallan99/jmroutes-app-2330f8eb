@@ -50,3 +50,14 @@ describe("Dashboard piloto Meli", () => {
     expect(escolherDataEfetiva("2026-10-07", false, false, null)).toEqual({ data: "2026-10-07", fallback: false });
   });
 });
+
+import { painelParaResultado } from "../src/lib/meli-piloto-adapter";
+describe("Adaptador piloto → layout do Dashboard", () => {
+  it("preenche o formato antigo, ESP18 desativada e falhas como não disponível (null)", () => {
+    const painel = montarPainel(bases, [ciclo("c1", "2026-10-06T10:00")], [rota("R1", "c1", { id: "u1" })], "2026-10-06");
+    const r = painelParaResultado(painel, "2026-10-06", {}, new Map([["ESP15", "b15"], ["ESP18", "b18"]]));
+    expect(r.cards).toMatchObject({ rotas: 1, total: 10, entregue: 5, em_rota: 5, perc_entrega: 50, insucesso: null });
+    expect(r.bases?.[1]).toMatchObject({ base_codigo: "ESP18", sem_informacao: true, total: null });
+    expect(r.rotas?.[0]).toMatchObject({ rota_id: "u1", driver_name: "Ana", vehicle_license: "ABC1D23" });
+  });
+});
