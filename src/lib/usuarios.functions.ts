@@ -1,4 +1,4 @@
-import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
+import { clienteDeModulo, tabelaImplantada } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
