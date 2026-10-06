@@ -21,6 +21,9 @@ const filtroSchema = z.object({
   manual: z.boolean().optional().nullable(),
 });
 
+/** Banco novo: Dashboard lê o piloto Meli (meli_piloto_*). */
+const FONTE_PILOTO = true as boolean;
+
 export type MeliDashboardFiltros = z.infer<typeof filtroSchema>;
 
 export type MeliDashboardCards = {
@@ -764,7 +767,7 @@ export const meliDashboardOperacional = createServerFn({ method: "GET" })
 
     // Fonte atual no banco novo: tabelas isoladas do piloto (somente leitura).
     // A RPC operacional antiga não existe aqui e não é mais consultada.
-    {
+    if (FONTE_PILOTO) {
       const { carregarPilotoComoResultado } = await import("@/lib/meli-piloto-adapter");
       const piloto = await carregarPilotoComoResultado(context.supabase, data, dataSolicitada);
       if (piloto) return piloto;
@@ -922,7 +925,7 @@ export const meliDashboardPacotesRota = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => pacotesSchema.parse(d))
   .handler(async ({ data, context }): Promise<MeliDashboardPacotesResult> => {
-    {
+    if (FONTE_PILOTO) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sb = context.supabase as any;
       const { data: rota } = await sb.from("meli_piloto_rotas")
