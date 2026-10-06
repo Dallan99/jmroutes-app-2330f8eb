@@ -1,4 +1,4 @@
-import { clienteDeModulo } from "@/lib/modulo-em-implantacao";
+import { clienteDeModulo, tabelaImplantada } from "@/lib/modulo-em-implantacao";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -44,10 +44,16 @@ export const listarUsuarios = createServerFn({ method: "GET" })
       .select("user_id, role");
     if (rErr) throw new Error(rErr.message);
 
-    const { data: catalogo } = await supabaseAdmin
-      .from("meli_motoristas_catalogo")
-      .select("meli_driver_id, nome");
-    const nomeMeliPorId = new Map((catalogo ?? []).map((m) => [m.meli_driver_id, m.nome]));
+    // Catálogo Meli é opcional: a tabela só existe numa etapa futura da
+    // implantação. Sem o guard, a consulta lança ModuloEmImplantacaoError
+    // e aborta a listagem inteira.
+    let nomeMeliPorId = new Map<string, string>();
+    if (tabelaImplantada("meli_motoristas_catalogo")) {
+      const { data: catalogo } = await supabaseAdmin
+        .from("meli_motoristas_catalogo")
+        .select("meli_driver_id, nome");
+      nomeMeliPorId = new Map((catalogo ?? []).map((m) => [m.meli_driver_id, m.nome]));
+    }
 
     const rolesByUser = new Map<string, Role[]>();
     for (const r of roles ?? []) {
