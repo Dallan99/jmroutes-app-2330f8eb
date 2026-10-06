@@ -1,0 +1,45 @@
+import { describe, expect, it } from "vitest";
+import { montarPainel, ultimoCicloValidoPorBase, type CicloRow, type RotaRow, type BaseInfo } from "../src/lib/meli-piloto-dashboard";
+
+const ciclo = (id: string, ini: string, status = "concluido", extra: Partial<CicloRow> = {}): CicloRow => ({
+  id, base_id: "b15", base_codigo: "ESP15", status, iniciado_em: ini, finalizado_em: ini,
+  rotas_esperadas: 2, rotas_recebidas: 2, pacotes_esperados: 30, pacotes_recebidos: 30,
+  paginas_esperadas: 1, paginas_lidas: 1, ...extra,
+});
+const rota = (route_id: string, ciclo_id: string, extra: Partial<RotaRow> = {}): RotaRow => ({
+  base_id: "b15", route_id, data_rota: "2026-10-06", ultimo_ciclo_id: ciclo_id,
+  motorista_nome: "Ana", placa: "ABC1D23", total_pedidos: 10, total_entregue: 5, coletado_em: "", ...extra,
+});
+const bases: BaseInfo[] = [
+  { id: "b15", codigo: "ESP15", nome: "A", ativa_no_piloto: true, estacao_confirmada: true },
+  { id: "b18", codigo: "ESP18", nome: "Franco da Rocha", ativa_no_piloto: false, estacao_confirmada: false },
+];
+
+describe("Dashboard piloto Meli", () => {
+  it("seleciona o ciclo concluído mais recente e ignora ciclo em andamento", () => {
+    const m = ultimoCicloValidoPorBase([ciclo("c1", "2026-10-06T10:00"), ciclo("c2", "2026-10-06T11:00"), ciclo("c3", "2026-10-06T12:00", "em_andamento")]);
+    expect(m.get("b15")?.id).toBe("c2");
+  });
+
+  it("não soma ciclos repetidos nem rotas antigas", () => {
+    const ciclos = [ciclo("c1", "2026-10-06T10:00"), ciclo("c2", "2026-10-06T11:00")];
+    const p = montarPainel(bases, ciclos, [rota("R1", "c2"), rota("R1", "c2"), rota("R2", "c2"), rota("OLD", "c1")], "2026-10-06");
+    expect(p[0]).toMatchObject({ situacao: "ativa", rotas: 2, pacotes: 20, entregues: 10, perc_entregue: 50 });
+  });
+
+  it("ESP18 desativada não mostra dados", () => {
+    const p = montarPainel(bases, [], [rota("X", "c9", { base_id: "b18" })], "2026-10-06");
+    expect(p[1]).toMatchObject({ situacao: "desativada", rotas: null, pacotes: null });
+  });
+
+  it("campo ausente vira não disponível (null), sem estimar", () => {
+    const p = montarPainel(bases, [ciclo("c1", "2026-10-06T10:00")], [rota("R1", "c1", { total_entregue: null })], "2026-10-06");
+    expect(p[0]).toMatchObject({ entregues: null, perc_entregue: null, falhas: null });
+    expect(p[0].integridade.join()).toContain("sem total entregue");
+  });
+
+  it("aponta divergência entre esperado e recebido", () => {
+    const p = montarPainel(bases, [ciclo("c1", "2026-10-06T10:00", "concluido", { pacotes_recebidos: 31 })], [rota("R1", "c1")], "2026-10-06");
+    expect(p[0].integridade.join()).toContain("pacotes esperados 30 × recebidos 31");
+  });
+});
