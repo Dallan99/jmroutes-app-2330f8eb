@@ -28,7 +28,8 @@ import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
 const CORES = ["var(--info)", "var(--success)", "var(--warning)", "var(--destructive)"] as const;
 
 function nf(n: number | null | undefined) {
-  return typeof n === "number" ? n.toLocaleString("pt-BR") : "—";
+  if (n === null) return "não disponível";
+  return typeof n === "number" && !Number.isNaN(n) ? n.toLocaleString("pt-BR") : "—";
 }
 
 function obterMelhorSync(
@@ -64,9 +65,11 @@ function obterMelhorSync(
  */
 export function DashboardGeral({
   data: dataProp,
+  manual,
   syncPorCodigo,
 }: {
   data?: string;
+  manual?: boolean;
   /** Situação real de sincronização por código de base (backend/worker). */
   syncPorCodigo?: Map<
     string,
@@ -83,7 +86,7 @@ export function DashboardGeral({
 
   const fetchDados = useServerFn(meliDashboardOperacional);
 
-  const filtros = useMemo(() => ({ data: dataRef }), [dataRef]);
+  const filtros = useMemo(() => ({ data: dataRef, manual: !!manual }), [dataRef, manual]);
 
   // Se o dataRef for vazio ou null, o componente renderizará vazio até o carregamento.
   // Mas como dataRef tem fallback para hojeOperacional(), ele sempre terá um valor.
@@ -125,6 +128,12 @@ export function DashboardGeral({
     id: string | null;
     codigo: string;
     nome: string;
+    /** Resumo oficial do cartão (snapshot agregado) — repetido no topo do modal. */
+    rotasSnapshot: number;
+    total: number;
+    entregue: number;
+    em_rota: number;
+    insucesso: number;
   } | null>(null);
   const pmDaBase = useMemo(() => {
     if (!baseAberta) return [];
@@ -171,6 +180,14 @@ export function DashboardGeral({
 
       <Card className="p-4 md:p-5">
         <h2 className="text-sm font-semibold">Indicadores de entrega</h2>
+        {d?.data_operacional && (
+          <p className="text-xs font-semibold">
+            Dados operacionais de {d.data_operacional.split("-").reverse().join("/")}
+            {(d as { fallback_data?: boolean }).fallback_data && (
+              <span className="ml-1 font-normal text-warning">— última data disponível (sem dados em {dataRef.split("-").reverse().join("/")})</span>
+            )}
+          </p>
+        )}
         <p className="text-xs text-muted-foreground">
           Posição atual das rotas ativas e falhas em tempo real.
         </p>
@@ -239,6 +256,11 @@ export function DashboardGeral({
                     id: b.base_id,
                     codigo: b.base_codigo ?? "—",
                     nome: b.base_nome ?? "—",
+                    rotasSnapshot: b.rotas ?? 0,
+                    total: b.total ?? 0,
+                    entregue: b.entregue ?? 0,
+                    em_rota: b.em_rota ?? 0,
+                    insucesso: b.insucesso ?? 0,
                   })
                 }
                 onKeyDown={(e) => {
@@ -248,6 +270,11 @@ export function DashboardGeral({
                       id: b.base_id,
                       codigo: b.base_codigo ?? "—",
                       nome: b.base_nome ?? "—",
+                      rotasSnapshot: b.rotas ?? 0,
+                      total: b.total ?? 0,
+                      entregue: b.entregue ?? 0,
+                      em_rota: b.em_rota ?? 0,
+                      insucesso: b.insucesso ?? 0,
                     });
                   }
                 }}
@@ -266,6 +293,15 @@ export function DashboardGeral({
                     <div className="text-xs text-muted-foreground truncate">
                       {b.base_nome ?? "—"}
                     </div>
+                    {b.sem_informacao ? (
+                      <div className="mt-1 text-[10px] font-semibold text-warning">
+                        Sem informação
+                      </div>
+                    ) : b.desatualizada ? (
+                      <div className="mt-1 text-[10px] font-semibold text-warning">
+                        Desatualizada · leitura de {b.snapshot_data ?? "dia anterior"}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="font-display text-2xl font-bold tabular-nums">
                     {perc.toFixed(1)}%
@@ -346,7 +382,16 @@ function BaseDetalheDialog({
   pmProgramadas,
   onClose,
 }: {
-  base: { id: string | null; codigo: string; nome: string } | null;
+  base: {
+    id: string | null;
+    codigo: string;
+    nome: string;
+    rotasSnapshot: number;
+    total: number;
+    entregue: number;
+    em_rota: number;
+    insucesso: number;
+  } | null;
   data: string;
   rotas: MeliDashboardRota[];
   pmProgramadas: MeliDashboardPmProgramada[];
@@ -415,19 +460,17 @@ function BaseDetalheDialog({
       .sort((a, b) => (b[situacaoBase] ?? 0) - (a[situacaoBase] ?? 0));
   }, [rotasDetalhadas, busca, situacaoBase]);
 
-  const totais = useMemo(
-    () =>
-      rotasDetalhadas.reduce(
-        (acc, r) => ({
-          total: acc.total + (r.total ?? 0),
-          entregue: acc.entregue + (r.entregue ?? 0),
-          em_rota: acc.em_rota + (r.em_rota ?? 0),
-          insucesso: acc.insucesso + (r.insucesso ?? 0),
-        }),
-        { total: 0, entregue: 0, em_rota: 0, insucesso: 0 },
-      ),
-    [rotasDetalhadas],
-  );
+  // Totais oficiais do cartão (snapshot agregado) — o modal não recalcula
+  // pelas rotas detalhadas, que podem estar parciais.
+  const resumo = base
+    ? {
+        rotas: base.rotasSnapshot,
+        total: base.total,
+        entregue: base.entregue,
+        em_rota: base.em_rota,
+        insucesso: base.insucesso,
+      }
+    : { rotas: 0, total: 0, entregue: 0, em_rota: 0, insucesso: 0 };
 
   const pacotes = pacotesQuery.data?.status === "ok" ? (pacotesQuery.data.pacotes ?? []) : [];
   const pacotesVisiveis = useMemo(() => {
@@ -465,45 +508,52 @@ function BaseDetalheDialog({
             <div className="grid grid-cols-2 gap-1.5 md:grid-cols-5">
               <MiniBox
                 label="Rotas"
-                value={nf(rotasDetalhadas.length)}
+                value={nf(resumo.rotas)}
                 ativo={situacaoBase === "rotas"}
                 onClick={() => setSituacaoBase("rotas")}
               />
               <MiniBox
                 label="Pacotes"
-                value={nf(totais.total)}
+                value={nf(resumo.total)}
                 ativo={situacaoBase === "total"}
                 onClick={() => setSituacaoBase("total")}
               />
               <MiniBox
                 label="Entregues"
-                value={nf(totais.entregue)}
+                value={nf(resumo.entregue)}
                 tone="text-success"
                 ativo={situacaoBase === "entregue"}
                 onClick={() => setSituacaoBase("entregue")}
               />
               <MiniBox
                 label="Em rota"
-                value={nf(totais.em_rota)}
+                value={nf(resumo.em_rota)}
                 tone="text-[var(--info)]"
                 ativo={situacaoBase === "em_rota"}
                 onClick={() => setSituacaoBase("em_rota")}
               />
               <MiniBox
                 label="Falhas"
-                value={nf(totais.insucesso)}
+                value={nf(resumo.insucesso)}
                 tone="text-destructive"
                 ativo={situacaoBase === "insucesso"}
                 onClick={() => setSituacaoBase("insucesso")}
               />
             </div>
 
+            {base && rotasDetalhadas.length < base.rotasSnapshot && (
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                {nf(rotasDetalhadas.length)} de {nf(base.rotasSnapshot)} rotas têm detalhes
+                carregados — o detalhamento ainda está sendo completado.
+              </p>
+            )}
+
             {situacaoBase === "insucesso" && (
               <div className="rounded-md border p-3">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold">Status dos insucessos — {base?.codigo}</h3>
                   <span className="text-xs text-muted-foreground tabular-nums">
-                    {nf(totais.insucesso)} pacote(s)
+                    {nf(resumo.insucesso)} pacote(s)
                   </span>
                 </div>
                 {motivosQuery.isLoading ? (

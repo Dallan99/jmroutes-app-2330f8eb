@@ -49,10 +49,12 @@ function hhmmss(iso?: string | null) {
 
 export function MeliDashboardSection({
   data: dataProp,
+  manual,
   bases,
   baseId: baseIdFiltro,
 }: {
   data?: string;
+  manual?: boolean;
   bases: { id: string; codigo: string; nome: string }[];
   /** Base selecionada nos filtros do Dashboard (fonte única de verdade). */
   baseId?: string | null;
@@ -83,6 +85,7 @@ export function MeliDashboardSection({
   const filtros = useMemo<MeliDashboardFiltros>(
     () => ({
       data,
+      manual: !!manual,
       base_id: baseId === NONE ? null : baseId,
       motorista: motorista.trim() || null,
       rota: rota.trim() || null,
@@ -90,7 +93,7 @@ export function MeliDashboardSection({
       transportadora: transportadora.trim() || null,
       risco: risco === NONE ? null : (risco as "qualquer" | "integral" | "parcial"),
     }),
-    [data, baseId, motorista, rota, status, transportadora, risco],
+    [data, manual, baseId, motorista, rota, status, transportadora, risco],
   );
 
   const q = useQuery({

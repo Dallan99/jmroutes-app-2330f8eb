@@ -49,6 +49,7 @@ function fmtDuration(ms: number | null | undefined) {
 export function DashboardPage() {
   const qc = useQueryClient();
   const [verInternos, setVerInternos] = useState(false);
+  const [dataManual, setDataManual] = useState(false);
   const sync = useMeliSync();
 
   const fetchOpcoes = useServerFn(dashboardFiltrosOpcoes);
@@ -98,6 +99,8 @@ export function DashboardPage() {
   const op = opcoesQuery.data;
 
   function setF<K extends keyof DashboardFilters>(k: K, v: DashboardFilters[K]) {
+    if (k === "date") setDataManual(true);
+    if (k === "date") setDataManual(true);
     if (k === "date" && typeof v === "string" && v) salvarDiaEscolhido(CHAVE_DIA_DASHBOARD, v);
     setFilters((prev) => ({ ...prev, [k]: v }));
   }
@@ -152,14 +155,16 @@ export function DashboardPage() {
       </header>
 
       {/* ── Cartões da operação (primeiro de tudo) ── */}
-      <DashboardGeral data={filters.date || undefined} syncPorCodigo={sync.porCodigo} />
+      <DashboardGeral data={filters.date || undefined} manual={dataManual} syncPorCodigo={sync.porCodigo} />
 
       {/* ── Detalhamento da operação (mesmo dashboard) ── */}
       <MeliDashboardSection
         data={filters.date || undefined}
+        manual={dataManual}
         bases={op?.bases ?? []}
         baseId={filters.base_id ?? null}
       />
+
 
       {/* ── Indicadores internos JM (Recebimento / Triagem) — sob demanda ── */}
       <div className="flex items-center justify-between pt-2">
