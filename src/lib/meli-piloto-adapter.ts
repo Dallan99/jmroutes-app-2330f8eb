@@ -82,19 +82,27 @@ export async function carregarPilotoComoResultado(sb: Sb, f: FiltrosPiloto, hoje
       .select("id, base_id, base_codigo, status, iniciado_em, finalizado_em, rotas_esperadas, rotas_recebidas, pacotes_esperados, pacotes_recebidos, paginas_esperadas, paginas_lidas")
       .order("iniciado_em", { ascending: false }).limit(500),
   ]);
-  if (bRes.error) {
-    console.error("[piloto-adapter] bases:", bRes.error.message);
-    return null;
-  }
-  // Estações e ciclos são complementares: falha/vazio não pode zerar rotas visíveis.
+  // Bases, estações e ciclos são auxiliares: uma falha nelas não pode apagar
+  // rotas do piloto. Quando "bases" não estiver visível, os próprios ciclos
+  // fornecem base_id/base_codigo para ESP15/16/17.
+  if (bRes.error) console.error("[piloto-adapter] bases:", bRes.error.message);
   if (eRes.error) console.error("[piloto-adapter] estacoes:", eRes.error.message);
   if (cRes.error) console.error("[piloto-adapter] ciclos:", cRes.error.message);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const est = new Map<string, any>((eRes.data ?? []).map((e: any) => [e.base_id, e]));
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bases: BaseInfo[] = (bRes.data ?? []).sort((a: any, b: any) => a.codigo.localeCompare(b.codigo, "pt-BR", { numeric: true }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .map((b: any) => ({ id: b.id, codigo: b.codigo, nome: b.nome, ativa_no_piloto: !!est.get(b.id)?.ativa_no_piloto, estacao_confirmada: !!est.get(b.id)?.confirmada }));
+  const porId = new Map<string, BaseInfo>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const b of (bRes.data ?? []) as any[]) {
+    porId.set(b.id, { id: b.id, codigo: b.codigo, nome: b.nome, ativa_no_piloto: !!est.get(b.id)?.ativa_no_piloto, estacao_confirmada: !!est.get(b.id)?.confirmada });
+  }
+  for (const c of (cRes.data ?? []) as CicloRow[]) {
+    if (!BASES_PILOTO.includes(c.base_codigo as (typeof BASES_PILOTO)[number])) continue;
+    if (!porId.has(c.base_id)) {
+      porId.set(c.base_id, { id: c.base_id, codigo: c.base_codigo, nome: c.base_codigo, ativa_no_piloto: true, estacao_confirmada: true });
+    }
+  }
+  const bases = [...porId.values()].sort((a, b) => a.codigo.localeCompare(b.codigo, "pt-BR", { numeric: true }));
   if (!bases.length) return null;
   const ids = new Map(bases.map((b) => [b.codigo, b.id]));
   const ciclos = (cRes.data ?? []) as CicloRow[];
