@@ -44,7 +44,7 @@ export const meliSyncStatusBases = createServerFn({ method: "GET" })
     const [{ data: ciclos, error }, { data: bases }] = await Promise.all([
       sb
         .from("meli_piloto_ciclos")
-        .select("id,base_id,base_codigo,status,iniciado_em,finalizado_em,rotas_recebidas,pacotes_recebidos,erros")
+        .select("id,base_id,base_codigo,status,iniciado_em,finalizado_em,rotas_recebidas,pacotes_recebidos,erro")
         .order("iniciado_em", { ascending: false })
         .limit(500),
       sb.from("bases").select("id,codigo,nome").in("codigo", ["ESP15", "ESP16", "ESP17"]),
@@ -56,6 +56,18 @@ export const meliSyncStatusBases = createServerFn({ method: "GET" })
     const ultimoPorBase = new Map<string, CicloPiloto>();
     for (const ciclo of (ciclos ?? []) as CicloPiloto[]) {
       if (!ultimoPorBase.has(ciclo.base_id)) ultimoPorBase.set(ciclo.base_id, ciclo);
+    }
+
+    // Contagem real de erros por ciclo vem de meli_piloto_erros
+    // (meli_piloto_ciclos só tem a coluna `erro`, sem contador).
+    const ids = [...ultimoPorBase.keys()];
+    const { data: errosRows, error: errosError } = ids.length
+      ? await sb.from("meli_piloto_erros").select("ciclo_id").in("ciclo_id", ids)
+      : { data: [] as { ciclo_id: string }[] | null, error: null };
+    const errosPorCiclo = new Map<string, number>();
+    if (errosError) console.error("meliSyncStatusBases: falha ao contar erros", errosError.message);
+    for (const r of (errosRows ?? []) as { ciclo_id: string }[]) {
+      errosPorCiclo.set(r.ciclo_id, (errosPorCiclo.get(r.ciclo_id) ?? 0) + 1);
     }
 
     return {
@@ -72,7 +84,7 @@ export const meliSyncStatusBases = createServerFn({ method: "GET" })
         mensagem_segura: null,
         rotas_encontradas: ciclo.rotas_recebidas ?? 0,
         pacotes_encontrados: ciclo.pacotes_recebidos ?? 0,
-        erros: ciclo.erros ?? 0,
+        erros: errosPorCiclo.get(ciclo.id) ?? 0,
         data_rota: null,
         sincronizando: ciclo.status === "em_andamento",
         lote_ativo: ciclo.id,
