@@ -14,8 +14,9 @@ kill_timeout = "30s"
 [env]
   JMR_BASE_URL = "https://jmroutes.app"
   SUPABASE_URL = "https://zfmwojloamwggahjxlyt.supabase.co"
-  # Piloto isolado: 4 bases, grava só em meli_piloto_* (exige DRY_RUN=true).
-  BASE_CODES = "ESP15,ESP16,ESP17"  # ESP18 só após confirmar a estação no AdminML
+  # Piloto isolado multibase: grava só em meli_piloto_* (exige DRY_RUN=true).
+  # ESP18 continua bloqueada até confirmar a estação externa no AdminML.
+  BASE_CODES = "ESP15,ESP16,ESP17,SSP45,SSP23,SSP06,SSP17,SSP15,SSP37/03,SSP38,SSP20,SSP5"
   PILOT_WRITE = "true"
   SITE_ID = "MLB"
   SESSION_FILE_PATH = "/data/adminml-session.enc"
