@@ -15,20 +15,19 @@ export type BaseJm = {
 };
 
 export const BASES_JM = [
-  { baseCode: "SSP3", serviceCenterId: "SSP3", siteId: "MLB", nome: "Campinas" },
+  { baseCode: "SSP37/03", serviceCenterId: "SSP37", serviceCenterIds: ["SSP37", "SSP3"], siteId: "MLB", nome: "Campinas" },
   { baseCode: "SSP38", serviceCenterId: "SSP38", siteId: "MLB", nome: "Itupeva" },
   { baseCode: "ESP15", serviceCenterId: "SSP20", siteId: "MLB", nome: "Ibiúna" },
-  { baseCode: "SSP5", serviceCenterId: "SSP5", siteId: "MLB", nome: "Mega Barueri" },
+  { baseCode: "SSP5", serviceCenterId: "SSP5", siteId: "MLB", nome: "Barueri" },
   { baseCode: "SSP20", serviceCenterId: "SSP20", siteId: "MLB", nome: "Sorocaba" },
   { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "XPT Embu Guaçu" },
   { baseCode: "ESP16", serviceCenterId: "SSP15", siteId: "MLB", nome: "Guarujá" },
-  { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "ABC" },
+  { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "São Bernardo do Campo" },
   // Base interna ESP18 = Franco da Rocha. Estação externa AdminML ainda NÃO confirmada.
   { baseCode: "ESP18", serviceCenterId: "", siteId: "MLB", nome: "Franco da Rocha", estacaoConfirmada: false },
-  { baseCode: "SSP6", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
+  { baseCode: "SSP06", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
   { baseCode: "SSP45", serviceCenterId: "SSP45", siteId: "MLB", nome: "Itaquera" },
-  { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "Santos" },
-  { baseCode: "SSP37", serviceCenterId: "SSP37", siteId: "MLB", nome: "Campinas" },
+  { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "São Vicente" },
   { baseCode: "SSP23", serviceCenterId: "SSP23", siteId: "MLB", nome: "Suzano" },
   { baseCode: "SSC2", serviceCenterId: "SSC2", siteId: "MLB", nome: "Biguaçu" },
 ] as const satisfies readonly BaseJm[];
