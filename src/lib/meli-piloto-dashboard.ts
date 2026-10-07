@@ -1,6 +1,6 @@
 /** Regras puras do Dashboard do piloto Meli (somente leitura, testáveis). */
 
-export const BASES_PILOTO = ["ESP15", "ESP16", "ESP17", "ESP18"] as const;
+export const BASES_PILOTO = ["ESP15", "ESP16", "ESP17", "ESP18", "SSP45", "SSP23", "SSP06", "SSP17", "SSP15", "SSP37/03", "SSP38", "SSP20", "SSP5"] as const;
 
 export type CicloRow = {
   id: string; base_id: string; base_codigo: string; status: string;
@@ -51,8 +51,7 @@ export function montarPainel(
   const inicioCiclo = new Map(ciclos.map((c) => [c.id, c.iniciado_em]));
   return bases.map((b) => {
     const vazio = { rotas: null, pacotes: null, entregues: null, falhas: null, perc_entregue: null, lista: [] as RotaRow[], integridade: [] as string[] };
-    // Allowlist confirmada do piloto: ESP15/16/17. ESP18 sempre desativada.
-    // Não depende de meli_piloto_estacoes (pode vir vazia para a sessão).
+    // Todas as bases configuradas no piloto aparecem no painel. Bases ainda sem ciclo\n    // válido permanecem como "sem dados", sem inventar indicadores.
     if (!BASES_ATIVAS_PILOTO.includes(b.codigo as (typeof BASES_ATIVAS_PILOTO)[number])) {
       return { base_codigo: b.codigo, base_nome: b.nome, situacao: "desativada", ultimo_ciclo: null, ultima_sincronizacao: null, ...vazio };
     }
@@ -95,7 +94,7 @@ export function montarPainel(
   });
 }
 
-export const BASES_ATIVAS_PILOTO = ["ESP15", "ESP16", "ESP17"] as const;
+export const BASES_ATIVAS_PILOTO = ["ESP15", "ESP16", "ESP17", "ESP18", "SSP45", "SSP23", "SSP06", "SSP17", "SSP15", "SSP37/03", "SSP38", "SSP20", "SSP5"] as const;
 
 
 /** Data a exibir: a escolhida, ou — se não foi escolha manual e está vazia — a mais recente com dados. Nunca mistura datas. */
