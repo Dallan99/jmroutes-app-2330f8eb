@@ -56,6 +56,8 @@ import { Route as ApiPublicMeliImportarMotoristasRouteImport } from './routes/ap
 import { Route as ApiPublicMeliImportarRiscoRouteImport } from './routes/api/public/meli/importar-risco'
 import { Route as ApiPublicMeliImportarRotaBrutaRouteImport } from './routes/api/public/meli/importar-rota-bruta'
 import { Route as ApiPublicMeliNotificacoesRouteImport } from './routes/api/public/meli/notificacoes'
+import { Route as ApiPublicMeliPilotoHeartbeatRouteImport } from './routes/api/public/meli/piloto/heartbeat'
+import { Route as ApiPublicMeliPilotoIngestRouteImport } from './routes/api/public/meli/piloto/ingest'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -309,6 +311,18 @@ const ApiPublicMeliNotificacoesRoute =
     path: '/api/public/meli/notificacoes',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMeliPilotoHeartbeatRoute =
+  ApiPublicMeliPilotoHeartbeatRouteImport.update({
+    id: '/api/public/meli/piloto/heartbeat',
+    path: '/api/public/meli/piloto/heartbeat',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicMeliPilotoIngestRoute =
+  ApiPublicMeliPilotoIngestRouteImport.update({
+    id: '/api/public/meli/piloto/ingest',
+    path: '/api/public/meli/piloto/ingest',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -357,6 +371,8 @@ export interface FileRoutesByFullPath {
   '/api/public/meli/importar-risco': typeof ApiPublicMeliImportarRiscoRoute
   '/api/public/meli/importar-rota-bruta': typeof ApiPublicMeliImportarRotaBrutaRoute
   '/api/public/meli/notificacoes': typeof ApiPublicMeliNotificacoesRoute
+  '/api/public/meli/piloto/heartbeat': typeof ApiPublicMeliPilotoHeartbeatRoute
+  '/api/public/meli/piloto/ingest': typeof ApiPublicMeliPilotoIngestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -405,6 +421,8 @@ export interface FileRoutesByTo {
   '/api/public/meli/importar-risco': typeof ApiPublicMeliImportarRiscoRoute
   '/api/public/meli/importar-rota-bruta': typeof ApiPublicMeliImportarRotaBrutaRoute
   '/api/public/meli/notificacoes': typeof ApiPublicMeliNotificacoesRoute
+  '/api/public/meli/piloto/heartbeat': typeof ApiPublicMeliPilotoHeartbeatRoute
+  '/api/public/meli/piloto/ingest': typeof ApiPublicMeliPilotoIngestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -455,6 +473,8 @@ export interface FileRoutesById {
   '/api/public/meli/importar-risco': typeof ApiPublicMeliImportarRiscoRoute
   '/api/public/meli/importar-rota-bruta': typeof ApiPublicMeliImportarRotaBrutaRoute
   '/api/public/meli/notificacoes': typeof ApiPublicMeliNotificacoesRoute
+  '/api/public/meli/piloto/heartbeat': typeof ApiPublicMeliPilotoHeartbeatRoute
+  '/api/public/meli/piloto/ingest': typeof ApiPublicMeliPilotoIngestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -505,6 +525,8 @@ export interface FileRouteTypes {
     | '/api/public/meli/importar-risco'
     | '/api/public/meli/importar-rota-bruta'
     | '/api/public/meli/notificacoes'
+    | '/api/public/meli/piloto/heartbeat'
+    | '/api/public/meli/piloto/ingest'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -553,6 +575,8 @@ export interface FileRouteTypes {
     | '/api/public/meli/importar-risco'
     | '/api/public/meli/importar-rota-bruta'
     | '/api/public/meli/notificacoes'
+    | '/api/public/meli/piloto/heartbeat'
+    | '/api/public/meli/piloto/ingest'
   id:
     | '__root__'
     | '/'
@@ -602,6 +626,8 @@ export interface FileRouteTypes {
     | '/api/public/meli/importar-risco'
     | '/api/public/meli/importar-rota-bruta'
     | '/api/public/meli/notificacoes'
+    | '/api/public/meli/piloto/heartbeat'
+    | '/api/public/meli/piloto/ingest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -623,6 +649,8 @@ export interface RootRouteChildren {
   ApiPublicMeliImportarRiscoRoute: typeof ApiPublicMeliImportarRiscoRoute
   ApiPublicMeliImportarRotaBrutaRoute: typeof ApiPublicMeliImportarRotaBrutaRoute
   ApiPublicMeliNotificacoesRoute: typeof ApiPublicMeliNotificacoesRoute
+  ApiPublicMeliPilotoHeartbeatRoute: typeof ApiPublicMeliPilotoHeartbeatRoute
+  ApiPublicMeliPilotoIngestRoute: typeof ApiPublicMeliPilotoIngestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -956,6 +984,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMeliNotificacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meli/piloto/heartbeat': {
+      id: '/api/public/meli/piloto/heartbeat'
+      path: '/api/public/meli/piloto/heartbeat'
+      fullPath: '/api/public/meli/piloto/heartbeat'
+      preLoaderRoute: typeof ApiPublicMeliPilotoHeartbeatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/meli/piloto/ingest': {
+      id: '/api/public/meli/piloto/ingest'
+      path: '/api/public/meli/piloto/ingest'
+      fullPath: '/api/public/meli/piloto/ingest'
+      preLoaderRoute: typeof ApiPublicMeliPilotoIngestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1056,6 +1098,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMeliImportarRiscoRoute: ApiPublicMeliImportarRiscoRoute,
   ApiPublicMeliImportarRotaBrutaRoute: ApiPublicMeliImportarRotaBrutaRoute,
   ApiPublicMeliNotificacoesRoute: ApiPublicMeliNotificacoesRoute,
+  ApiPublicMeliPilotoHeartbeatRoute: ApiPublicMeliPilotoHeartbeatRoute,
+  ApiPublicMeliPilotoIngestRoute: ApiPublicMeliPilotoIngestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
