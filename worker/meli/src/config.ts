@@ -23,8 +23,7 @@ export const BASES_JM = [
   { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "XPT Embu Guaçu" },
   { baseCode: "ESP16", serviceCenterId: "SSP15", siteId: "MLB", nome: "Guarujá" },
   { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "São Bernardo do Campo" },
-  // Base interna ESP18 = Franco da Rocha. Estação externa AdminML ainda NÃO confirmada.
-  { baseCode: "ESP18", serviceCenterId: "", siteId: "MLB", nome: "Franco da Rocha", estacaoConfirmada: false },
+  { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Franco da Rocha", estacaoConfirmada: true },
   { baseCode: "SSP06", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
   { baseCode: "SSP45", serviceCenterId: "SSP45", siteId: "MLB", nome: "Itaquera" },
   { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "São Vicente" },
