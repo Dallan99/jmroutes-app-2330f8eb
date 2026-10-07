@@ -4,7 +4,10 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { z } from "zod";
 
 export const MAX_PILOTO_BYTES = 4 * 1024 * 1024;
-export const BASES_PILOTO = ["ESP15", "ESP16", "ESP17", "ESP18"] as const;
+export const BASES_PILOTO = [
+  "ESP15", "ESP16", "ESP17", "ESP18",
+  "SSP45", "SSP23", "SSP06", "SSP17", "SSP15", "SSP37/03", "SSP38", "SSP20", "SSP5",
+] as const;
 const JANELA_MS = 5 * 60_000;
 
 export function resposta(status: number, corpo: unknown) {
@@ -105,7 +108,7 @@ export const loteSchema = z.object({
 
 export const heartbeatSchema = z.object({
   instancia: txt(120),
-  bases: z.array(z.enum(BASES_PILOTO)).min(1).max(4),
+  bases: z.array(z.enum(BASES_PILOTO)).min(1).max(BASES_PILOTO.length),
   host: z.string().max(120).optional(),
   regiao: z.string().max(20).optional(),
   ambiente: z.string().max(40).optional(),
