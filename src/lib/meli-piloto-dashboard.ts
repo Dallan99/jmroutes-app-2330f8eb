@@ -14,6 +14,7 @@ export type RotaRow = {
   base_id: string; route_id: string; data_rota: string; ultimo_ciclo_id: string;
   motorista_nome: string | null; placa: string | null;
   total_pedidos: number | null; total_entregue: number | null; coletado_em: string;
+  payload?: { contadores_logistics?: { notDelivered?: number; pending?: number } | null } | null;
 };
 export type BaseInfo = { id: string; codigo: string; nome: string; ativa_no_piloto: boolean; estacao_confirmada: boolean };
 

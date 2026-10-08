@@ -9,11 +9,18 @@ import { BASES_PILOTO, escolherDataEfetiva, montarPainel, type BaseInfo, type Ci
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = any;
+export function contadorLogistics(r: RotaRow, campo: "notDelivered" | "pending"): number | null {
+  const valor = r.payload?.contadores_logistics?.[campo];
+  return typeof valor === "number" && Number.isInteger(valor) && valor >= 0 ? valor : null;
+}
+export function somarContadoresCompletos(valores: (number | null)[]): number | null {
+  return valores.length && valores.every(v => v !== null) ? valores.reduce<number>((a, v) => a + (v ?? 0), 0) : null;
+}
 const ND = null as unknown as number; // "não disponível" no layout
 
 export type FiltrosPiloto = { data?: string | null; manual?: boolean | null; base_id?: string | null; motorista?: string | null; rota?: string | null };
 
-const COLS_ROTA = "id, base_id, route_id, data_rota, ultimo_ciclo_id, motorista_nome, placa, total_pedidos, total_entregue, coletado_em";
+const COLS_ROTA = "id, base_id, route_id, data_rota, ultimo_ciclo_id, motorista_nome, placa, total_pedidos, total_entregue, coletado_em, payload";
 
 export function painelParaResultado(painel: PainelBase[], data: string, f: FiltrosPiloto, ids: Map<string, string>): MeliDashboardResult {
   const mot = f.motorista?.toLowerCase();
@@ -34,8 +41,8 @@ export function painelParaResultado(painel: PainelBase[], data: string, f: Filtr
         driver_name: r.motorista_nome, vehicle_license: r.placa, carrier: null, data_rota: r.data_rota,
         last_synced_at: r.coletado_em, rota_area_risco: false, area_risco_parcial: false,
         total, nao_iniciado: ND,
-        em_rota: r.total_pedidos != null && r.total_entregue != null ? r.total_pedidos - r.total_entregue : ND,
-        entregue: ent, insucesso: ND, cancelado: ND, pacotes_risco: ND,
+        em_rota: contadorLogistics(r, "pending") ?? ND,
+        entregue: ent, insucesso: contadorLogistics(r, "notDelivered") ?? ND, cancelado: ND, pacotes_risco: ND,
         perc_entrega: r.total_pedidos && r.total_entregue != null ? Math.round((r.total_entregue / r.total_pedidos) * 1000) / 10 : ND,
       });
     }
@@ -45,8 +52,8 @@ export function painelParaResultado(painel: PainelBase[], data: string, f: Filtr
       base_nome: b.situacao === "desativada" ? `${b.base_nome} — desativada / não configurada` : b.base_nome,
       service_center: null, rotas: ativa ? b.rotas ?? ND : ND, rotas_risco: ND, rotas_risco_integral: ND, rotas_risco_parcial: ND,
       total: ativa ? b.pacotes ?? ND : ND, pacotes_risco: ND, entregue: ativa ? b.entregues ?? ND : ND,
-      em_rota: ativa && b.pacotes != null && b.entregues != null ? b.pacotes - b.entregues : ND,
-      insucesso: ND, perc_entrega: ativa ? b.perc_entregue ?? ND : ND,
+      em_rota: ativa ? somarContadoresCompletos(lista.map(r => contadorLogistics(r, "pending"))) ?? ND : ND,
+      insucesso: ativa ? somarContadoresCompletos(lista.map(r => contadorLogistics(r, "notDelivered"))) ?? ND : ND, perc_entrega: ativa ? b.perc_entregue ?? ND : ND,
       sem_informacao: !ativa, snapshot_data: ativa ? data : null,
     });
   }
@@ -62,8 +69,8 @@ export function painelParaResultado(painel: PainelBase[], data: string, f: Filtr
   return {
     status: "ok", data_operacional: data, server_time: new Date().toISOString(),
     cards: {
-      total, nao_iniciado: ND, entregue, insucesso: ND, cancelado: ND, desconhecido: ND,
-      em_rota: typeof total === "number" && typeof entregue === "number" ? total - entregue : ND,
+      total, nao_iniciado: ND, entregue, insucesso: somarContadoresCompletos(rotas.map(r => r.insucesso)) ?? ND, cancelado: ND, desconhecido: ND,
+      em_rota: somarContadoresCompletos(rotas.map(r => r.em_rota)) ?? ND,
       area_risco_pacotes: ND, elegiveis: total, perc_entrega: perc, rotas: soma("rotas"), rotas_risco: ND,
     },
     motivos_insucesso: [], rotas, bases, pm_programadas: [],

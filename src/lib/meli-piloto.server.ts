@@ -95,7 +95,7 @@ export const loteSchema = z.object({
   detalhes: z.array(z.object({
     route_id: txt(60),
     data_rota: data.optional(),
-    contadores: z.object({ total: z.number().int().min(0), delivered: z.number().int().min(0) }).partial().optional(),
+    contadores: z.object({ total: z.number().int().min(0), delivered: z.number().int().min(0), notDelivered: z.number().int().min(0), pending: z.number().int().min(0) }).partial().optional(),
     payload: payload,
   })).max(100).default([]),
   erros: z.array(z.object({
@@ -145,7 +145,7 @@ export async function expandirDetalhes(lote: Lote) {
         placa: n.vehicle_license,
         total_pedidos: d.contadores?.total ?? resumo.total_informado ?? lista.length,
         total_entregue: d.contadores?.delivered ?? null,
-        payload: { ...rota, resumo },
+        payload: { ...rota, resumo, contadores_logistics: d.contadores ?? null },
       });
       for (const k of lista) {
         const id = k.shipment_id ?? k.tracking_id;

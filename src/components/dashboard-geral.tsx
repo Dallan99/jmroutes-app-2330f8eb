@@ -260,7 +260,7 @@ export function DashboardGeral({
                     total: b.total ?? 0,
                     entregue: b.entregue ?? 0,
                     em_rota: b.em_rota ?? 0,
-                    insucesso: b.insucesso ?? 0,
+                    insucesso: b.insucesso,
                   })
                 }
                 onKeyDown={(e) => {
@@ -274,7 +274,7 @@ export function DashboardGeral({
                       total: b.total ?? 0,
                       entregue: b.entregue ?? 0,
                       em_rota: b.em_rota ?? 0,
-                      insucesso: b.insucesso ?? 0,
+                      insucesso: b.insucesso,
                     });
                   }
                 }}

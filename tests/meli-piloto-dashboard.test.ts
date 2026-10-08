@@ -56,11 +56,30 @@ describe("Dashboard piloto Meli", () => {
 });
 
 import { painelParaResultado } from "../src/lib/meli-piloto-adapter";
+import { contadorLogistics, somarContadoresCompletos } from "../src/lib/meli-piloto-adapter";
+describe("contadores reais de insucesso do Logistics", () => {
+  it("separa entregues, falhas e pendentes sem calcular falhas por diferença", () => {
+    const painel = montarPainel(bases, [ciclo("c1", "2026-10-06T10:00")], [rota("R1", "c1", {
+      total_pedidos: 10, total_entregue: 5,
+      payload: { contadores_logistics: { notDelivered: 2, pending: 3 } },
+    })], "2026-10-06");
+    const r = painelParaResultado(painel, "2026-10-06", {}, new Map([["ESP15", "b15"]]));
+    expect(r.cards).toMatchObject({ entregue: 5, insucesso: 2, em_rota: 3 });
+    expect(r.bases?.[0]).toMatchObject({ insucesso: 2, em_rota: 3 });
+    expect(r.rotas?.[0]).toMatchObject({ insucesso: 2, em_rota: 3 });
+  });
+  it("distingue zero informado de ausência e não soma informação parcial como total", () => {
+    expect(contadorLogistics(rota("R1", "c1"), "notDelivered")).toBeNull();
+    expect(contadorLogistics(rota("R1", "c1", { payload: { contadores_logistics: { notDelivered: 0 } } }), "notDelivered")).toBe(0);
+    expect(somarContadoresCompletos([2, null])).toBeNull();
+    expect(somarContadoresCompletos([2, 0])).toBe(2);
+  });
+});
 describe("Adaptador piloto → layout do Dashboard", () => {
   it("preenche o formato antigo, ESP18 desativada e falhas como não disponível (null)", () => {
     const painel = montarPainel(bases, [ciclo("c1", "2026-10-06T10:00")], [rota("R1", "c1", { id: "u1" })], "2026-10-06");
     const r = painelParaResultado(painel, "2026-10-06", {}, new Map([["ESP15", "b15"], ["ESP18", "b18"]]));
-    expect(r.cards).toMatchObject({ rotas: 1, total: 10, entregue: 5, em_rota: 5, perc_entrega: 50, insucesso: null });
+    expect(r.cards).toMatchObject({ rotas: 1, total: 10, entregue: 5, em_rota: null, perc_entrega: 50, insucesso: null });
     expect(r.bases?.[1]).toMatchObject({ base_codigo: "ESP18", sem_informacao: true, total: null });
     expect(r.rotas?.[0]).toMatchObject({ rota_id: "u1", driver_name: "Ana", vehicle_license: "ABC1D23" });
   });
