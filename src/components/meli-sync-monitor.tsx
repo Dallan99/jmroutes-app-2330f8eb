@@ -36,12 +36,13 @@ export function minutosDesde(iso: string | null | undefined, serverTime: string 
 }
 
 export function situacaoDaBase(b: MeliSyncBase, serverTime: string | null | undefined): SituacaoSync {
+  if (b.estado_integracao === 'autenticacao_necessaria' || b.estado_integracao === 'worker_sem_sinal' || b.estado_integracao === 'sem_atualizacao') return 'desatualizado';
   const min = minutosDesde(b.ultimo_sucesso_em, serverTime);
   if (min === null) return "sem_info";
 
   const status = (b.status ?? "").toLowerCase();
   const erroReal = status === "erro" || (b.erros ?? 0) > 0;
-  const sucessoParcial = status === "sucesso_parcial" || status === "divergencia_totais";
+  const sucessoParcial = status === "sucesso_parcial" || status === "divergencia_totais" || status === "parcial" || b.integridade_totais === "divergente";
 
   // Vermelho: > 25 min sem sucesso OU erro real impeditivo
   if (min > 25 || erroReal) return "desatualizado";
@@ -216,9 +217,6 @@ export function MeliSyncMonitor({ sync }: { sync: ReturnType<typeof useMeliSync>
         >
           <SyncDot situacao={geral} />
           Situação da operação: {LABEL_SITUACAO_SYNC[geral]}
-          {geral === "desatualizado" && bases.some(b => (b.base_codigo === "ESP16" || b.base_nome?.toLowerCase().includes("guaruja")) && situacaoDaBase(b, serverTime) === "desatualizado") && (
-            <span className="ml-2 lowercase opacity-80">(parece que o problema é na base do guaruja)</span>
-          )}
         </span>
         <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAberto((v) => !v)}>
           Detalhes da sincronização
@@ -253,8 +251,11 @@ export function MeliSyncMonitor({ sync }: { sync: ReturnType<typeof useMeliSync>
                       </span>
                     </div>
                     <dl className="mt-2 space-y-1 text-[11px]">
-                      <Linha rotulo="Último sucesso" valor={`${fmtHora(b.ultimo_sucesso_em)}${min === null ? "" : ` (${textoAtraso(min, sit, b.status).toLowerCase()})`}`} />
-                      <Linha rotulo="Última tentativa" valor={fmtHora(b.ultima_tentativa_em)} />
+                      <Linha rotulo="Último ciclo concluído" valor={fmtDataHora(b.ultimo_sucesso_em)} />
+                      <Linha rotulo="Última tentativa" valor={fmtDataHora(b.ultima_tentativa_em)} />
+                      <Linha rotulo="Último sinal do worker" valor={fmtDataHora(b.ultimo_heartbeat_em)} />
+                      <Linha rotulo="Conferência de totais" valor={b.integridade_totais ?? 'não verificada'} />
+                      <Linha rotulo="Próxima ação" valor={b.proxima_acao === 'manual' ? 'Login e Okta manual' : b.proxima_acao === 'verificar_worker' ? 'Verificar worker' : 'Recuperação automática'} />
                       <Linha rotulo="Rotas" valor={b.rotas_encontradas.toLocaleString("pt-BR")} />
                       <Linha rotulo="Pacotes" valor={b.pacotes_encontrados.toLocaleString("pt-BR")} />
                       <Linha

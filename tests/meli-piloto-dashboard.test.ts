@@ -27,9 +27,13 @@ describe("Dashboard piloto Meli", () => {
     expect(p[0]).toMatchObject({ situacao: "ativa", rotas: 2, pacotes: 20, entregues: 10, perc_entregue: 50 });
   });
 
-  it("ESP18 desativada não mostra dados (mesmo com rotas)", () => {
+  it("ESP18 pertence à allowlist atual e mostra dados disponíveis", () => {
     const p = montarPainel(bases, [], [rota("X", "c9", { base_id: "b18" })], "2026-10-06");
-    expect(p[1]).toMatchObject({ situacao: "desativada", rotas: null, pacotes: null });
+    expect(p[1]).toMatchObject({ situacao: "ativa", rotas: 1, pacotes: 10 });
+  });
+  it("base fora da allowlist não mostra dados", () => {
+    const p = montarPainel([{...bases[1],codigo:'SSC2'}],[],[rota('X','c9',{base_id:'b18'})],'2026-10-06');
+    expect(p[0]).toMatchObject({situacao:'desativada',rotas:null,pacotes:null});
   });
 
   it("campo ausente vira não disponível (null), sem estimar", () => {
@@ -63,7 +67,7 @@ describe("Adaptador piloto → layout do Dashboard", () => {
 });
 
 describe("estação invisível/vazia com rotas visíveis", () => {
-  it("ESP15/16/17 ativas sem meli_piloto_estacoes e sem ciclo; ESP18 segue desativada", () => {
+  it("bases da allowlist atual aparecem com rotas visíveis, mesmo sem ciclo visível", () => {
     const semEst: BaseInfo[] = [
       { id: "b15", codigo: "ESP15", nome: "A", ativa_no_piloto: false, estacao_confirmada: false },
       { id: "b18", codigo: "ESP18", nome: "Franco da Rocha", ativa_no_piloto: false, estacao_confirmada: false },
@@ -71,6 +75,6 @@ describe("estação invisível/vazia com rotas visíveis", () => {
     const p = montarPainel(semEst, [], [rota("R1", "cX"), rota("R2", "cX"), rota("Z", "cX", { base_id: "b18" })], "2026-10-06");
     expect(p[0]).toMatchObject({ situacao: "ativa", rotas: 2, pacotes: 20, ultimo_ciclo: null });
     expect(p[0].integridade.join(" ")).toMatch(/ciclo de coleta não visível/);
-    expect(p[1]).toMatchObject({ situacao: "desativada", rotas: null });
+    expect(p[1]).toMatchObject({ situacao: "ativa", rotas: 1 });
   });
 });
