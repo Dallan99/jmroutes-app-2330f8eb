@@ -364,6 +364,7 @@ export type Database = {
           id: string
           importacao_id: string | null
           importado_por: string | null
+          meli_pacote_id: string | null
           modal: string | null
           nro_rota: string | null
           numero: string | null
@@ -414,6 +415,7 @@ export type Database = {
           id?: string
           importacao_id?: string | null
           importado_por?: string | null
+          meli_pacote_id?: string | null
           modal?: string | null
           nro_rota?: string | null
           numero?: string | null
@@ -464,6 +466,7 @@ export type Database = {
           id?: string
           importacao_id?: string | null
           importado_por?: string | null
+          meli_pacote_id?: string | null
           modal?: string | null
           nro_rota?: string | null
           numero?: string | null
@@ -512,6 +515,13 @@ export type Database = {
             columns: ["importacao_id"]
             isOneToOne: false
             referencedRelation: "importacoes_escala"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalas_meli_pacote_id_fkey"
+            columns: ["meli_pacote_id"]
+            isOneToOne: false
+            referencedRelation: "meli_piloto_pacotes"
             referencedColumns: ["id"]
           },
         ]
@@ -1540,6 +1550,10 @@ export type Database = {
         Returns: boolean
       }
       meli_piloto_ingerir_lote: { Args: { p: Json }; Returns: Json }
+      meli_piloto_publicar_recebimento: {
+        Args: { p_base_codigo: string; p_data: string }
+        Returns: Json
+      }
       meli_piloto_registrar_heartbeat: { Args: { p: Json }; Returns: undefined }
       meli_piloto_validar_estacao: {
         Args: { _base: string; _estacao: string }

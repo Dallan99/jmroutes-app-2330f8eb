@@ -24,6 +24,7 @@ import {
 } from "@/components/meli-sync-monitor";
 import { ChevronLeft, Search } from "lucide-react";
 import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
+import { nomenclaturaRota } from "@/lib/rota-nomenclatura";
 
 const CORES = ["var(--info)", "var(--success)", "var(--warning)", "var(--destructive)"] as const;
 
@@ -449,7 +450,7 @@ function BaseDetalheDialog({
     const porBusca = !t
       ? rotasDetalhadas
       : rotasDetalhadas.filter((r) =>
-          [r.nome_operacional, r.route_id, r.driver_name, r.vehicle_license]
+          [r.cluster, r.nome_operacional, r.route_id, r.driver_name, r.vehicle_license]
             .filter(Boolean)
             .some((v) => String(v).toLowerCase().includes(t)),
         );
@@ -492,14 +493,19 @@ function BaseDetalheDialog({
     >
       <DialogContent className="flex max-h-[94vh] w-[min(96vw,1120px)] max-w-none flex-col gap-3 overflow-hidden p-4">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="flex items-center gap-2 text-base">
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             {rotaSel && (
               <Button variant="ghost" size="sm" onClick={() => setRotaSel(null)}>
                 <ChevronLeft className="w-4 h-4 mr-1" /> Rotas
               </Button>
             )}
             {base?.codigo} — {base?.nome}
-            {rotaSel && <span className="text-muted-foreground">/ {rotaSel.nome_operacional}</span>}
+            {rotaSel && (
+              <span className="min-w-0 basis-full">
+                <span className="block break-words text-lg font-semibold">{nomenclaturaRota(rotaSel)}</span>
+                <span className="block text-xs font-normal text-muted-foreground">ID: {rotaSel.route_id}</span>
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -669,8 +675,9 @@ function BaseDetalheDialog({
                         setRotaSel(r);
                       }}
                     >
-                      <td className="py-1.5 pr-2 font-medium">
-                        {r.nome_operacional}
+                      <td className="py-1.5 pr-2">
+                        <div className="break-words text-sm font-semibold">{nomenclaturaRota(r)}</div>
+                        <div className="text-[10px] text-muted-foreground">ID: {r.route_id}</div>
                         {r.rota_area_risco && (
                           <Badge variant="destructive" className="ml-2 text-[10px]">
                             risco

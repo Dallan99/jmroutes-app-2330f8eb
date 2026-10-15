@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-client";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -80,7 +81,7 @@ export const registrarMarcosTransferenciaLote = createServerFn({ method: "POST" 
     const detalhes: ResultadoLote["detalhes"] = [];
 
     for (const transferenciaId of data.transferenciaIds) {
-      const { data: transferencia } = await context.supabase
+      const { data: transferencia } = await clienteDeModulo(context.supabase)
         .from("transferencias")
         .select("codigo, placa, motorista")
         .eq("id", transferenciaId)
