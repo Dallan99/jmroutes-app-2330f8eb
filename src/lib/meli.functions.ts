@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-client";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -104,7 +105,7 @@ export const meliImportarRota = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => importarSchema.parse(data))
   .handler(async ({ data, context }): Promise<MeliImportResult> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: res, error } = await supabase.rpc("meli_importar_rota", {
       p_payload: data.payload as never,
       p_arquivo_nome: data.arquivo_nome,
@@ -119,7 +120,7 @@ export const meliListarRotas = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => listarSchema.parse(data ?? {}))
   .handler(async ({ data, context }): Promise<MeliListarResult> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: res, error } = await supabase.rpc("meli_listar_rotas", {
       p_cluster: data.cluster,
       p_data_de: data.data_de,
@@ -136,7 +137,7 @@ export const meliDetalharRota = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => detalharSchema.parse(data))
   .handler(async ({ data, context }): Promise<MeliDetalheResult> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: res, error } = await supabase.rpc("meli_detalhar_rota", {
       p_rota_id: data.rota_id,
       p_limit: data.limit ?? 100,

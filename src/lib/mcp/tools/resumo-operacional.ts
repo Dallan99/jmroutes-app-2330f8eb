@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-client";
 import { defineTool } from "@lovable.dev/mcp-js";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -24,7 +25,7 @@ export default defineTool({
     if (!ctx.isAuthenticated()) {
       return { content: [{ type: "text", text: "Não autenticado." }], isError: true };
     }
-    const sb = createClient<Database>(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
+    const sb = createClient<any>(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {
       global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
       auth: { persistSession: false, autoRefreshToken: false },
     });
@@ -46,7 +47,7 @@ export default defineTool({
     const [escalas, recebimentos, transferencias] = await Promise.all([
       sb.from("escalas").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_referencia", diaOp),
       sb.from("recebimentos").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_operacional", diaOp),
-      sb.from("transferencias").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_operacional", diaOp),
+      clienteDeModulo(sb).from("transferencias").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_operacional", diaOp),
     ]);
 
     const resumo = {

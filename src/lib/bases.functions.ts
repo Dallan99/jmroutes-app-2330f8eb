@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-client";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -84,7 +85,8 @@ export function dataOperacionalDeInstante(instante: string | Date): string {
 export const listarBasesComResumo = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<BaseResumo[]> => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const hoje = dataOperacionalHoje();
 
     // Restringe a lista de bases: somente admin vê todas.
@@ -220,7 +222,8 @@ export const listarBasesComResumo = createServerFn({ method: "GET" })
 export const listarBasesSimples = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
     // Verifica se é admin/gerente (acesso total)
     const [{ data: rolesRows }, { data: perfil }, { data: extras }] = await Promise.all([
       supabase.from("user_roles").select("role").eq("user_id", userId),
@@ -262,7 +265,7 @@ export const existeEscalaDoDia = createServerFn({ method: "GET" })
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    const { data: rows, error } = await clienteDeModulo(context.supabase)
       .from("importacoes_escala")
       .select("id, versao")
       .eq("base_id", data.baseId)
@@ -321,7 +324,8 @@ export const importarEscala = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => importSchema.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
 
     // 1) Determina próxima versão e arquiva versões ativas anteriores
     const { data: existentes, error: e1 } = await supabase
@@ -454,7 +458,7 @@ export const listarDiasOperacionais = createServerFn({ method: "GET" })
     z.object({ baseId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }): Promise<DiaOperacional[]> => {
-    const { data: imps, error } = await context.supabase
+    const { data: imps, error } = await clienteDeModulo(context.supabase)
       .from("importacoes_escala")
       .select("id, data_operacional, versao, ativa, importado_por, importado_em, total_linhas, total_pacotes, total_motoristas, total_rotas")
       .eq("base_id", data.baseId)
@@ -465,7 +469,7 @@ export const listarDiasOperacionais = createServerFn({ method: "GET" })
     const uids = Array.from(new Set((imps ?? []).map((i) => i.importado_por).filter(Boolean) as string[]));
     const nomes = new Map<string, string>();
     if (uids.length) {
-      const { data: perfis } = await context.supabase.from("profiles").select("id, nome").in("id", uids);
+      const { data: perfis } = await clienteDeModulo(context.supabase).from("profiles").select("id, nome").in("id", uids);
       for (const p of perfis ?? []) nomes.set(p.id, (p.nome as string) ?? "—");
     }
 
@@ -506,7 +510,7 @@ export const listarVersoesDoDia = createServerFn({ method: "GET" })
     }).parse(input),
   )
   .handler(async ({ data, context }): Promise<VersaoImportacao[]> => {
-    const { data: imps, error } = await context.supabase
+    const { data: imps, error } = await clienteDeModulo(context.supabase)
       .from("importacoes_escala")
       .select("id, versao, ativa, importado_por, importado_em, arquivada_em, arquivada_por, arquivo_nome, total_linhas, total_pacotes, total_motoristas, total_rotas")
       .eq("base_id", data.baseId)
@@ -519,7 +523,7 @@ export const listarVersoesDoDia = createServerFn({ method: "GET" })
     ));
     const nomes = new Map<string, string>();
     if (uids.length) {
-      const { data: perfis } = await context.supabase.from("profiles").select("id, nome").in("id", uids);
+      const { data: perfis } = await clienteDeModulo(context.supabase).from("profiles").select("id, nome").in("id", uids);
       for (const p of perfis ?? []) nomes.set(p.id, (p.nome as string) ?? "—");
     }
     return (imps ?? []).map((i) => ({
@@ -547,7 +551,7 @@ export const listarEscalaPorImportacao = createServerFn({ method: "GET" })
     z.object({ importacaoId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    const { data: rows, error } = await clienteDeModulo(context.supabase)
       .from("escalas")
       .select("id, data_referencia, facility_id, shipment, nro_rota, ordem, planejada, otimizada, pacotes, paradas, modal, bairro, cidade, rua, numero, cep, referencias, duracao, distancia, order_id_veiculo, ocupacao, spr, parada, cluster, transportadora, giro, vaga, tipo, roteiro, placa, driver, placa_troca, created_at")
       .eq("importacao_id", data.importacaoId)
@@ -567,7 +571,7 @@ export const listarEscalaPorBase = createServerFn({ method: "GET" })
     z.object({ baseId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+    const { data: rows, error } = await clienteDeModulo(context.supabase)
       .from("escalas")
       .select("id, data_referencia, planejada, otimizada, pacotes, paradas, modal, bairro, cidade, giro, vaga, tipo, roteiro, placa, driver, placa_troca, created_at, importacao_id")
       .eq("base_id", data.baseId)
@@ -611,7 +615,7 @@ export const listarHistoricoImportacoes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => filtroHistoricoSchema.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<ImportacaoHistorico[]> => {
-    const { supabase } = context;
+    const supabase = clienteDeModulo(context.supabase);
     const { data: bases } = await supabase.from("bases").select("id, codigo, nome");
     const baseMap = new Map((bases ?? []).map((b) => [b.id, b]));
 
@@ -670,7 +674,8 @@ export const excluirImportacao = createServerFn({ method: "POST" })
     z.object({ importacaoId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
 
     const { data: roles } = await supabase
       .from("user_roles")
@@ -683,7 +688,8 @@ export const excluirImportacao = createServerFn({ method: "POST" })
       throw new Error("Apenas admin ou gerente podem excluir importações.");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin: clienteAdminOriginal } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo(clienteAdminOriginal);
 
     const { data: imp, error: eImp } = await supabaseAdmin
       .from("importacoes_escala")
@@ -746,7 +752,8 @@ export const renomearBase = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
+    const { userId } = context;
+    const supabase = clienteDeModulo(context.supabase);
 
     const { data: roles } = await supabase
       .from("user_roles")
@@ -759,7 +766,8 @@ export const renomearBase = createServerFn({ method: "POST" })
       throw new Error("Apenas admin ou gerente podem renomear bases.");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { supabaseAdmin: clienteAdminOriginal } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = clienteDeModulo(clienteAdminOriginal);
 
     const patch: { nome: string; cidade?: string; uf?: string } = {
       nome: data.nome,
