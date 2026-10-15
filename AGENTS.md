@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep route display-name precedence in the browser-safe `rota-nomenclatura` helper so list and detail headings agree without changing route identity.
+- Retained legacy modules use `clienteDeModulo` for schema compatibility; it keeps the original session and blocks undeployed tables/RPCs without extending generated database types.

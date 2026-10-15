@@ -76,7 +76,8 @@ async function destinoAposLogin(userId: string) {
     .select("meli_driver_id")
     .eq("id", userId)
     .maybeSingle();
-  return perfil?.meli_driver_id ? "/motorista" : "/dashboard";
+  const identidadeLegada = perfil as unknown as { meli_driver_id?: string | null } | null;
+  return identidadeLegada?.meli_driver_id ? "/motorista" : "/dashboard";
 }
 
 function AuthPage() {
