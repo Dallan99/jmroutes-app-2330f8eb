@@ -94,6 +94,7 @@ export const loteSchema = z.object({
   /** Detalhe bruto da rota (route-detail) + contadores da lista; normalizado no servidor. */
   detalhes: z.array(z.object({
     route_id: txt(60),
+    route_name: z.string().trim().max(120).nullish(),
     data_rota: data.optional(),
     contadores: z.object({ total: z.number().int().min(0), delivered: z.number().int().min(0), notDelivered: z.number().int().min(0), pending: z.number().int().min(0) }).partial().optional(),
     payload: payload,
@@ -137,6 +138,9 @@ export async function expandirDetalhes(lote: Lote) {
       const { payload: n, resumo } = normalizarPayloadMeli(d.payload as Record<string, unknown>);
       if (String(n.route_id) !== d.route_id) throw new Error(`route_id divergente (${n.route_id})`);
       const { pacotes: lista, ...rota } = n;
+      const payloadDetalhe = d.payload as Record<string, unknown>;
+      const nomeRota = d.route_name ?? [payloadDetalhe.routeName, payloadDetalhe.route_name, payloadDetalhe.name, payloadDetalhe.cluster]
+        .find((valor): valor is string => typeof valor === "string" && valor.trim().length > 0) ?? null;
       rotas.push({
         route_id: d.route_id,
         data_rota: d.data_rota ?? (n.data_rota ? n.data_rota.slice(0, 10) : dataSp(ref)),
@@ -145,7 +149,7 @@ export async function expandirDetalhes(lote: Lote) {
         placa: n.vehicle_license,
         total_pedidos: d.contadores?.total ?? resumo.total_informado ?? lista.length,
         total_entregue: d.contadores?.delivered ?? null,
-        payload: { ...rota, resumo, contadores_logistics: d.contadores ?? null },
+        payload: { ...rota, route_name: nomeRota, cluster: nomeRota, resumo, contadores_logistics: d.contadores ?? null },
       });
       for (const k of lista) {
         const id = k.shipment_id ?? k.tracking_id;
