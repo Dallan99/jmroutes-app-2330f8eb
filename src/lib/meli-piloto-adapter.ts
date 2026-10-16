@@ -35,8 +35,10 @@ export function painelParaResultado(painel: PainelBase[], data: string, f: Filtr
     for (const r of lista) {
       const total = r.total_pedidos ?? ND;
       const ent = r.total_entregue ?? ND;
+      const nomeRota = [r.payload?.route_name, r.payload?.routeName, r.payload?.name, r.payload?.cluster]
+        .find((nome): nome is string => typeof nome === "string" && nome.trim().length > 0)?.trim() ?? null;
       rotas.push({
-        rota_id: r.id ?? r.route_id, route_id: r.route_id, nome_operacional: r.route_id, cluster: null,
+        rota_id: r.id ?? r.route_id, route_id: r.route_id, nome_operacional: nomeRota ?? r.route_id, cluster: nomeRota,
         base_id: baseId, base_codigo: b.base_codigo, base_nome: b.base_nome, service_center: null,
         driver_name: r.motorista_nome, vehicle_license: r.placa, carrier: null, data_rota: r.data_rota,
         last_synced_at: r.coletado_em, rota_area_risco: false, area_risco_parcial: false,
