@@ -140,7 +140,7 @@ export async function executarCicloPiloto(deps: PilotoDeps): Promise<PilotoResum
       const r = await enviar(cfg, "ingest", {
         ciclo: { ...ciclo, status: "em_andamento" },
         pagina: { recurso: "rotas", numero: numeroPagina, offset: (page - 1) * ADMINML.PAGE_SIZE, total_informado: totalInformado(res.valor.body),
-          itens: pagina.length, hash: hashPayload(res.valor.body), payload: res.valor.body },
+          itens: pagina.length, hash: hashPayload(res.valor.body), payload: { service_center_id: serviceCenterId, rotas: pagina } },
       }, f);
       if (!r.ok) erroEnvio(r.mensagem);
       resumo.paginas_lidas = numeroPagina;
@@ -162,9 +162,23 @@ export async function executarCicloPiloto(deps: PilotoDeps): Promise<PilotoResum
   let lote: Array<Record<string, unknown>> = [];
   const descarregar = async () => {
     if (!lote.length) return;
-    const r = await enviar(cfg, "ingest", { ciclo: { ...ciclo, status: "em_andamento" }, coletado_em: new Date().toISOString(), detalhes: lote }, f);
-    if (r.ok) resumo.detalhes_enviados += lote.length; else erroEnvio(r.mensagem);
+    const itens = lote;
     lote = [];
+    const enviarDetalhes = async (grupo: Array<Record<string, unknown>>): Promise<void> => {
+      const r = await enviar(cfg, "ingest", { ciclo: { ...ciclo, status: "em_andamento" }, coletado_em: new Date().toISOString(), detalhes: grupo }, f);
+      if (r.ok) {
+        resumo.detalhes_enviados += grupo.length;
+        return;
+      }
+      if (r.mensagem.startsWith("HTTP 413:") && grupo.length > 1) {
+        const meio = Math.ceil(grupo.length / 2);
+        await enviarDetalhes(grupo.slice(0, meio));
+        await enviarDetalhes(grupo.slice(meio));
+        return;
+      }
+      erroEnvio(r.mensagem);
+    };
+    await enviarDetalhes(itens);
   };
   const errosDetalhe: Array<Record<string, unknown>> = [];
   for (const rota of daUnidade) {
