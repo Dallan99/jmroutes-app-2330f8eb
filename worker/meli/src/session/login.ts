@@ -141,6 +141,9 @@ export async function autenticarManualmente(opts: LoginOpts): Promise<void> {
 
 /** Garante que somente um worker abra a recuperação visível do AdminML. */
 export async function autenticarManualmenteCoordenado(opts: LoginOpts): Promise<void> {
+  if (process.env["ADMINML_LOGIN_MODE"] === "mobile") {
+    throw new Error("Renove a sessão no iniciador móvel; worker aguardará o próximo ciclo.");
+  }
   const lockPath = `${opts.sessionFilePath}.login.lock`;
   const inicio = (await stat(opts.sessionFilePath).catch(() => null))?.mtimeMs ?? 0;
   try {
@@ -165,3 +168,4 @@ export async function autenticarManualmenteCoordenado(opts: LoginOpts): Promise<
     await rm(lockPath, { recursive: true, force: true });
   }
 }
+

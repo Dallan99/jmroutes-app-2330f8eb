@@ -1,6 +1,7 @@
 // Persistência cifrada do storageState do AdminML.
 // A sessão é decifrada SOMENTE em memória e nunca sai do processo.
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { dirname } from "node:path";
 import { decryptJson, encryptJson } from "../crypto.js";
 
@@ -21,7 +22,10 @@ export async function salvarSessao(
   keyBase64: string,
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, encryptJson(storageState, keyBase64), { mode: 0o600 });
+  // A renovação remota não deve entregar ao coletor um arquivo pela metade.
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  await writeFile(temporary, encryptJson(storageState, keyBase64), { mode: 0o600 });
+  await rename(temporary, path);
 }
 
 export async function carregarSessao(path: string, keyBase64: string): Promise<LeituraSessao> {
@@ -42,3 +46,4 @@ export async function carregarSessao(path: string, keyBase64: string): Promise<L
     return { status: "aguardando_autenticacao", motivo: "sessao_ilegivel" };
   }
 }
+
