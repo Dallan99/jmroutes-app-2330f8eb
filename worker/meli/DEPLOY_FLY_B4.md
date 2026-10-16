@@ -53,7 +53,7 @@ ilegível e basta refazer a autenticação manual.
 
 ```bash
  fly secrets set --app jmroutes-meli-worker-esp16 \
-   SUPABASE_ANON_KEY='<anon/publishable key do projeto ieqvzndvkzozqvseubuc>' \
+   SUPABASE_ANON_KEY='<anon/publishable key do projeto zfmwojloamwggahjxlyt>' \
    WORKER_EMAIL='worker.meli.esp16@jmroutes.local' \
    WORKER_PASSWORD='<senha definida no passo 1>' \
    WORKER_SESSION_KEY='<base64 do passo 3>'

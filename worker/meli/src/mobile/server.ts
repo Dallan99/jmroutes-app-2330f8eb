@@ -58,15 +58,18 @@ export function createMobileServer(cfg: WorkerConfig, env = process.env, remote 
       if (req.method === "GET" && req.url === "/status") {
         const bases = await Promise.all(cfg.bases.map(async base => {
           const last = await readReceipt(receiptPrefix, base.baseCode);
-          return { base: base.baseCode, last, confirmed: !cfg.dryRun && cfg.writeBaseCodes.includes(base.baseCode)
-            && collectionConfirmed(last, remote.savedAt) };
+          const mode = cfg.pilotWrite ? "piloto" : "operacional";
+          return { base: base.baseCode, last, confirmed: (cfg.pilotWrite || (!cfg.dryRun && cfg.writeBaseCodes.includes(base.baseCode)))
+            && collectionConfirmed(last, remote.savedAt, Date.now(), mode) };
         }));
         const messages = {
           idle: "Abra o login para renovar a sessão.", login: "Conclua o login na tela e aprove no Okta Verify.",
           saved: "Sessão renovada. Aguardando confirmação da coleta por base.",
           expired: "Tempo de login esgotado. Abra o login novamente.", error: "Não foi possível abrir o login. Tente novamente.",
         };
-        reply(res, 200, { state: remote.state, message: cfg.dryRun ? "Modo de teste: não publica dados no JM Routes." : messages[remote.state], bases }); return;
+        const message = cfg.pilotWrite ? `Piloto isolado: atualiza apenas dados do piloto. ${messages[remote.state]}`
+          : cfg.dryRun ? `Modo de teste: não publica dados no JM Routes. ${messages[remote.state]}` : messages[remote.state];
+        reply(res, 200, { state: remote.state, mode: cfg.pilotWrite ? "piloto" : "operacional", message, bases }); return;
       }
       if (req.method === "GET" && req.url === "/screen") {
         const screen = await remote.exclusive(() => remote.screen());

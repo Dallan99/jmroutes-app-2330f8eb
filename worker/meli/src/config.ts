@@ -10,22 +10,23 @@ export type BaseJm = {
   serviceCenterIds?: readonly string[];
   siteId: string;
   nome: string;
+  /** false = estação externa ainda não confirmada no AdminML; base não pode ser usada. */
+  estacaoConfirmada?: boolean;
 };
 
 export const BASES_JM = [
-  { baseCode: "SSP3", serviceCenterId: "SSP3", siteId: "MLB", nome: "Campinas" },
+  { baseCode: "SSP37/03", serviceCenterId: "SSP37", serviceCenterIds: ["SSP37", "SSP3"], siteId: "MLB", nome: "Campinas" },
   { baseCode: "SSP38", serviceCenterId: "SSP38", siteId: "MLB", nome: "Itupeva" },
   { baseCode: "ESP15", serviceCenterId: "SSP20", siteId: "MLB", nome: "Ibiúna" },
-  { baseCode: "SSP5", serviceCenterId: "SSP5", siteId: "MLB", nome: "Mega Barueri" },
+  { baseCode: "SSP5", serviceCenterId: "SSP5", siteId: "MLB", nome: "Barueri" },
   { baseCode: "SSP20", serviceCenterId: "SSP20", siteId: "MLB", nome: "Sorocaba" },
   { baseCode: "ESP17", serviceCenterId: "SSP56", siteId: "MLB", nome: "XPT Embu Guaçu" },
   { baseCode: "ESP16", serviceCenterId: "SSP15", siteId: "MLB", nome: "Guarujá" },
-  { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "ABC" },
-  { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Atibaia" },
-  { baseCode: "SSP6", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
+  { baseCode: "SSP17", serviceCenterId: "SSP17", siteId: "MLB", nome: "São Bernardo do Campo" },
+  { baseCode: "ESP18", serviceCenterId: "SSP25", siteId: "MLB", nome: "Franco da Rocha", estacaoConfirmada: true },
+  { baseCode: "SSP06", serviceCenterId: "SSP6", siteId: "MLB", nome: "Mauá" },
   { baseCode: "SSP45", serviceCenterId: "SSP45", siteId: "MLB", nome: "Itaquera" },
-  { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "Santos" },
-  { baseCode: "SSP37", serviceCenterId: "SSP37", siteId: "MLB", nome: "Campinas" },
+  { baseCode: "SSP15", serviceCenterId: "SSP15", siteId: "MLB", nome: "São Vicente" },
   { baseCode: "SSP23", serviceCenterId: "SSP23", siteId: "MLB", nome: "Suzano" },
   { baseCode: "SSC2", serviceCenterId: "SSC2", siteId: "MLB", nome: "Biguaçu" },
 ] as const satisfies readonly BaseJm[];
@@ -103,6 +104,9 @@ export type WorkerConfig = {
   discoveryOnly: boolean;
   discoveryBaseCode: string | null;
   monitoringConcurrency: number;
+  /** PILOT_WRITE=true (exige DRY_RUN=true): grava só nas tabelas isoladas do piloto. */
+  pilotWrite: boolean;
+  pilotSecret: string;
 };
 
 export class ConfigError extends Error {}
@@ -124,6 +128,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const invalida = codigos.find((_, i) => !bases[i]);
   if (invalida) throw new ConfigError(`Base Meli não permitida: ${invalida}`);
   const selecionadas = bases as BaseJm[];
+  const semEstacao = selecionadas.find((b) => b.estacaoConfirmada === false || !b.serviceCenterId);
+  if (semEstacao) throw new ConfigError(`Base ${semEstacao.baseCode} sem estação AdminML confirmada; remova de BASE_CODES.`);
   const primeira = selecionadas[0];
   if (!primeira) throw new ConfigError("Nenhuma base configurada em BASE_CODES.");
 
@@ -138,6 +144,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const discoveryOnly = (env["DISCOVERY_ONLY"] ?? "").trim().toLowerCase() === "true";
   const discoveryBaseCode = (env["DISCOVERY_BASE_CODE"] ?? "").trim().toUpperCase() || null;
 
+  const pilotWrite = (env["PILOT_WRITE"] ?? "").trim().toLowerCase() === "true";
+  if (pilotWrite && !dryRun) {
+    throw new ConfigError("PILOT_WRITE exige DRY_RUN=true.");
+  }
+  const pilotSecret = (env["MELI_PILOTO_INGEST_SECRET"] ?? "").trim();
+  if (pilotWrite && pilotSecret.length < 32) {
+    throw new ConfigError("PILOT_WRITE exige MELI_PILOTO_INGEST_SECRET (mínimo 32 caracteres).");
+  }
   if (discoveryOnly && !dryRun) {
     throw new ConfigError("DISCOVERY_ONLY exige DRY_RUN=true.");
   }
@@ -185,6 +199,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     discoveryOnly,
     discoveryBaseCode,
     monitoringConcurrency: parseMonitoringConcurrency(env["MONITORING_CONCURRENCY"]),
+    pilotWrite,
+    pilotSecret,
   };
 }
 

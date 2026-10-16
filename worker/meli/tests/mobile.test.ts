@@ -43,11 +43,15 @@ describe("iniciador móvel", () => {
     expect(collectionConfirmed(execution, now - 2000)).toBe(true);
     expect(collectionConfirmed({ ...execution, status: "sucesso_parcial" }, now - 2000)).toBe(false);
     expect(collectionConfirmed({ ...execution, rotas_processadas: 0 }, now - 2000)).toBe(false);
+    expect(collectionConfirmed({ ...execution, mode: "piloto" }, now - 2000)).toBe(false);
+    expect(collectionConfirmed({ ...execution, mode: "piloto" }, now - 2000, now, "piloto")).toBe(true);
     expect(collectionConfirmed(execution, now - 2000, now + 300_000)).toBe(false);
     const dir = await mkdtemp(join(tmpdir(), "jmr-mobile-")); dirs.push(dir);
     await writeReceipt(join(dir, "receipt"), execution);
     expect(await readReceipt(join(dir, "receipt"), "ESP16")).toEqual(execution);
     expect(await readReceipt(join(dir, "receipt"), "ESP17")).toBeNull();
+    await writeReceipt(join(dir, "receipt"), { ...execution, base_code: "SSP37/03", mode: "piloto" });
+    expect((await readReceipt(join(dir, "receipt"), "SSP37/03"))?.mode).toBe("piloto");
   });
   it("protege tela e comandos, origem/CSRF e cookies; mantém dry-run explícito", async () => {
     const remote = { state: "idle", savedAt: 0, start: vi.fn(), close: vi.fn(), tick: vi.fn(),

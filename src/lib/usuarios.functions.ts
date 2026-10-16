@@ -15,9 +15,6 @@ export type UsuarioRow = {
   email: string;
   nome: string;
   matricula: string | null;
-  placa: string | null;
-  meli_driver_id: string | null;
-  meli_driver_nome: string | null;
   base_id: string | null;
   base_nome: string | null;
   ativo: boolean;
@@ -34,7 +31,7 @@ export const listarUsuarios = createServerFn({ method: "GET" })
 
     const { data: profiles, error: pErr } = await supabaseAdmin
       .from("profiles")
-      .select("id, nome, email, matricula, placa, meli_driver_id, base_id, ativo, created_at, bases(nome)")
+      .select("id, nome, email, matricula, base_id, ativo, created_at, bases(nome)")
       .order("created_at", { ascending: false });
     if (pErr) throw new Error(pErr.message);
 
@@ -42,11 +39,6 @@ export const listarUsuarios = createServerFn({ method: "GET" })
       .from("user_roles")
       .select("user_id, role");
     if (rErr) throw new Error(rErr.message);
-
-    const { data: catalogo } = await supabaseAdmin
-      .from("meli_motoristas_catalogo")
-      .select("meli_driver_id, nome");
-    const nomeMeliPorId = new Map((catalogo ?? []).map((m) => [m.meli_driver_id, m.nome]));
 
     const rolesByUser = new Map<string, Role[]>();
     for (const r of roles ?? []) {
@@ -77,7 +69,6 @@ export const listarUsuarios = createServerFn({ method: "GET" })
     const merged = new Map<string, UsuarioRow>();
     for (const u of authUsers) {
       const p = profilesById.get(u.id);
-      if (p?.meli_driver_id) continue;
       const metadataNome = typeof u.user_metadata?.nome === "string" ? u.user_metadata.nome : null;
       const email = p?.email ?? u.email ?? "";
       merged.set(u.id, {
@@ -85,9 +76,6 @@ export const listarUsuarios = createServerFn({ method: "GET" })
         email,
         nome: p?.nome ?? metadataNome ?? email.split("@")[0] ?? "Usuário",
         matricula: p?.matricula ?? null,
-        placa: p?.placa ?? null,
-        meli_driver_id: p?.meli_driver_id ?? null,
-        meli_driver_nome: p?.meli_driver_id ? nomeMeliPorId.get(p.meli_driver_id) ?? null : null,
         base_id: p?.base_id ?? null,
         base_nome: p?.bases?.nome ?? null,
         ativo: p?.ativo ?? !u.banned_until,
@@ -98,15 +86,12 @@ export const listarUsuarios = createServerFn({ method: "GET" })
     }
 
     for (const p of profiles ?? []) {
-      if (merged.has(p.id) || p.meli_driver_id) continue;
+      if (merged.has(p.id)) continue;
       merged.set(p.id, {
         id: p.id,
         email: p.email,
         nome: p.nome,
         matricula: p.matricula,
-        placa: p.placa ?? null,
-        meli_driver_id: p.meli_driver_id,
-        meli_driver_nome: p.meli_driver_id ? nomeMeliPorId.get(p.meli_driver_id) ?? null : null,
         base_id: p.base_id,
         base_nome: p.bases?.nome ?? null,
         ativo: p.ativo,

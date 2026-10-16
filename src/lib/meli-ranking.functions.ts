@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-client";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -81,7 +82,7 @@ export const meliRankingMotoristas = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => rankingSchema.parse(d ?? {}))
   .handler(async ({ data, context }): Promise<MeliRankingResult> => {
-    const sb = context.supabase;
+    const sb = clienteDeModulo(context.supabase);
     const dia = data.data ?? diaOperacionalSp();
     const periodo = periodoSemanaMeli(dia);
 

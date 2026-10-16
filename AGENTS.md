@@ -8,3 +8,6 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep route display-name precedence in the browser-safe `rota-nomenclatura` helper so list and detail headings agree without changing route identity.
+- Retained legacy modules use `clienteDeModulo` for schema compatibility; it keeps the original session and blocks undeployed tables/RPCs without extending generated database types.

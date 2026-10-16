@@ -1,5 +1,6 @@
-# Copie e configure antes de publicar. Não substitui o piloto atual.
-app = "PREENCHER-APP-DO-INICIADOR"
+# Configuração preparada com os valores não sensíveis conferidos no painel
+# em 15/10/2026 (release v62). Ainda requer validação e publicação explícita.
+app = "jmroutes-meli-worker-esp16"
 primary_region = "gru"
 kill_signal = "SIGTERM"
 kill_timeout = "30s"
@@ -8,18 +9,21 @@ kill_timeout = "30s"
 [env]
   NODE_ENV = "production"
   PORT = "8080"
-  MOBILE_PUBLIC_ORIGIN = "https://PREENCHER-APP-DO-INICIADOR.fly.dev"
+  MOBILE_PUBLIC_ORIGIN = "https://jmroutes-meli-worker-esp16.fly.dev"
   SESSION_FILE_PATH = "/data/adminml-session.enc"
   JMR_SESSION_FILE_PATH = "/data/jmr-session.enc"
   MOBILE_RECEIPT_PATH = "/data/mobile-receipt"
   ADMINML_LOGIN_MODE = "mobile"
   SYNC_INTERVAL_SECONDS = "60"
-  # Primeiro teste sem gravação. Promover explicitamente após validar destino,
-  # usuário técnico, permissões por base e impedir coletores duplicados.
+  # Preserva o modo publicado: escrita somente no piloto isolado.
+  # DRY_RUN=true + PILOT_WRITE=true NÃO significa ausência de gravação:
+  # grava em meli_piloto_*, sem promover para a operação.
   DRY_RUN = "true"
-  BASE_CODES = "ESP16"
+  PILOT_WRITE = "true"
+  BASE_CODES = "ESP15,ESP16,ESP17,ESP18,SSP45,SSP23,SSP06,SSP17,SSP15,SSP37/03,SSP38,SSP20,SSP5"
   JMR_BASE_URL = "https://jmroutes.app"
-  # SUPABASE_URL, SUPABASE_ANON_KEY e credenciais: configurar no ambiente.
+  SUPABASE_URL = "https://zfmwojloamwggahjxlyt.supabase.co"
+  # Preserve secrets existentes; acrescente MOBILE_ACCESS_KEY em canal seguro.
 [[mounts]]
   source = "meli_session"
   destination = "/data"

@@ -1,3 +1,4 @@
+import { clienteDeModulo } from "@/lib/modulo-client";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
@@ -184,7 +185,7 @@ export const listarLotesDevolucao = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => baseDia.parse(d))
   .handler(async ({ data, context }): Promise<LoteDevolucao[]> => {
-    const { data: rows, error } = await context.supabase
+    const { data: rows, error } = await clienteDeModulo(context.supabase)
       .from("devolucao_lotes")
       .select(
         "id, codigo, nome_exibicao, base_id, data_operacional, sequencia, estado, criado_por, criado_em, finalizado_por, finalizado_em, total_pacotes",

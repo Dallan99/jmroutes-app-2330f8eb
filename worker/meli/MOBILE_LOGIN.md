@@ -1,5 +1,21 @@
 # Iniciador móvel do Meli
 
+## Ambiente conferido em 15/10/2026
+
+O painel autenticado da Fly mostra o app `jmroutes-meli-worker-esp16`, release
+v62, máquina `d8946d0f7360d8` em GRU, volume `meli_session` em `/data`,
+`JMR_BASE_URL=https://jmroutes.app` e
+`SUPABASE_URL=https://zfmwojloamwggahjxlyt.supabase.co`. O processo atual usa
+`DRY_RUN=true` com `PILOT_WRITE=true` e treze bases. Logs recentes mostram ciclos
+do piloto concluídos com `sessao_expirada=false`. Isso confirma coleta do
+piloto, não a publicação operacional nem a atualização de todos os módulos.
+
+A implementação foi reconciliada com a branch `fix/dashboard-piloto-meli`,
+que contém o protocolo do piloto e os códigos SSP06/SSP37/03. A configuração
+efetiva contém ainda um health check na porta 9394, que não existe nessa branch;
+não se assume equivalência completa entre o código GitHub e a imagem v62.
+O arquivo de exemplo móvel preserva o destino e o modo piloto conferidos.
+
 Abre uma tela remota do login oficial no navegador do Android ou iPhone. O
 operador digita no navegador remoto e aprova pessoalmente o Okta Verify. A
 sessão cifrada fica no mesmo servidor/volume dos coletores; o notebook pode
@@ -24,6 +40,12 @@ ficar desligado. Não é necessário APK. Adicione o endereço à tela inicial.
   com a mesma sessão cifrada e refresh token coordenado. Se um coletor encerrar,
   o runtime encerra para o supervisor reiniciar ambos.
 
+Em `PILOT_WRITE=true`, inicia somente o coletor do piloto e identifica esse modo
+na tela. Recibos do piloto confirmam exclusivamente a coleta do piloto, após o
+fechamento aceito pelo servidor; não são aceitos como confirmação operacional.
+Em `DRY_RUN=true` com `PILOT_WRITE=false`, não inicia o Dashboard Geral e não
+publica dados. Os dois coletores só são iniciados juntos no modo operacional.
+
 ## Publicação
 
 Esta é uma implementação para validação em servidor. O teste real do Meli/Okta
@@ -31,27 +53,30 @@ e a atualização efetiva do ambiente de produção não são comprovados por te
 locais. O Meli pode exigir regras corporativas de rede/dispositivo que precisem
 ser atendidas também pelo servidor. O fluxo deve ser validado com a conta real.
 
-1. Confirme o aplicativo Fly que executa os coletores atuais e o banco destino.
-   O `fly.toml` legado aponta a um piloto com `DRY_RUN=true` e projeto antigo;
-   não reutilize esses valores sem conferir a implantação real.
+1. Confira se os valores observados acima continuam atuais antes do deploy.
+   A proposta renova autenticação e preserva o piloto; a promoção para ingestão
+   operacional é uma alteração separada e não deve ser feita incidentalmente.
 2. Use `Dockerfile.mobile` e uma configuração baseada em
    `fly.mobile.example.toml`. Mantenha exatamente uma máquina com volume
    persistente. O login e os coletores devem compartilhar o mesmo volume e
    `WORKER_SESSION_KEY`. Uma nova aplicação Fly não compartilha automaticamente
    o volume de outra aplicação. Este serviço não envia sessão a workers em
    outros hosts ou notebooks.
-3. Configure em secrets/ambiente: `MOBILE_ACCESS_KEY` (aleatória e exclusiva),
+3. Preserve os secrets existentes. Configure `MOBILE_ACCESS_KEY` (aleatória e exclusiva),
    `WORKER_SESSION_KEY` (32 bytes base64), `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
    `WORKER_EMAIL` e os meios de autenticação JMRoutes já usados pelo coletor.
+   Para o piloto, preserve `MELI_PILOTO_INGEST_SECRET` sem imprimir seu valor.
    Não use `service_role`. Configure a origem HTTPS exata em
    `MOBILE_PUBLIC_ORIGIN`, `JMR_BASE_URL` e as bases autorizadas em `BASE_CODES`.
    Não envie secrets em mensagens nem os coloque no repositório.
-4. Valide primeiro `DRY_RUN=true` e uma base. Abra o endereço no Android,
+4. Para teste sem escrita, use `DRY_RUN=true`, `PILOT_WRITE=false` e uma base.
+   Para preservar a coleta isolada atual, mantenha `PILOT_WRITE=true`.
+   Abra o endereço no Android ou iPhone,
    entre com a chave administrativa, toque em “Abrir login do Meli”, toque no
    campo da tela oficial, envie usuário/senha pela caixa de digitação e avance.
    Aprove o Okta no aplicativo e retorne à página. A sessão deve ser renovada.
-5. Para produção, confirme usuário técnico e permissões; defina
-   `DRY_RUN=false` e `WRITE_BASE_CODES` explicitamente. Desative coletores
+5. Se houver uma solicitação separada para promover à operação, confirme usuário técnico e permissões; defina
+   `PILOT_WRITE=false`, `DRY_RUN=false` e `WRITE_BASE_CODES` explicitamente. Desative coletores
    antigos sobrepostos antes de ativar a escrita. Valide rotas e data de
    atualização diretamente no Recebimento e no Dashboard Geral. O indicador
    de coleta da página confirma o pipeline operacional, não cada indicador
