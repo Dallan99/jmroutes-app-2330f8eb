@@ -1,0 +1,57 @@
+name: Diagnosticar iniciador móvel
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/jmroutes-mobile-diagnostico.yml'
+permissions:
+  contents: read
+jobs:
+  diagnostico:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+        with:
+          version: 0.4.118
+      - name: Estado e verificações do Fly
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl status -a jmroutes-meli-worker-esp16
+          flyctl checks list -a jmroutes-meli-worker-esp16
+          flyctl ips list -a jmroutes-meli-worker-esp16
+      - name: Testar acesso e autenticação
+        env:
+          MOBILE_ACCESS_KEY: ${{ secrets.MOBILE_ACCESS_KEY }}
+        run: |
+          python3 - <<'PY'
+          import urllib.request, urllib.error, http.cookiejar, json, os
+          base = 'https://jmroutes-meli-worker-esp16.fly.dev'
+          jar = http.cookiejar.CookieJar()
+          client = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+          def request(path, body=None, csrf=None):
+              headers = {'Origin':base}
+              if body is not None: headers['Content-Type']='application/json'
+              if csrf: headers['X-CSRF-Token']=csrf
+              req = urllib.request.Request(base+path, data=json.dumps(body).encode() if body is not None else None, headers=headers)
+              try:
+                  with client.open(req, timeout=45) as r:
+                      data=r.read()
+                      print(path, r.status, 'bytes',len(data))
+                      return data
+              except urllib.error.HTTPError as e:
+                  print(path, 'HTTP',e.code)
+                  raise
+          request('/health')
+          request('/')
+          auth=json.loads(request('/login', {'secret':os.environ['MOBILE_ACCESS_KEY']}))
+          status=json.loads(request('/status'))
+          print('Estado remoto:', status.get('state'), 'modo:',status.get('mode'))
+          request('/logout', {}, auth.get('csrf'))
+          PY
+      - name: Logs recentes do serviço
+        if: always()
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl logs -a jmroutes-meli-worker-esp16 --no-tail | tail -n 90
