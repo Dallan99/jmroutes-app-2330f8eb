@@ -170,7 +170,7 @@ export async function executarCicloPiloto(deps: PilotoDeps): Promise<PilotoResum
       await dormir(jitter());
       continue;
     }
-    lote.push({ route_id: rota.routeId, route_name: rota.routeName?.trim() || undefined, contadores: rota.counters ? { total: rota.counters.total, delivered: rota.counters.delivered } : undefined, payload: d.valor });
+    lote.push({ route_id: rota.routeId, route_name: rota.routeName?.trim() || undefined, contadores: rota.counters ? { total: rota.counters.total, delivered: rota.counters.delivered, notDelivered: rota.counters.notDelivered, pending: rota.counters.pending } : undefined, payload: d.valor });
     if (lote.length >= tamanhoLote) await descarregar();
     await dormir(jitter(ADMINML.JITTER_MS));
   }
