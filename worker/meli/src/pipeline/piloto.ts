@@ -116,39 +116,45 @@ export async function executarCicloPiloto(deps: PilotoDeps): Promise<PilotoResum
   };
   const erroEnvio = (m: string) => { resumo.erros += 1; logger.warn("Envio ao piloto falhou.", { base: cfg.baseCode, motivo: m }); };
 
-  // 1) Paginação completa da lista, enviando cada página bruta
+  // 1) Lê todas as estações configuradas para a base e combina suas páginas.
   const rotas: RotaLista[] = [];
   const vistos = new Set<string>();
-  let fimNatural = false;
-  let assinaturaAnterior = "";
-  for (let page = 1; page <= ADMINML.MAX_PAGINAS; page += 1) {
-    const res = await executarComRetry(() => transport.post(ADMINML.LIST_URL, {
-      serviceCenterId: cfg.serviceCenterId, page, pageSize: ADMINML.PAGE_SIZE, siteId: cfg.siteId, order_by: "performance",
-    }), { dormir });
-    if (!res.ok) {
-      resumo.sessao_expirada = res.motivo === "sessao_expirada";
-      resumo.status = "erro";
-      await enviar(cfg, "ingest", { ciclo: { ...ciclo, status: "erro", finalizado_em: new Date().toISOString(), erro: `lista página ${page}: ${res.motivo}` },
-        erros: [{ etapa: "lista", codigo: res.motivo, mensagem: `falha na página ${page}` }] }, f);
-      return resumo;
+  const serviceCenters = cfg.serviceCenterIds.length ? cfg.serviceCenterIds : [cfg.serviceCenterId];
+  let fimNatural = true;
+  for (const serviceCenterId of serviceCenters) {
+    let fimNaturalDaEstacao = false;
+    let assinaturaAnterior = "";
+    for (let page = 1; page <= ADMINML.MAX_PAGINAS; page += 1) {
+      const res = await executarComRetry(() => transport.post(ADMINML.LIST_URL, {
+        serviceCenterId, page, pageSize: ADMINML.PAGE_SIZE, siteId: cfg.siteId, order_by: "performance",
+      }), { dormir });
+      if (!res.ok) {
+        resumo.sessao_expirada = res.motivo === "sessao_expirada";
+        resumo.status = "erro";
+        await enviar(cfg, "ingest", { ciclo: { ...ciclo, status: "erro", finalizado_em: new Date().toISOString(), erro: `lista ${serviceCenterId} página ${page}: ${res.motivo}` },
+          erros: [{ etapa: "lista", codigo: res.motivo, mensagem: `falha na estação ${serviceCenterId}, página ${page}` }] }, f);
+        return resumo;
+      }
+      const pagina = extrairRotasDaLista(res.valor.body);
+      const numeroPagina = resumo.paginas_lidas + 1;
+      const r = await enviar(cfg, "ingest", {
+        ciclo: { ...ciclo, status: "em_andamento" },
+        pagina: { recurso: "rotas", numero: numeroPagina, offset: (page - 1) * ADMINML.PAGE_SIZE, total_informado: totalInformado(res.valor.body),
+          itens: pagina.length, hash: hashPayload(res.valor.body), payload: res.valor.body },
+      }, f);
+      if (!r.ok) erroEnvio(r.mensagem);
+      resumo.paginas_lidas = numeroPagina;
+      const assinatura = pagina.slice(0, 10).map((x) => x.routeId).join(",");
+      if (pagina.length === 0 || (assinatura && assinatura === assinaturaAnterior)) { fimNaturalDaEstacao = true; break; }
+      assinaturaAnterior = assinatura;
+      for (const x of pagina) if (!vistos.has(x.routeId)) { vistos.add(x.routeId); rotas.push(x); }
+      if (pagina.length < ADMINML.PAGE_SIZE) { fimNaturalDaEstacao = true; break; }
+      await dormir(jitter());
     }
-    const pagina = extrairRotasDaLista(res.valor.body);
-    const r = await enviar(cfg, "ingest", {
-      ciclo: { ...ciclo, status: "em_andamento" },
-      pagina: { recurso: "rotas", numero: page, offset: (page - 1) * ADMINML.PAGE_SIZE, total_informado: totalInformado(res.valor.body),
-        itens: pagina.length, hash: hashPayload(res.valor.body), payload: res.valor.body },
-    }, f);
-    if (!r.ok) erroEnvio(r.mensagem);
-    resumo.paginas_lidas = page;
-    const assinatura = pagina.slice(0, 10).map((x) => x.routeId).join(",");
-    if (pagina.length === 0 || (assinatura && assinatura === assinaturaAnterior)) { fimNatural = true; break; }
-    assinaturaAnterior = assinatura;
-    for (const x of pagina) if (!vistos.has(x.routeId)) { vistos.add(x.routeId); rotas.push(x); }
-    if (pagina.length < ADMINML.PAGE_SIZE) { fimNatural = true; break; }
-    await dormir(jitter());
+    if (!fimNaturalDaEstacao) fimNatural = false;
   }
 
-  const daUnidade = filtrarRotasDaUnidade(rotas, cfg.baseCode);
+  const daUnidade = filtrarRotasDaUnidade(rotas, cfg.baseCode, cfg.serviceCenterIds);
   resumo.rotas_listadas = daUnidade.length;
   resumo.pacotes_esperados = daUnidade.reduce((s, x) => s + (x.counters?.total ?? 0), 0);
 
