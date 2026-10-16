@@ -1,9 +1,6 @@
 name: Diagnosticar iniciador móvel
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/jmroutes-mobile-diagnostico.yml'
 permissions:
   contents: read
 jobs:
@@ -18,8 +15,9 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          timeout 90s flyctl machine restart d8946d0f7360d8 -a jmroutes-meli-worker-esp16
           flyctl status -a jmroutes-meli-worker-esp16
+          flyctl checks list -a jmroutes-meli-worker-esp16
+          flyctl volumes list -a jmroutes-meli-worker-esp16
       - name: Testar acesso e autenticação
         env:
           MOBILE_ACCESS_KEY: ${{ secrets.MOBILE_ACCESS_KEY }}
