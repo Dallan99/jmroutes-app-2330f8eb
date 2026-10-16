@@ -92,6 +92,37 @@ publicação. A URL ainda não existe antes desse provisionamento.
 
 ## Desenvolvimento
 
+## Publicar pelo GitHub, inclusive pelo celular
+
+O workflow `.github/workflows/jmroutes-mobile.yml` só executa por
+`workflow_dispatch`. A opção padrão é `validar`. Para publicar, selecione
+`publicar` e confirme o nome exato do app. O job valida testes/build e publica
+exatamente o commit que foi testado, preservando piloto, banco, volume e
+tamanho de máquina (1 CPU compartilhada / 1 GB). Habilita serviço HTTPS para
+o iniciador no app atual. A exposição é protegida pela chave administrativa.
+
+No GitHub, em Settings > Secrets and variables > Actions, configure:
+
+- `FLY_API_TOKEN`: deploy token criado na página Tokens do app
+  `jmroutes-meli-worker-esp16`, com expiração curta para a implantação inicial.
+- `MOBILE_ACCESS_KEY`: chave aleatória exclusiva com no mínimo 32 caracteres.
+  Guarde-a no seu gerenciador de senhas: será usada para entrar no iniciador.
+
+Copie o deploy token diretamente do campo seguro da Fly para o secret do
+GitHub. Não envie tokens ou chaves na conversa. O workflow transfere somente
+a chave do iniciador para os secrets do app e preserva os demais secrets.
+O deploy token não vai para o navegador nem para o container do worker.
+
+Para aparecer no menu Actions e poder receber execução manual, o workflow
+precisa existir na branch padrão do repositório. O campo `source_ref` identifica
+a branch revisada `codex/iniciador-movel-workers`; o workflow fixa o SHA validado
+para evitar publicar uma versão diferente se houver novo commit durante o job.
+
+Ao concluir, o job verifica `/health` e que `/screen` e `/status` recusam acesso
+anônimo. Login real e atualização do piloto exigem homologação no celular.
+
+## Comandos locais
+
 Dentro de `worker/meli`: `npm ci`, `npm run typecheck`, `npm test`,
 `npm run build`. O entrypoint compilado é `dist/mobile/main.js`.
 Para testes locais, `MOBILE_PUBLIC_ORIGIN` aceita HTTP somente em
