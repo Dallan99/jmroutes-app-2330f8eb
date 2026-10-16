@@ -33,9 +33,9 @@ export type CicloDeps = {
   syncBatchId?: string | null;
 };
 
-export function filtrarRotasDaUnidade(rotas: RotaLista[], baseCode: string): RotaLista[] {
-  const codigo = baseCode.trim().toUpperCase();
-  return rotas.filter((rota) => !rota.facilityId || rota.facilityId.trim().toUpperCase() === codigo);
+export function filtrarRotasDaUnidade(rotas: RotaLista[], baseCode: string, facilityIds: readonly string[] = []): RotaLista[] {
+  const codigos = new Set([baseCode, ...facilityIds].map((codigo) => codigo.trim().toUpperCase()).filter(Boolean));
+  return rotas.filter((rota) => !rota.facilityId || codigos.has(rota.facilityId.trim().toUpperCase()));
 }
 
 /** Resumo de auditoria do ciclo — usado principalmente em DRY_RUN. */
