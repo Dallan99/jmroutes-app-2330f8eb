@@ -1,4 +1,4 @@
-import { clienteDeModulo } from "@/lib/modulo-client";
+import { clienteDeModulo, tabelaImplantada } from "@/lib/modulo-client";
 import { defineTool } from "@lovable.dev/mcp-js";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -47,7 +47,9 @@ export default defineTool({
     const [escalas, recebimentos, transferencias] = await Promise.all([
       sb.from("escalas").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_referencia", diaOp),
       sb.from("recebimentos").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_operacional", diaOp),
-      clienteDeModulo(sb).from("transferencias").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_operacional", diaOp),
+      tabelaImplantada("transferencias")
+        ? clienteDeModulo(sb).from("transferencias").select("id", { count: "exact", head: true }).in("base_id", baseIds).eq("data_operacional", diaOp)
+        : Promise.resolve({ count: null as number | null }),
     ]);
 
     const resumo = {

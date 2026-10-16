@@ -1,4 +1,4 @@
-import { clienteDeModulo } from "@/lib/modulo-client";
+import { clienteDeModulo, tabelaImplantada } from "@/lib/modulo-client";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -16,7 +16,9 @@ export const listarMotoristasCadastrados = createServerFn({ method: "GET" }).mid
     const supabaseAdmin = clienteDeModulo(clienteAdminOriginal);
   const [{ data: motoristas, error }, { data: catalogo }] = await Promise.all([
     supabaseAdmin.from("motoristas").select("id, nome, placa, meli_driver_id, ativo, created_at, usuario, bases(nome)").not("meli_driver_id", "is", null).order("nome"),
-    supabaseAdmin.from("meli_motoristas_catalogo").select("meli_driver_id, nome"),
+    tabelaImplantada("meli_motoristas_catalogo")
+      ? supabaseAdmin.from("meli_motoristas_catalogo").select("meli_driver_id, nome")
+      : Promise.resolve({ data: [] as { meli_driver_id: string; nome: string }[] }),
   ]);
   if (error) throw new Error(error.message);
   const nomes = new Map((catalogo ?? []).map((m) => [m.meli_driver_id, m.nome]));
