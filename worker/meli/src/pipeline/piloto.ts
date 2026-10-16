@@ -169,7 +169,8 @@ export async function executarCicloPiloto(deps: PilotoDeps): Promise<PilotoResum
         resumo.detalhes_enviados += grupo.length;
         return;
       }
-      if (r.mensagem.startsWith("HTTP 413:") && grupo.length > 1) {
+      const loteGrande = r.mensagem.startsWith("HTTP 413:") || (r.mensagem.startsWith("HTTP 422:") && r.mensagem.includes("statement timeout"));
+      if (loteGrande && grupo.length > 1) {
         const meio = Math.ceil(grupo.length / 2);
         await enviarDetalhes(grupo.slice(0, meio));
         await enviarDetalhes(grupo.slice(meio));
