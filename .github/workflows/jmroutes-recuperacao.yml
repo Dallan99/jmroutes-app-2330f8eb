@@ -95,7 +95,30 @@ jobs:
           status=json.loads(req('/status'))
           print('Estado:',status.get('state'),'modo:',status.get('mode'))
           assert status.get('mode')=='piloto'
-          req('/logout',{},auth['csrf'])
+          try:
+              req('/start',{},auth['csrf'])
+              status=json.loads(req('/status'))
+              print('Estado após abrir Meli:',status['state'])
+              if status['state']=='login':
+                  screen=req('/screen')
+                  assert screen[:2]==b'\\xff\\xd8' and len(screen)>1000
+                  print('Tela remota JPEG validada.')
+              else:
+                  assert status['state']=='saved'
+          finally:
+              req('/logout',{},auth['csrf'])
+          PY
+      - name: Confirmar arquivo de sessão restaurado
+        run: |
+          python3 - <<'PY'
+          import json,os,urllib.request
+          url='https://api.machines.dev/v1/apps/jmroutes-meli-worker-esp16/machines/'+os.environ['RECOVERED_MACHINE']+'/exec'
+          command=['node','-e',"const fs=require('fs');const p='/data/adminml-session.enc';console.log(JSON.stringify({sessionExists:fs.existsSync(p),sessionBytes:fs.existsSync(p)?fs.statSync(p).size:0}));"]
+          req=urllib.request.Request(url,data=json.dumps({'command':command,'timeout':15}).encode(),headers={'Authorization':'Bearer '+os.environ['FLY_API_TOKEN'],'Content-Type':'application/json'})
+          with urllib.request.urlopen(req,timeout=30) as response: result=json.load(response)
+          print('Exit:',result.get('exit_code'))
+          print(result.get('stdout',''))
+          assert result.get('exit_code')==0
           PY
       - name: Estado final e logs
         if: always()
