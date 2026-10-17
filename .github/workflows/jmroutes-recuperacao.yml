@@ -101,7 +101,7 @@ jobs:
               print('Estado após abrir Meli:',status['state'])
               if status['state']=='login':
                   screen=req('/screen')
-                  assert screen[:2]==b'\\xff\\xd8' and len(screen)>1000
+                  assert screen.startswith(bytes([255,216])) and len(screen)>1000
                   print('Tela remota JPEG validada.')
               else:
                   assert status['state']=='saved'
