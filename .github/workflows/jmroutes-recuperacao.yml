@@ -1,9 +1,6 @@
 name: Recuperar worker Meli
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/jmroutes-recuperacao.yml'
 permissions:
   contents: read
 concurrency:
