@@ -1,9 +1,6 @@
 name: Verificar coleta Meli
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - '.github/workflows/jmroutes-check-worker.yml'
 permissions:
   contents: read
 jobs:
@@ -20,4 +17,6 @@ jobs:
         run: flyctl status -a jmroutes-meli-worker-esp16
       - name: Logs atuais
         if: always()
-        run: flyctl logs -a jmroutes-meli-worker-esp16 --no-tail | tail -n 100
+        run: |
+          set -o pipefail
+          flyctl logs -a jmroutes-meli-worker-esp16 --no-tail | tail -n 100
