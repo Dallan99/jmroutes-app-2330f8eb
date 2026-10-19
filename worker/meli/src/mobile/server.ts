@@ -64,7 +64,7 @@ export function createMobileServer(cfg: WorkerConfig, env = process.env, remote 
         }));
         const messages = {
           idle: "Abra o login para renovar a sessão.", login: "Conclua o login na tela e aprove no Okta Verify.",
-          saved: "Sessão renovada. Aguardando confirmação da coleta por base.",
+          saved: "Login do Meli validado. Aguardando confirmação da coleta por base.",
           expired: "Tempo de login esgotado. Abra o login novamente.", error: "Não foi possível abrir o login. Tente novamente.",
         };
         const message = cfg.pilotWrite ? `Piloto isolado: atualiza apenas dados do piloto. ${messages[remote.state]}`

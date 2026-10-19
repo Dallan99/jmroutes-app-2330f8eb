@@ -1,6 +1,6 @@
 import type { Browser, Page } from "playwright";
 import { ADMINML, type WorkerConfig } from "../config.js";
-import { carregarSessao, salvarSessao } from "../session/store.js";
+import { salvarSessao } from "../session/store.js";
 
 // Uma única tela oficial remota; senhas/cookies não são retornados pela API.
 export class MobileBrowser {
@@ -24,10 +24,11 @@ export class MobileBrowser {
     try {
       const { chromium } = await import("playwright");
       this.browser = await chromium.launch({ headless: true });
-      const previous = await carregarSessao(this.cfg.sessionFilePath, this.cfg.sessionKeyBase64);
+      // Este botão solicita um novo login. Reaproveitar a sessão anterior
+      // fazia tick() reconhecê-la e fechar a tela antes da interação.
+      // O arquivo usado pelo coletor permanece intacto até o novo login validar.
       const context = await this.browser.newContext({
         viewport: { width: 1024, height: 768 }, acceptDownloads: false,
-        storageState: previous.status === "ok" ? previous.storageState as never : undefined,
       });
       // O fluxo é de uma aba. Se o IdP abrir popup, ela passa a ser a tela ativa.
       context.on("page", page => { this.page = page; });
