@@ -11,6 +11,7 @@ on:
       - src/routes/_authenticated/relatorio-30min.tsx
       - src/components/app-shell.tsx
       - tests/meli-relatorio-30min.test.ts
+      - .github/workflows/validate-relatorio-30min.yml
 
 permissions:
   contents: read
@@ -24,10 +25,10 @@ jobs:
       - name: Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
       - name: Dependências
-        run: npm ci --no-audit --no-fund
+        run: npm install --no-audit --no-fund
       - name: Teste do relatório
         run: npm test -- tests/meli-relatorio-30min.test.ts
       - name: Build e typecheck
