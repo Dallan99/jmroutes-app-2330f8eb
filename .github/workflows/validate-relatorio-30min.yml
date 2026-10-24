@@ -32,6 +32,6 @@ jobs:
           corepack prepare pnpm@10.18.3 --activate
           pnpm install --no-frozen-lockfile
       - name: Teste do relatório
-        run: pnpm test -- tests/meli-relatorio-30min.test.ts
+        run: pnpm exec vitest run tests/meli-relatorio-30min.test.ts
       - name: Build e typecheck
         run: pnpm build
