@@ -1,0 +1,94 @@
+name: Publicar correção de sessão móvel
+
+on:
+  push:
+    branches:
+      - codex/transferencias-v1
+    paths:
+      - .github/workflows/deploy-mobile-session-fix.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fly-jmroutes-mobile
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: worker/meli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 48806caa6dcb0c7c4e3a5e8a1c35b990ad839ffd
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Instalar dependências e navegador
+        run: |
+          npm ci --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: Verificar tipos, testes e build
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Confirmar destino seguro
+        run: |
+          python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          cfg = tomllib.loads(Path("fly.mobile.example.toml").read_text())
+          assert cfg["app"] == "jmroutes-meli-worker-esp16"
+          assert cfg["env"]["DRY_RUN"] == "true"
+          assert cfg["env"]["PILOT_WRITE"] == "true"
+          assert cfg["mounts"] == [{"source": "meli_session", "destination": "/data"}]
+          assert cfg["http_service"]["force_https"] is True
+          PY
+      - name: Verificar segredos sem exibir valores
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          MOBILE_ACCESS_KEY: ${{ secrets.MOBILE_ACCESS_KEY }}
+        run: |
+          test -n "$FLY_API_TOKEN"
+          test "${#MOBILE_ACCESS_KEY}" -ge 32
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+        with:
+          version: '0.4.118'
+      - name: Configurar chave e publicar
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          MOBILE_ACCESS_KEY: ${{ secrets.MOBILE_ACCESS_KEY }}
+        run: |
+          flyctl secrets set --stage -a jmroutes-meli-worker-esp16 "MOBILE_ACCESS_KEY=$MOBILE_ACCESS_KEY"
+          flyctl deploy --remote-only --ha=false --yes --config fly.mobile.example.toml -a jmroutes-meli-worker-esp16
+      - name: Verificar serviço
+        run: |
+          python - <<'PY'
+          import time, urllib.request, urllib.error
+          origin = "https://jmroutes-meli-worker-esp16.fly.dev"
+          def status(path):
+              try:
+                  with urllib.request.urlopen(origin + path, timeout=15) as response:
+                      return response.status
+              except urllib.error.HTTPError as error:
+                  return error.code
+          for _ in range(12):
+              try:
+                  if status("/health") == 200:
+                      break
+              except (OSError, TimeoutError):
+                  pass
+              time.sleep(5)
+          else:
+              raise SystemExit("health check sem resposta")
+          assert status("/") == 200
+          assert status("/screen") == 401
+          assert status("/status") == 401
+          PY
