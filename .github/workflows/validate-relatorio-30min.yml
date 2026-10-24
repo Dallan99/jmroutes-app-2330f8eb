@@ -26,10 +26,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - name: Dependências
-        run: npm install --no-audit --no-fund
+      - name: PNPM
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.18.3 --activate
+          pnpm install --no-frozen-lockfile
       - name: Teste do relatório
-        run: npm test -- tests/meli-relatorio-30min.test.ts
+        run: pnpm test -- tests/meli-relatorio-30min.test.ts
       - name: Build e typecheck
-        run: npm run build
+        run: pnpm build
