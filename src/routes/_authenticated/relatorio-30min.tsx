@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -15,7 +16,9 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  BASES_RELATORIO_30MIN,
   meliRelatorio30Min,
   type Relatorio30MinResult,
 } from "@/lib/meli-relatorio-30min.functions";
@@ -26,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/relatorio-30min")({
       { title: "Report 30 min — JMRoutes" },
       {
         name: "description",
-        content: "Relatório operacional do Meli atualizado a cada 30 minutos.",
+        content: "Relatório oficial do Monitoramento Logistics atualizado a cada 30 minutos.",
       },
     ],
   }),
@@ -34,10 +37,6 @@ export const Route = createFileRoute("/_authenticated/relatorio-30min")({
 });
 
 const TRINTA_MINUTOS = 30 * 60_000;
-
-function formatarNumero(valor: number | null) {
-  return valor == null ? "não disponível" : valor.toLocaleString("pt-BR");
-}
 
 function formatarDataHora(valor: string | null | undefined) {
   if (!valor) return "não disponível";
@@ -66,33 +65,33 @@ function dataRelatorio(valor: string) {
   }).format(new Date(valor));
 }
 
+function percentual(valor: number) {
+  return `${valor.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+}
+
 function montarTexto(dados: Extract<Relatorio30MinResult, { status: "ok" }>) {
   const r = dados.relatorio;
-  const motivos = r.motivos.map((m) => `* ${m.descricao}: ${m.total}`).join("\n");
   return `📊 REPORT HORA A HORA - ${dados.base_codigo}
 🕐 ${horaRelatorio(dados.atualizado_em)} - ${dataRelatorio(dados.atualizado_em)}
 
-🔢 ROTAS: ${r.rotas}
-🟡 ABERTAS: ${r.abertas}
-✅ ENCERRADAS: ${r.encerradas}
-📦 TOTAL PACOTES: ${r.total_pacotes}
-✅ ENTREGUES: ${r.entregues}
-⏳ PENDENTES: ${r.pendentes}
-❌ INSUCESSOS: ${r.insucessos}
-🎽 SACAS: não disponível
-📌 PNR: não disponível
-📈 DS% estimado: ${r.ds_percentual == null ? "não disponível" : `${r.ds_percentual.toFixed(1)}%`}
-
-❌ INSUCESSOS POR MOTIVO:
-
-${motivos}`;
+🔢 ROTAS TOTAIS: ${r.rotas_totais}
+🚚 DE ENTREGA: ${r.rotas_entrega} (${percentual(r.percentual_entrega)})
+📥 DE COLETA: ${r.rotas_coleta} (${percentual(r.percentual_coleta)})
+🔄 MISTAS: ${r.rotas_mistas} (${percentual(r.percentual_mistas)})
+🟡 EM ANDAMENTO: ${r.rotas_em_andamento}
+📦 PACOTES: ${r.pacotes}
+🎽 SACAS: ${r.sacas}
+⏳ PENDENTES: ${r.pendentes} (${percentual(r.percentual_pendentes)})
+❌ COM FALHAS: ${r.com_falhas} (${percentual(r.percentual_falhas)})
+✅ BEM-SUCEDIDOS: ${r.bem_sucedidos} (${percentual(r.percentual_bem_sucedidos)})`;
 }
 
 function Relatorio30MinPage() {
+  const [baseCodigo, setBaseCodigo] = useState<string>("ESP18");
   const buscar = useServerFn(meliRelatorio30Min);
   const query = useQuery({
-    queryKey: ["meli-relatorio-30min", "ESP18"],
-    queryFn: () => buscar({ data: { base_codigo: "ESP18" } }) as Promise<Relatorio30MinResult>,
+    queryKey: ["meli-relatorio-30min", baseCodigo],
+    queryFn: () => buscar({ data: { base_codigo: baseCodigo } }) as Promise<Relatorio30MinResult>,
     staleTime: 60_000,
     refetchInterval: TRINTA_MINUTOS,
     refetchIntervalInBackground: true,
@@ -103,24 +102,36 @@ function Relatorio30MinPage() {
   async function copiar() {
     if (!dados) return;
     await navigator.clipboard.writeText(montarTexto(dados));
-    toast.success("Report copiado.");
+    toast.success(`Report de ${dados.base_codigo} copiado.`);
   }
 
   return (
     <div className="space-y-5 p-4 md:p-6">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <Clock3 className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-semibold">Report a cada 30 minutos</h1>
-            <Badge variant="secondary">Teste ESP18</Badge>
+            <Badge variant="secondary">Todas as bases</Badge>
             <Badge variant="outline">Somente leitura</Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Franco da Rocha · dados do piloto Meli · atualização automática a cada 30 minutos.
+            Mesmos indicadores do quadro Rotas totais do Monitoramento Logistics.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select value={baseCodigo} onValueChange={setBaseCodigo}>
+            <SelectTrigger className="w-full sm:w-[250px]" aria-label="Selecionar base">
+              <SelectValue placeholder="Selecione a base" />
+            </SelectTrigger>
+            <SelectContent>
+              {BASES_RELATORIO_30MIN.map((base) => (
+                <SelectItem key={base.codigo} value={base.codigo}>
+                  {base.codigo} · {base.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>
             <RefreshCcw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
             Atualizar agora
@@ -135,7 +146,7 @@ function Relatorio30MinPage() {
       {query.isLoading && (
         <Card>
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
-            Consolidando a ESP18…
+            Consolidando {baseCodigo}…
           </CardContent>
         </Card>
       )}
@@ -153,6 +164,21 @@ function Relatorio30MinPage() {
 
       {dados && (
         <>
+          {dados.desatualizado && (
+            <Card className="border-destructive bg-destructive/5">
+              <CardContent className="flex items-start gap-3 p-4">
+                <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+                <div>
+                  <p className="font-semibold text-destructive">Coleta desatualizada</p>
+                  <p className="text-sm text-muted-foreground">
+                    O card está mantendo o último snapshot válido de {formatarDataHora(dados.atualizado_em)}.
+                    A sessão do AdminML precisa estar válida para os números avançarem.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card className="border-primary/40">
             <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
               <div>
@@ -164,67 +190,83 @@ function Relatorio30MinPage() {
                 </div>
               </div>
               <div className="grid gap-1 text-xs text-muted-foreground md:text-right">
-                <span>Última coleta: <strong className="text-foreground">{formatarDataHora(dados.atualizado_em)}</strong></span>
-                <span>Próxima leitura prevista: <strong className="text-foreground">{formatarDataHora(dados.proxima_atualizacao_em)}</strong></span>
+                <span>
+                  Última coleta: <strong className="text-foreground">{formatarDataHora(dados.atualizado_em)}</strong>
+                </span>
+                <span>
+                  Próxima leitura prevista: <strong className="text-foreground">{formatarDataHora(dados.proxima_atualizacao_em)}</strong>
+                </span>
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <Metrica titulo="Rotas" valor={dados.relatorio.rotas} detalhe={`${dados.relatorio.abertas} abertas · ${dados.relatorio.encerradas} encerradas`} icone={RouteIcon} />
-            <Metrica titulo="Total de pacotes" valor={dados.relatorio.total_pacotes} detalhe={`${dados.relatorio.entregues} entregues`} icone={Package} />
-            <Metrica titulo="Pendentes" valor={dados.relatorio.pendentes} detalhe="Ainda sem desfecho" icone={Clock3} cor="text-warning" />
-            <Metrica titulo="Insucessos" valor={dados.relatorio.insucessos} detalhe="Motivos confirmados abaixo" icone={TriangleAlert} cor="text-destructive" />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <Metrica titulo="Rotas totais" valor={dados.relatorio.rotas_totais} icone={RouteIcon} />
+            <Metrica titulo="Em andamento" valor={dados.relatorio.rotas_em_andamento} icone={Clock3} cor="text-warning" />
+            <Metrica titulo="Pacotes" valor={dados.relatorio.pacotes} icone={Package} />
+            <Metrica titulo="Sacas" valor={dados.relatorio.sacas} icone={Package} />
+            <Metrica
+              titulo="Bem-sucedidos"
+              valor={dados.relatorio.bem_sucedidos}
+              detalhe={percentual(dados.relatorio.percentual_bem_sucedidos)}
+              icone={CheckCircle2}
+              cor="text-success"
+            />
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-[1fr_1.25fr]">
+          <div className="grid gap-3 lg:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Indicadores do report</CardTitle>
+                <CardTitle className="text-base">Composição das rotas</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                <Linha rotulo="🎽 Sacas" valor={formatarNumero(dados.relatorio.sacas)} />
-                <Linha rotulo="📌 PNR" valor={formatarNumero(dados.relatorio.pnr)} />
-                <Linha
-                  rotulo="📈 DS% estimado"
-                  valor={dados.relatorio.ds_percentual == null ? "não disponível" : `${dados.relatorio.ds_percentual.toFixed(1)}%`}
-                  detalhe="Entregues ÷ (entregues + insucessos). A fórmula precisa ser homologada com o indicador oficial do Meli."
+              <CardContent className="grid gap-3 sm:grid-cols-3">
+                <MetricaInterna
+                  titulo="De entrega"
+                  valor={dados.relatorio.rotas_entrega}
+                  percentualValor={dados.relatorio.percentual_entrega}
+                />
+                <MetricaInterna
+                  titulo="De coleta"
+                  valor={dados.relatorio.rotas_coleta}
+                  percentualValor={dados.relatorio.percentual_coleta}
+                />
+                <MetricaInterna
+                  titulo="Mistas"
+                  valor={dados.relatorio.rotas_mistas}
+                  percentualValor={dados.relatorio.percentual_mistas}
                 />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Insucessos por motivo</CardTitle>
+                <CardTitle className="text-base">Situação dos pacotes</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-2 sm:grid-cols-2">
-                {dados.relatorio.motivos.map((motivo) => (
-                  <div key={motivo.codigo} className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 p-3">
-                    <span className="text-sm">{motivo.descricao}</span>
-                    <strong className="tabular-nums">{motivo.total.toLocaleString("pt-BR")}</strong>
-                  </div>
-                ))}
+              <CardContent className="grid gap-3 sm:grid-cols-3">
+                <MetricaInterna
+                  titulo="Pendentes"
+                  valor={dados.relatorio.pendentes}
+                  percentualValor={dados.relatorio.percentual_pendentes}
+                />
+                <MetricaInterna
+                  titulo="Com falhas"
+                  valor={dados.relatorio.com_falhas}
+                  percentualValor={dados.relatorio.percentual_falhas}
+                  cor="text-destructive"
+                />
+                <MetricaInterna
+                  titulo="Bem-sucedidos"
+                  valor={dados.relatorio.bem_sucedidos}
+                  percentualValor={dados.relatorio.percentual_bem_sucedidos}
+                  cor="text-success"
+                />
               </CardContent>
             </Card>
           </div>
 
-          {dados.relatorio.avisos_integridade.length > 0 && (
-            <Card className="border-warning/60">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <TriangleAlert className="h-5 w-5 text-warning" />
-                  Integridade dos dados
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1 text-sm text-muted-foreground">
-                {dados.relatorio.avisos_integridade.map((aviso) => <p key={aviso}>• {aviso}</p>)}
-              </CardContent>
-            </Card>
-          )}
-
           <p className="flex items-start gap-2 text-xs text-muted-foreground">
             <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-            Esta tela não altera Recebimento, Triagem, pacotes ou rotas. Ela apenas lê as tabelas isoladas do piloto enquanto DRY_RUN permanece ativo.
+            Os valores vêm do mesmo snapshot agregado que alimenta os cards das bases. A página apenas consulta dados e não altera a operação.
           </p>
         </>
       )}
@@ -241,7 +283,7 @@ function Metrica({
 }: {
   titulo: string;
   valor: number;
-  detalhe: string;
+  detalhe?: string;
   icone: typeof Package;
   cor?: string;
 }) {
@@ -255,18 +297,30 @@ function Metrica({
         <div className={`mt-2 text-3xl font-bold tabular-nums ${cor}`}>
           {valor.toLocaleString("pt-BR")}
         </div>
-        <div className="mt-1 text-xs text-muted-foreground">{detalhe}</div>
+        {detalhe && <div className="mt-1 text-xs text-muted-foreground">{detalhe}</div>}
       </CardContent>
     </Card>
   );
 }
 
-function Linha({ rotulo, valor, detalhe }: { rotulo: string; valor: string; detalhe?: string }) {
+function MetricaInterna({
+  titulo,
+  valor,
+  percentualValor,
+  cor = "text-foreground",
+}: {
+  titulo: string;
+  valor: number;
+  percentualValor: number;
+  cor?: string;
+}) {
   return (
     <div className="rounded-lg border bg-muted/20 p-3">
-      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</div>
-      <div className="mt-1 text-xl font-bold">{valor}</div>
-      {detalhe && <p className="mt-1 text-xs text-muted-foreground">{detalhe}</p>}
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{titulo}</div>
+      <div className={`mt-1 text-2xl font-bold tabular-nums ${cor}`}>
+        {valor.toLocaleString("pt-BR")}
+      </div>
+      <div className="mt-1 text-xs text-muted-foreground">{percentual(percentualValor)}</div>
     </div>
   );
 }
