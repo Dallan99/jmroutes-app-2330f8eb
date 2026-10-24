@@ -24,6 +24,11 @@ describe("navegador do iniciador", () => {
       const originalContext = browser.newContext.bind(browser);
       vi.spyOn(browser, "newContext").mockImplementation(async opts => {
         const context = await originalContext(opts);
+        vi.spyOn(context.request, "post").mockImplementation(async () => ({
+          ok: () => response.status >= 200 && response.status < 300,
+          headers: () => ({ "content-type": response.contentType }),
+          json: async () => JSON.parse(response.body),
+        } as unknown as Awaited<ReturnType<typeof context.request.post>>));
         await context.route("**/*", async route => {
           oldCookieSent ||= (route.request().headers()["cookie"] ?? "").includes("old-session");
           if (route.request().url().includes("get-routes-list")) await route.fulfill(response);
