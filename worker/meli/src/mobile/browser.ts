@@ -24,9 +24,8 @@ export class MobileBrowser {
     try {
       const { chromium } = await import("playwright");
       this.browser = await chromium.launch({ headless: true });
-      // Este botão solicita um novo login. Reaproveitar a sessão anterior
-      // fazia tick() reconhecê-la e fechar a tela antes da interação.
-      // O arquivo usado pelo coletor permanece intacto até o novo login validar.
+      // O novo login começa limpo. A sessão usada pelo coletor só é
+      // substituída depois que a API operacional responder com JSON válido.
       const context = await this.browser.newContext({
         viewport: { width: 1024, height: 768 }, acceptDownloads: false,
       });
@@ -49,24 +48,35 @@ export class MobileBrowser {
   async tick(): Promise<void> {
     if (!this.page || this.state !== "login") return;
     if (Date.now() > this.deadline) { this.state = "expired"; await this.close(); return; }
-    // Não aceita 302/HTML/404/500 como autenticação válida. Exige uma
-    // resposta JSON operacional do mesmo endpoint usado pela coleta.
     if (new URL(this.page.url()).hostname !== ADMINML.HOST) return;
-    const valid = await this.page.evaluate(async ({ url, serviceCenterId }) => {
+
+    // Usa o APIRequestContext do próprio BrowserContext. Ele compartilha os
+    // cookies oficiais do login, mas não fica sujeito a CORS/CSP da página.
+    // A sessão só é salva quando o endpoint real da coleta responde em JSON.
+    const valid = await (async () => {
       try {
-        const response = await fetch(url, {
-          method: "POST", credentials: "include", redirect: "error",
+        const response = await this.page!.context().request.post(ADMINML.LIST_URL, {
+          data: {
+            serviceCenterId: this.cfg.serviceCenterId,
+            siteId: "MLB",
+            page: 1,
+            pageSize: 1,
+            order_by: "performance",
+          },
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ serviceCenterId, siteId: "MLB", page: 1, pageSize: 1 }),
-          signal: AbortSignal.timeout(10_000),
+          failOnStatusCode: false,
+          maxRedirects: 0,
+          timeout: 10_000,
         });
-        if (!response.ok || !response.headers.get("content-type")?.includes("json")) return false;
-        const body = await response.json() as Record<string, unknown> | null;
-        return Array.isArray(body) || (!!body && ["documents", "content", "results", "routes", "data", "elements"]
-          .some(key => Array.isArray(body[key])));
+        if (!response.ok() || !response.headers()["content-type"]?.includes("json")) return false;
+        const body = await response.json().catch(() => null) as Record<string, unknown> | unknown[] | null;
+        return Array.isArray(body) || (!!body && typeof body === "object"
+          && ["documents", "content", "results", "routes", "data", "elements"]
+            .some(key => Array.isArray((body as Record<string, unknown>)[key])));
       } catch { return false; }
-    }, { url: ADMINML.LIST_URL, serviceCenterId: this.cfg.serviceCenterId }).catch(() => false);
+    })();
     if (!valid) return;
+
     await salvarSessao(this.cfg.sessionFilePath, await this.page.context().storageState(), this.cfg.sessionKeyBase64);
     this.savedAt = Date.now();
     this.state = "saved";
