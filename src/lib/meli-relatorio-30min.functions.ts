@@ -7,7 +7,6 @@ export const BASES_RELATORIO_30MIN = [
   { codigo: "ESP16", nome: "Guarujá" },
   { codigo: "ESP17", nome: "XPT Embu Guaçu" },
   { codigo: "ESP18", nome: "Franco da Rocha" },
-  { codigo: "SSC2", nome: "Biguaçu" },
   { codigo: "SSP06", nome: "Mauá" },
   { codigo: "SSP15", nome: "São Vicente" },
   { codigo: "SSP17", nome: "São Bernardo do Campo" },
@@ -61,6 +60,27 @@ export type Relatorio30MinResult =
     }
   | { status: "erro"; erro: string };
 
+type RotaLogistics = {
+  id?: unknown;
+  facilityId?: unknown;
+  status?: unknown;
+  isDeliveryRoute?: unknown;
+  isPickupRoute?: unknown;
+  isDeliveryPickupRoute?: unknown;
+  counters?: {
+    total?: unknown;
+    totalBags?: unknown;
+    pending?: unknown;
+    notDelivered?: unknown;
+    delivered?: unknown;
+  } | null;
+};
+
+type PaginaStaging = {
+  coletado_em?: unknown;
+  payload?: { routes?: unknown } | null;
+};
+
 function numero(valor: unknown): number {
   const n = Number(valor ?? 0);
   return Number.isFinite(n) && n >= 0 ? n : 0;
@@ -70,6 +90,78 @@ function percentual(parte: number, total: number): number {
   return total > 0 ? Math.round((parte / total) * 1000) / 10 : 0;
 }
 
+function aliasesDaBase(codigo: string): Set<string> {
+  if (codigo === "SSP06") return new Set(["SSP06", "SSP6"]);
+  if (codigo === "SSP37/03") return new Set(["SSP37/03", "SSP37", "SSP3"]);
+  return new Set([codigo]);
+}
+
+function dataEmSaoPaulo(valor: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(valor));
+}
+
+export function consolidarPaginasLogistics(
+  paginas: PaginaStaging[],
+  baseCodigo: string,
+): Relatorio30MinMetricas {
+  const aliases = aliasesDaBase(baseCodigo);
+  const unicas = new Map<string, RotaLogistics>();
+
+  for (const pagina of paginas) {
+    const routes = pagina.payload?.routes;
+    if (!Array.isArray(routes)) continue;
+    for (const rota of routes as RotaLogistics[]) {
+      const id = typeof rota.id === "string" || typeof rota.id === "number" ? String(rota.id) : "";
+      const facility = typeof rota.facilityId === "string" ? rota.facilityId.trim().toUpperCase() : "";
+      if (!id || (facility && !aliases.has(facility))) continue;
+      unicas.set(id, rota);
+    }
+  }
+
+  const rotas = [...unicas.values()];
+  const somar = (campo: keyof NonNullable<RotaLogistics["counters"]>) =>
+    rotas.reduce((total, rota) => total + numero(rota.counters?.[campo]), 0);
+  const mistas = rotas.filter((rota) => rota.isDeliveryPickupRoute === true).length;
+  const entrega = rotas.filter(
+    (rota) => rota.isDeliveryPickupRoute !== true && rota.isDeliveryRoute === true,
+  ).length;
+  const coleta = rotas.filter(
+    (rota) => rota.isDeliveryPickupRoute !== true && rota.isPickupRoute === true,
+  ).length;
+  const emAndamento = rotas.filter((rota) => {
+    const status = typeof rota.status === "string" ? rota.status.trim().toLowerCase() : "";
+    return !["close", "closed", "completed", "concluido"].includes(status);
+  }).length;
+  const pacotes = somar("total");
+  const pendentes = somar("pending");
+  const falhas = somar("notDelivered");
+  const bemSucedidos = somar("delivered");
+
+  return {
+    rotas_totais: rotas.length,
+    rotas_entrega: entrega,
+    rotas_coleta: coleta,
+    rotas_mistas: mistas,
+    rotas_em_andamento: emAndamento,
+    pacotes,
+    sacas: somar("totalBags"),
+    pendentes,
+    com_falhas: falhas,
+    bem_sucedidos: bemSucedidos,
+    percentual_entrega: percentual(entrega, rotas.length),
+    percentual_coleta: percentual(coleta, rotas.length),
+    percentual_mistas: percentual(mistas, rotas.length),
+    percentual_pendentes: percentual(pendentes, pacotes),
+    percentual_falhas: percentual(falhas, pacotes),
+    percentual_bem_sucedidos: percentual(bemSucedidos, pacotes),
+  };
+}
+
 export const meliRelatorio30Min = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((dados: unknown) => entradaSchema.parse(dados ?? {}))
@@ -77,61 +169,66 @@ export const meliRelatorio30Min = createServerFn({ method: "GET" })
     const baseDefinida = BASES_RELATORIO_30MIN.find((base) => base.codigo === data.base_codigo);
     if (!baseDefinida) return { status: "erro", erro: "Base não permitida." };
 
-    const { data: snapshot, error } = await context.supabase
-      .from("meli_monitoramento_snapshots")
-      .select(
-        "base_codigo,data_operacional,rotas_totais,rotas_entrega,rotas_coleta,rotas_mistas,rotas_em_andamento,pacotes,sacas,pendentes,com_falhas,bem_sucedidos,coletado_em",
-      )
+    const { data: ciclo, error: cicloErro } = await context.supabase
+      .from("meli_piloto_ciclos")
+      .select("id,iniciado_em,finalizado_em")
       .eq("base_codigo", data.base_codigo)
-      .order("data_operacional", { ascending: false })
-      .order("coletado_em", { ascending: false })
+      .in("status", ["concluido", "parcial"])
+      .order("iniciado_em", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (error) {
-      return { status: "erro", erro: `Não foi possível consultar o monitoramento de ${data.base_codigo}.` };
+    if (cicloErro) {
+      return { status: "erro", erro: `Não foi possível consultar o último ciclo de ${data.base_codigo}.` };
     }
-    if (!snapshot?.coletado_em) {
-      return { status: "erro", erro: `Ainda não há coleta de monitoramento para ${data.base_codigo}.` };
+    if (!ciclo?.id) {
+      return { status: "erro", erro: `Ainda não há ciclo válido para ${data.base_codigo}.` };
     }
 
-    const rotasTotais = numero(snapshot.rotas_totais);
-    const pacotes = numero(snapshot.pacotes);
-    const rotasEntrega = numero(snapshot.rotas_entrega);
-    const rotasColeta = numero(snapshot.rotas_coleta);
-    const rotasMistas = numero(snapshot.rotas_mistas);
-    const pendentes = numero(snapshot.pendentes);
-    const falhas = numero(snapshot.com_falhas);
-    const bemSucedidos = numero(snapshot.bem_sucedidos);
-    const atualizadoEm = String(snapshot.coletado_em);
+    const [{ data: paginas, error: paginasErro }, { data: rotaData }] = await Promise.all([
+      context.supabase
+        .from("meli_piloto_staging")
+        .select("coletado_em,payload")
+        .eq("ciclo_id", ciclo.id)
+        .eq("recurso", "rotas")
+        .order("pagina", { ascending: true }),
+      context.supabase
+        .from("meli_piloto_rotas")
+        .select("data_rota")
+        .eq("ultimo_ciclo_id", ciclo.id)
+        .limit(1),
+    ]);
+
+    if (paginasErro) {
+      return { status: "erro", erro: `Não foi possível ler as páginas do último ciclo de ${data.base_codigo}.` };
+    }
+
+    const paginasValidas = (paginas ?? []) as PaginaStaging[];
+    if (!paginasValidas.length) {
+      return { status: "erro", erro: `O último ciclo de ${data.base_codigo} não possui páginas de rotas.` };
+    }
+
+    const relatorio = consolidarPaginasLogistics(paginasValidas, data.base_codigo);
+    const coletas = paginasValidas
+      .map((pagina) => String(pagina.coletado_em ?? ""))
+      .filter(Boolean)
+      .sort();
+    const atualizadoEm = String(coletas.at(-1) ?? ciclo.finalizado_em ?? ciclo.iniciado_em);
     const atualizadoMs = new Date(atualizadoEm).getTime();
     const proximaAtualizacaoMs = atualizadoMs + 30 * 60_000;
+    const dataOperacional =
+      rotaData?.[0]?.data_rota != null
+        ? String(rotaData[0].data_rota)
+        : dataEmSaoPaulo(String(ciclo.iniciado_em));
 
     return {
       status: "ok",
       base_codigo: data.base_codigo,
       base_nome: baseDefinida.nome,
-      data_operacional: String(snapshot.data_operacional),
+      data_operacional: dataOperacional,
       atualizado_em: atualizadoEm,
       proxima_atualizacao_em: new Date(proximaAtualizacaoMs).toISOString(),
       desatualizado: !Number.isFinite(atualizadoMs) || Date.now() - atualizadoMs > 35 * 60_000,
-      relatorio: {
-        rotas_totais: rotasTotais,
-        rotas_entrega: rotasEntrega,
-        rotas_coleta: rotasColeta,
-        rotas_mistas: rotasMistas,
-        rotas_em_andamento: numero(snapshot.rotas_em_andamento),
-        pacotes,
-        sacas: numero(snapshot.sacas),
-        pendentes,
-        com_falhas: falhas,
-        bem_sucedidos: bemSucedidos,
-        percentual_entrega: percentual(rotasEntrega, rotasTotais),
-        percentual_coleta: percentual(rotasColeta, rotasTotais),
-        percentual_mistas: percentual(rotasMistas, rotasTotais),
-        percentual_pendentes: percentual(pendentes, pacotes),
-        percentual_falhas: percentual(falhas, pacotes),
-        percentual_bem_sucedidos: percentual(bemSucedidos, pacotes),
-      },
+      relatorio,
     };
   });
