@@ -24,7 +24,7 @@ import {
 } from "recharts";
 import {
   Activity, AlertOctagon, AlertTriangle, CheckCircle2, Clock, Gauge,
-  Package, PackageCheck, PackageSearch, RefreshCcw, Timer, TrendingUp, Truck, Tv, UserCog,
+  Package, PackageCheck, PackageSearch, RadioTower, RefreshCcw, Timer, TrendingUp, Truck, Tv, UserCog,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -127,6 +127,11 @@ export function DashboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+          <Link to="/relatorio-30min" aria-label="Abrir report Meli a cada 30 minutos">
+            <Button size="sm" variant="secondary" className="font-semibold">
+              <RadioTower className="w-4 h-4 mr-2" aria-hidden /> Report 30 min
+            </Button>
+          </Link>
           <Link
             to="/tv/meli"
             search={{
