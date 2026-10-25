@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 20
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-      IMAGE: registry.fly.io/jmroutes-meli-worker-esp16:remember-91e38d79
+      IMAGE: registry.fly.io/jmroutes-meli-worker-esp16@sha256:c58a56c67cfcac1582104ac16750cd9b7f17069f79e5017c5fcc104272e277c1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -28,19 +28,10 @@ jobs:
           npm run typecheck
           npm test
           npm run build
-      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
-        with:
-          version: 0.4.118
-      - name: Construir sem usar builder afetado
-        run: docker build -f worker/meli/Dockerfile.mobile -t "$IMAGE" worker/meli
-      - name: Publicar imagem
-        run: |
-          flyctl auth docker
-          docker push "$IMAGE"
       - name: Atualizar somente a máquina recuperada
         run: |
           python3 -u - <<'PY'
-          import urllib.request,json,os
+          import urllib.request,urllib.error,json,os
           url='https://api.machines.dev/v1/apps/jmroutes-meli-worker-esp16/machines/82d1e51a072148'
           headers={'Authorization':'Bearer '+os.environ['FLY_API_TOKEN'],'Content-Type':'application/json'}
           with urllib.request.urlopen(urllib.request.Request(url,headers=headers),timeout=60) as r: machine=json.load(r)
@@ -51,7 +42,14 @@ jobs:
           assert config.get('init',{}).get('cmd') == ['node','dist/mobile/main.js']
           config.setdefault('metadata',{})['source_commit']='91e38d795a9e0276ce33038dd1363d1a1d7bfa09'
           request=urllib.request.Request(url,headers=headers,data=json.dumps({'config':config}).encode())
-          with urllib.request.urlopen(request,timeout=180) as r: result=json.load(r)
+          try:
+              with urllib.request.urlopen(request,timeout=180) as r: result=json.load(r)
+          except urllib.error.HTTPError as error:
+              detail=error.read().decode('utf8',errors='replace')
+              for value in list(config.get('env',{}).values())+[os.environ['FLY_API_TOKEN']]:
+                  if isinstance(value,str) and value: detail=detail.replace(value,'[redacted]')
+              print('Fly HTTP',error.code,detail[:2000])
+              raise SystemExit(1)
           print('Máquina:',result['id'],'estado:',result['state'])
           PY
       - name: Confirmar serviço e proteções
