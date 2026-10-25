@@ -21,7 +21,7 @@ async function jsonBody(req: IncomingMessage): Promise<Record<string, unknown>> 
 }
 export function createMobileServer(cfg: WorkerConfig, env = process.env, remote = new MobileBrowser(cfg)) {
   const origin = mobileOrigin(env["MOBILE_PUBLIC_ORIGIN"] ?? "");
-  const access = new MobileAccess(env["MOBILE_ACCESS_KEY"] ?? "");
+  const access = new MobileAccess(env["MOBILE_ACCESS_KEY"] ?? "", env["MOBILE_ACCESS_SESSION_PATH"] ?? "/data/mobile-access.json");
   const receiptPrefix = env["MOBILE_RECEIPT_PATH"] ?? "/data/mobile-receipt";
   const secure = origin.startsWith("https:") ? "; Secure" : "";
   const reply = (res: ServerResponse, status: number, body: unknown) => {
@@ -46,13 +46,16 @@ export function createMobileServer(cfg: WorkerConfig, env = process.env, remote 
       }
       if (req.method === "POST" && req.url === "/login") {
         const body = await jsonBody(req);
-        const session = access.login(typeof body.secret === "string" ? body.secret : "");
+        const session = access.login(typeof body.secret === "string" ? body.secret : "", Date.now(), body.remember === true);
         if (!session) { reply(res, 401, { error: "Chave inválida ou limite de tentativas. Aguarde um minuto." }); return; }
-        res.setHeader("Set-Cookie", `jmr_mobile=${session.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=1800${secure}`);
+        res.setHeader("Set-Cookie", `jmr_mobile=${session.token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${session.maxAge}${secure}`);
         reply(res, 200, { csrf: session.csrf }); return;
       }
       if (!access.authorize(req.headers.cookie)) { reply(res, 401, { error: "Entre com a chave de acesso." }); return; }
-      if (req.method === "POST" && !access.verifyCsrf(String(req.headers["x-csrf-token"] ?? ""))) {
+      if (req.method === "GET" && req.url === "/session") {
+        reply(res, 200, { csrf: access.csrfFor(req.headers.cookie) }); return;
+      }
+      if (req.method === "POST" && !access.verifyCsrf(String(req.headers["x-csrf-token"] ?? ""), req.headers.cookie)) {
         reply(res, 403, { error: "Sessão inválida. Entre novamente." }); return;
       }
       if (req.method === "GET" && req.url === "/status") {
@@ -86,7 +89,7 @@ export function createMobileServer(cfg: WorkerConfig, env = process.env, remote 
         reply(res, 200, { ok: true }); return;
       }
       if (req.method === "POST" && req.url === "/logout") {
-        access.revoke(); await remote.exclusive(() => remote.close());
+        access.revoke(req.headers.cookie); await remote.exclusive(() => remote.close());
         res.setHeader("Set-Cookie", `jmr_mobile=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure}`);
         reply(res, 200, { ok: true }); return;
       }
@@ -101,3 +104,4 @@ export function createMobileServer(cfg: WorkerConfig, env = process.env, remote 
   server.on("close", () => { clearInterval(tick); void remote.close(); });
   return server;
 }
+

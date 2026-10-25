@@ -25,7 +25,19 @@ ficar desligado. Não é necessário APK. Adicione o endereço à tela inicial.
 
 - Página restrita por uma chave administrativa aleatória com no mínimo 32
   caracteres, cookie HttpOnly/Secure/SameSite, proteção de origem e CSRF,
-  expiração de acesso em 30 minutos e limite de tentativas de entrada.
+  expiração de acesso em 30 minutos e limite de tentativas de entrada. A opção
+  **Lembrar este celular por 30 dias** é voluntária e deve ser usada apenas em
+  dispositivo pessoal. O cookie contém um token aleatório, nunca a chave nem a
+  senha Meli. Ao reabrir o atalho, o portal recupera a sessão automaticamente;
+  o login Meli e a aprovação manual do Okta continuam independentes.
+  Sessões lembradas sobrevivem ao reinício no volume `/data`, no arquivo
+  `mobile-access.json` (caminho alternativo: `MOBILE_ACCESS_SESSION_PATH`).
+  O arquivo tem permissão 0600, hashes dos tokens e assinatura vinculada à chave
+  administrativa. A alteração da chave invalida os acessos salvos. **Sair** revoga
+  somente o acesso deste navegador, inclusive após reinício. Até vinte acessos
+  podem coexistir; ao exceder o limite o mais antigo é revogado. Não há extensão
+  automática do prazo: após trinta dias é necessário informar a chave novamente.
+  Navegação anônima, limpeza de cookies ou perda do volume exigem nova entrada.
 - Uma sessão de login remoto por vez, encerrada após dez minutos. Nenhuma
   senha do Meli é persistida pelo iniciador. Capturas de tela são transitórias,
   autenticadas e sem cache. Não publique gravações, cookies ou chaves em logs.
@@ -128,3 +140,4 @@ Dentro de `worker/meli`: `npm ci`, `npm run typecheck`, `npm test`,
 Para testes locais, `MOBILE_PUBLIC_ORIGIN` aceita HTTP somente em
 `localhost`/`127.0.0.1`; produção exige HTTPS. O acesso ao serviço deve continuar
 restrito aos responsáveis por autenticar a conta corporativa.
+
