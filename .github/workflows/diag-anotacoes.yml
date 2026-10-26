@@ -13,16 +13,6 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
         with:
           version: 0.4.118
-      - name: Copiar credenciais do login assistido para o Fly (sem exibir)
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-          ADMINML_USERNAME: ${{ secrets.ADMINML_USERNAME }}
-          ADMINML_PASSWORD: ${{ secrets.ADMINML_PASSWORD }}
-        run: |
-          if [ -z "$ADMINML_USERNAME" ] || [ -z "$ADMINML_PASSWORD" ]; then echo "::error::Segredos ADMINML ausentes"; exit 1; fi
-          B64=$(printf '%s' "$ADMINML_PASSWORD" | base64 -w0); echo "::add-mask::$B64"
-          flyctl secrets set --stage -a jmroutes-meli-worker-esp16 "ADMINML_USERNAME=$ADMINML_USERNAME" "ADMINML_PASSWORD_BASE64=$B64" >/dev/null
-          flyctl secrets list -a jmroutes-meli-worker-esp16 | grep -oE "ADMINML_[A-Z_0-9]+" | sort -u | sed 's/^/::warning title=secret::/'
       - name: Estado
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -54,4 +44,17 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
-          flyctl logs -a jmroutes-meli-worker-esp16 --no-tail | tail -n 60 | grep -iE "erro|error|fatal|exit|iniciador|sess|reinic|panic|EACCES|ENOENT" | tail -n 9 | cut -c1-240 | sed 's/^/::warning title=log::/'
+          flyctl logs -a jmroutes-meli-worker-esp16 --no-tail > logs.txt || true
+          python3 - <<'PY'
+          import json,re
+          for line in open('logs.txt',errors='replace'):
+              m=re.search(r'(\{"ts".*\})\s*$', re.sub(r'\x1b\[[0-9;]*m','',line))
+              if not m: continue
+              try: o=json.loads(m.group(1))
+              except Exception: continue
+              meta=o.get('meta') or {}
+              txt=json.dumps(meta,ensure_ascii=False)
+              if not any(b in txt for b in ('ESP16','SSP06','SSP37','SSP23','ESP18')) and o.get('nivel')!='error': continue
+              keep={k:v for k,v in meta.items() if not isinstance(v,(dict,list))}
+              print("::warning title=%s %s::%s" % (o.get('ts','')[11:19], o.get('msg','')[:60], json.dumps(keep,ensure_ascii=False)[:600]))
+          PY
