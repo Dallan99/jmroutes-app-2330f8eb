@@ -19,7 +19,7 @@ describe("navegador do iniciador", () => {
     let response = { status: 403, contentType: "application/json", body: '{"error":"denied"}' };
     let inputValue = "";
     let oldCookieSent = false;
-    let contextForTest: BrowserContext | null = null;
+    let contextForTest!: BrowserContext;
     const launch = vi.spyOn(chromium, "launch").mockImplementation(async options => {
       const browser = await original(options);
       const originalContext = browser.newContext.bind(browser);
@@ -44,7 +44,7 @@ describe("navegador do iniciador", () => {
     const remote = new MobileBrowser(cfg);
     try {
       await remote.exclusive(() => remote.start());
-      const loginPage = contextForTest?.pages()[0];
+      const loginPage = contextForTest.pages()[0];
       expect(loginPage?.url()).toContain("/logistics/monitoring-distribution");
       expect((await remote.screen()).length).toBeGreaterThan(100);
       await remote.action({ type: "click", x: 0.05, y: 0.05 });
