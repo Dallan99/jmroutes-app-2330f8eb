@@ -50,7 +50,7 @@ jobs:
       - name: Instalar dependências reproduzíveis
         run: npm ci --no-audit --no-fund
       - name: Instalar navegador dos testes
-        run: npx playwright install --with-deps chromium
+        run: timeout 5m npx playwright install chromium
       - name: Verificar tipos, testes e build
         run: |
           npm run typecheck
