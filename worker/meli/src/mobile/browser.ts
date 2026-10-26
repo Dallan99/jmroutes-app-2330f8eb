@@ -32,7 +32,7 @@ export class MobileBrowser {
       // O fluxo é de uma aba. Se o IdP abrir popup, ela passa a ser a tela ativa.
       context.on("page", page => { this.page = page; });
       this.page = await context.newPage();
-      await this.page.goto(`https://${ADMINML.HOST}/logistics/monitoring`, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      await this.page.goto(`https://${ADMINML.HOST}/logistics/monitoring-distribution`, { waitUntil: "domcontentloaded", timeout: 30_000 });
     } catch {
       this.state = "error";
       await this.close();
@@ -48,7 +48,8 @@ export class MobileBrowser {
   async tick(): Promise<void> {
     if (!this.page || this.state !== "login") return;
     if (Date.now() > this.deadline) { this.state = "expired"; await this.close(); return; }
-    if (new URL(this.page.url()).hostname !== ADMINML.HOST) return;
+    // O SSO pode concluir em uma página MON01 ou até em outro host. A URL
+    // visível não comprova a sessão; a API operacional abaixo é a autoridade.
 
     // Usa o APIRequestContext do próprio BrowserContext. Ele compartilha os
     // cookies oficiais do login, mas não fica sujeito a CORS/CSP da página.
