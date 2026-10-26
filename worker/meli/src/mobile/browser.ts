@@ -51,29 +51,23 @@ export class MobileBrowser {
     // O SSO pode concluir em uma página MON01 ou até em outro host. A URL
     // visível não comprova a sessão; a API operacional abaixo é a autoridade.
 
-    // Usa o APIRequestContext do próprio BrowserContext. Ele compartilha os
-    // cookies oficiais do login, mas não fica sujeito a CORS/CSP da página.
-    // A sessão só é salva quando o endpoint real da coleta responde em JSON.
+    // Usa o mesmo critério do login manual do worker. O endpoint de
+    // listagem mudou com o Monitoramento Distribution e pode responder com
+    // uma estrutura diferente mesmo após o login. O detalhe com routeId=0
+    // é usado somente como prova de autenticação: 401/403 significam sessão
+    // ausente; qualquer outra resposta confirma que o AdminML reconheceu a
+    // sessão, sem depender de haver rotas no momento.
     const valid = await (async () => {
       try {
-        const response = await this.page!.context().request.post(ADMINML.LIST_URL, {
-          data: {
-            serviceCenterId: this.cfg.serviceCenterId,
-            siteId: "MLB",
-            page: 1,
-            pageSize: 1,
-            order_by: "performance",
+        const response = await this.page!.context().request.get(
+          `${ADMINML.DETAIL_URL}?routeId=0&siteId=${encodeURIComponent(this.cfg.siteId)}`,
+          {
+            failOnStatusCode: false,
+            maxRedirects: 0,
+            timeout: 10_000,
           },
-          headers: { "Content-Type": "application/json" },
-          failOnStatusCode: false,
-          maxRedirects: 0,
-          timeout: 10_000,
-        });
-        if (!response.ok() || !response.headers()["content-type"]?.includes("json")) return false;
-        const body = await response.json().catch(() => null) as Record<string, unknown> | unknown[] | null;
-        return Array.isArray(body) || (!!body && typeof body === "object"
-          && ["documents", "content", "results", "routes", "data", "elements"]
-            .some(key => Array.isArray((body as Record<string, unknown>)[key])));
+        );
+        return response.status() !== 401 && response.status() !== 403;
       } catch { return false; }
     })();
     if (!valid) return;
