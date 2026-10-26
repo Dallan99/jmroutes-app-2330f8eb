@@ -1,0 +1,46 @@
+name: Parar instância antiga do iniciador Meli
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jmroutes-fly-maintenance
+  cancel-in-progress: false
+
+jobs:
+  parar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+        with:
+          version: '0.4.118'
+      - name: Confirmar destino antes da parada
+        run: |
+          flyctl machine status 82d1e51a072148 -a jmroutes-meli-worker-esp16
+          flyctl machine status d8946d0f7360d8 -a jmroutes-meli-worker-esp16
+      - name: Parar somente a instância antiga
+        run: flyctl machine stop 82d1e51a072148 -a jmroutes-meli-worker-esp16
+      - name: Confirmar serviço preservado
+        run: |
+          python3 - <<'PY'
+          import time, urllib.request
+          url = "https://jmroutes-meli-worker-esp16.fly.dev/health"
+          for attempt in range(12):
+              try:
+                  with urllib.request.urlopen(url, timeout=15) as response:
+                      assert response.status == 200
+                      print("Health check confirmado:", response.status)
+                      break
+              except Exception:
+                  if attempt == 11:
+                      raise
+                  time.sleep(5)
+          PY
+          flyctl machine status 82d1e51a072148 -a jmroutes-meli-worker-esp16 || true
+          flyctl machine status d8946d0f7360d8 -a jmroutes-meli-worker-esp16
