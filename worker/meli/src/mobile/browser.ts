@@ -1,6 +1,7 @@
 import type { Browser, Page } from "playwright";
 import { ADMINML, type WorkerConfig } from "../config.js";
 import { salvarSessao } from "../session/store.js";
+import { avancarLoginAssistido, credenciaisAssistidas, type EstadoLoginAssistido } from "../session/login.js";
 
 // Uma única tela oficial remota; senhas/cookies não são retornados pela API.
 export class MobileBrowser {
@@ -12,6 +13,11 @@ export class MobileBrowser {
   private lastProbe = 0;
   /** Intervalo mínimo entre provas por navegação (ms). */
   probeIntervalMs = 15_000;
+  private assistido: EstadoLoginAssistido = { usuarioEnviado: false, senhaEnviada: false, metodoOktaSelecionado: false, pushSolicitado: false };
+  /** Usuário/senha do Meli vindos dos secrets; nunca expostos pela API. */
+  private readonly credenciais = credenciaisAssistidas();
+  /** true quando o iniciador preenche usuário/senha e pede o push sozinho. */
+  readonly assisted = this.credenciais !== null;
   savedAt = 0;
   state: "idle" | "login" | "saved" | "expired" | "error" = "idle";
   constructor(private cfg: WorkerConfig) {}
@@ -37,6 +43,7 @@ export class MobileBrowser {
       // A aba da prova de sessão não substitui a tela do operador.
       context.on("page", page => { if (!this.probing) this.page = page; });
       this.lastProbe = 0;
+      this.assistido = { usuarioEnviado: false, senhaEnviada: false, metodoOktaSelecionado: false, pushSolicitado: false };
       this.page = await context.newPage();
       await this.page.goto(`https://${ADMINML.HOST}/logistics/monitoring-distribution`, { waitUntil: "domcontentloaded", timeout: 30_000 });
     } catch {
@@ -54,6 +61,12 @@ export class MobileBrowser {
   async tick(): Promise<void> {
     if (!this.page || this.state !== "login") return;
     if (Date.now() > this.deadline) { this.state = "expired"; await this.close(); return; }
+    // Login assistido: preenche usuário/senha e solicita o push do Okta.
+    // A aprovação continua exclusivamente com o operador, no celular dele.
+    if (this.credenciais && !this.assistido.pushSolicitado) {
+      await avancarLoginAssistido(this.page, this.credenciais, this.assistido).catch(() => undefined);
+      if (!this.page || this.state !== "login") return;
+    }
     // O SSO pode concluir em uma página MON01 ou até em outro host. A URL
     // visível não comprova a sessão; a API operacional abaixo é a autoridade.
 

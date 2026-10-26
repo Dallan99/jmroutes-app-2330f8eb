@@ -66,7 +66,9 @@ export function createMobileServer(cfg: WorkerConfig, env = process.env, remote 
             && collectionConfirmed(last, remote.savedAt, Date.now(), mode) };
         }));
         const messages = {
-          idle: "Abra o login para renovar a sessão.", login: "Conclua o login na tela e aprove no Okta Verify.",
+          idle: "Toque em Reconectar Meli para renovar a sessão.",
+          login: remote.assisted ? "Entrando no Meli automaticamente. Aprove a notificação no Okta Verify do seu celular."
+            : "Conclua o login na tela e aprove no Okta Verify.",
           saved: "Login do Meli validado. Aguardando confirmação da coleta por base.",
           expired: "Tempo de login esgotado. Abra o login novamente.", error: "Não foi possível abrir o login. Tente novamente.",
         };
