@@ -13,6 +13,15 @@ jobs:
       - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
         with:
           version: 0.4.118
+      - name: Isolar máquina antiga (reversível)
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          A=jmroutes-meli-worker-esp16; M=82d1e51a072148
+          flyctl machine cordon $M -a $A 2>&1 | tail -1 | sed 's/^/::warning title=cordon::/'
+          flyctl machine update $M -a $A --autostart=false --autostop=off --skip-start --yes 2>&1 | tail -1 | sed 's/^/::warning title=update::/' || true
+          flyctl machine stop $M -a $A 2>&1 | tail -1 | sed 's/^/::warning title=stop::/'
+          sleep 10
       - name: Estado
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
