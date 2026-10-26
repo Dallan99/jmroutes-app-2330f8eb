@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 describe("navegador do iniciador", () => {
-  it("controla tela real e só salva após JSON operacional válido; rejeita erro/HTML", async () => {
+  it("controla tela real e só salva após prova autenticada no endpoint de detalhe", async () => {
     const dir = await mkdtemp(join(tmpdir(), "mobile-browser-"));
     const key = Buffer.alloc(32, 1).toString("base64");
     const cfg = loadConfig({ DRY_RUN: "true", BASE_CODE: "ESP16", WORKER_SESSION_KEY: key,
@@ -26,11 +26,9 @@ describe("navegador do iniciador", () => {
       vi.spyOn(browser, "newContext").mockImplementation(async opts => {
         const context = await originalContext(opts);
         contextForTest = context;
-        vi.spyOn(context.request, "post").mockImplementation(async () => ({
-          ok: () => response.status >= 200 && response.status < 300,
-          headers: () => ({ "content-type": response.contentType }),
-          json: async () => JSON.parse(response.body),
-        } as unknown as Awaited<ReturnType<typeof context.request.post>>));
+        vi.spyOn(context.request, "get").mockImplementation(async () => ({
+          status: () => response.status,
+        } as unknown as Awaited<ReturnType<typeof context.request.get>>));
         await context.route("**/*", async route => {
           oldCookieSent ||= (route.request().headers()["cookie"] ?? "").includes("old-session");
           if (route.request().url().includes("get-routes-list")) await route.fulfill(response);
