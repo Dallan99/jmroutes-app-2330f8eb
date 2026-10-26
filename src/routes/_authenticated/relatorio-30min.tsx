@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CheckCircle2,
@@ -16,7 +16,6 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   BASES_RELATORIO_30MIN,
   meliRelatorio30Min,
@@ -87,22 +86,30 @@ function montarTexto(dados: Extract<Relatorio30MinResult, { status: "ok" }>) {
 }
 
 function Relatorio30MinPage() {
-  const [baseCodigo, setBaseCodigo] = useState<string>("ESP18");
+  const [basesSelecionadas, setBasesSelecionadas] = useState<string[]>(["ESP18"]);
   const buscar = useServerFn(meliRelatorio30Min);
-  const query = useQuery({
-    queryKey: ["meli-relatorio-30min", baseCodigo],
-    queryFn: () => buscar({ data: { base_codigo: baseCodigo } }) as Promise<Relatorio30MinResult>,
-    staleTime: 60_000,
-    refetchInterval: TRINTA_MINUTOS,
-    refetchIntervalInBackground: true,
+  const consultas = useQueries({
+    queries: basesSelecionadas.map((baseCodigo) => ({
+      queryKey: ["meli-relatorio-30min", baseCodigo],
+      queryFn: () => buscar({ data: { base_codigo: baseCodigo } }) as Promise<Relatorio30MinResult>,
+      staleTime: 60_000,
+      refetchInterval: TRINTA_MINUTOS,
+      refetchIntervalInBackground: true,
+    })),
   });
 
-  const dados = query.data?.status === "ok" ? query.data : null;
+  const atualizando = consultas.some((consulta) => consulta.isFetching);
 
-  async function copiar() {
-    if (!dados) return;
-    await navigator.clipboard.writeText(montarTexto(dados));
-    toast.success(`Report de ${dados.base_codigo} copiado.`);
+  function alternarBase(baseCodigo: string) {
+    setBasesSelecionadas((atuais) =>
+      atuais.includes(baseCodigo)
+        ? atuais.filter((codigo) => codigo !== baseCodigo)
+        : [...atuais, baseCodigo],
+    );
+  }
+
+  function selecionarTodas() {
+    setBasesSelecionadas(BASES_RELATORIO_30MIN.map((base) => base.codigo));
   }
 
   return (
@@ -112,165 +119,215 @@ function Relatorio30MinPage() {
           <div className="flex flex-wrap items-center gap-2">
             <Clock3 className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-semibold">Report a cada 30 minutos</h1>
-            <Badge variant="secondary">Todas as bases</Badge>
+            <Badge variant="secondary">Comparação por base</Badge>
             <Badge variant="outline">Somente leitura</Badge>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Mesmos indicadores do quadro Rotas totais do Monitoramento Logistics.
+            Selecione uma ou mais bases. Cada painel mantém seus próprios números, sem somar resultados.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Select value={baseCodigo} onValueChange={setBaseCodigo}>
-            <SelectTrigger className="w-full sm:w-[250px]" aria-label="Selecionar base">
-              <SelectValue placeholder="Selecione a base" />
-            </SelectTrigger>
-            <SelectContent>
-              {BASES_RELATORIO_30MIN.map((base) => (
-                <SelectItem key={base.codigo} value={base.codigo}>
-                  {base.codigo} · {base.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>
-            <RefreshCcw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
-            Atualizar agora
-          </Button>
-          <Button onClick={copiar} disabled={!dados}>
-            <Copy className="mr-2 h-4 w-4" />
-            Copiar report
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          onClick={() => consultas.forEach((consulta) => void consulta.refetch())}
+          disabled={!consultas.length || atualizando}
+        >
+          <RefreshCcw className={`mr-2 h-4 w-4 ${atualizando ? "animate-spin" : ""}`} />
+          Atualizar selecionadas
+        </Button>
       </header>
 
-      {query.isLoading && (
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">Bases exibidas</CardTitle>
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={selecionarTodas}>
+                Todas
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setBasesSelecionadas([])}
+                disabled={!basesSelecionadas.length}
+              >
+                Limpar
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Selecionar bases do relatório">
+            {BASES_RELATORIO_30MIN.map((base) => {
+              const selecionada = basesSelecionadas.includes(base.codigo);
+              return (
+                <Button
+                  key={base.codigo}
+                  type="button"
+                  size="sm"
+                  variant={selecionada ? "default" : "outline"}
+                  aria-pressed={selecionada}
+                  onClick={() => alternarBase(base.codigo)}
+                >
+                  {base.codigo} · {base.nome}
+                </Button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            {basesSelecionadas.length
+              ? `${basesSelecionadas.length} base${basesSelecionadas.length === 1 ? "" : "s"} selecionada${basesSelecionadas.length === 1 ? "" : "s"}.`
+              : "Nenhuma base selecionada."}
+          </p>
+        </CardContent>
+      </Card>
+
+      {!basesSelecionadas.length && (
         <Card>
           <CardContent className="p-8 text-center text-sm text-muted-foreground">
-            Consolidando {baseCodigo}…
+            Escolha pelo menos uma base para exibir o relatório.
           </CardContent>
         </Card>
       )}
 
-      {(query.isError || query.data?.status === "erro") && (
-        <Card className="border-destructive">
-          <CardContent className="flex items-center gap-2 p-4 text-sm text-destructive">
-            <XCircle className="h-5 w-5" />
-            {query.data?.status === "erro"
-              ? query.data.erro
-              : "Não foi possível consultar o report agora."}
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid items-start gap-5 2xl:grid-cols-2">
+        {basesSelecionadas.map((baseCodigo, indice) => (
+          <RelatorioDaBase
+            key={baseCodigo}
+            baseCodigo={baseCodigo}
+            consulta={consultas[indice]}
+          />
+        ))}
+      </div>
 
-      {dados && (
-        <>
-          {dados.desatualizado && (
-            <Card className="border-destructive bg-destructive/5">
-              <CardContent className="flex items-start gap-3 p-4">
-                <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
-                <div>
-                  <p className="font-semibold text-destructive">Coleta desatualizada</p>
-                  <p className="text-sm text-muted-foreground">
-                    O card está mantendo o último snapshot válido de {formatarDataHora(dados.atualizado_em)}.
-                    A sessão do AdminML precisa estar válida para os números avançarem.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card className="border-primary/40">
-            <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="font-semibold">
-                  {dados.base_codigo} · {dados.base_nome}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Data operacional {dataRelatorio(`${dados.data_operacional}T12:00:00-03:00`)}
-                </div>
-              </div>
-              <div className="grid gap-1 text-xs text-muted-foreground md:text-right">
-                <span>
-                  Última coleta: <strong className="text-foreground">{formatarDataHora(dados.atualizado_em)}</strong>
-                </span>
-                <span>
-                  Próxima leitura prevista: <strong className="text-foreground">{formatarDataHora(dados.proxima_atualizacao_em)}</strong>
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            <Metrica titulo="Rotas totais" valor={dados.relatorio.rotas_totais} icone={RouteIcon} />
-            <Metrica titulo="Em andamento" valor={dados.relatorio.rotas_em_andamento} icone={Clock3} cor="text-warning" />
-            <Metrica titulo="Pacotes" valor={dados.relatorio.pacotes} icone={Package} />
-            <Metrica titulo="Sacas" valor={dados.relatorio.sacas} icone={Package} />
-            <Metrica
-              titulo="Bem-sucedidos"
-              valor={dados.relatorio.bem_sucedidos}
-              detalhe={percentual(dados.relatorio.percentual_bem_sucedidos)}
-              icone={CheckCircle2}
-              cor="text-success"
-            />
-          </div>
-
-          <div className="grid gap-3 lg:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Composição das rotas</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-3">
-                <MetricaInterna
-                  titulo="De entrega"
-                  valor={dados.relatorio.rotas_entrega}
-                  percentualValor={dados.relatorio.percentual_entrega}
-                />
-                <MetricaInterna
-                  titulo="De coleta"
-                  valor={dados.relatorio.rotas_coleta}
-                  percentualValor={dados.relatorio.percentual_coleta}
-                />
-                <MetricaInterna
-                  titulo="Mistas"
-                  valor={dados.relatorio.rotas_mistas}
-                  percentualValor={dados.relatorio.percentual_mistas}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Situação dos pacotes</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-3 sm:grid-cols-3">
-                <MetricaInterna
-                  titulo="Pendentes"
-                  valor={dados.relatorio.pendentes}
-                  percentualValor={dados.relatorio.percentual_pendentes}
-                />
-                <MetricaInterna
-                  titulo="Com falhas"
-                  valor={dados.relatorio.com_falhas}
-                  percentualValor={dados.relatorio.percentual_falhas}
-                  cor="text-destructive"
-                />
-                <MetricaInterna
-                  titulo="Bem-sucedidos"
-                  valor={dados.relatorio.bem_sucedidos}
-                  percentualValor={dados.relatorio.percentual_bem_sucedidos}
-                  cor="text-success"
-                />
-              </CardContent>
-            </Card>
-          </div>
-
-          <p className="flex items-start gap-2 text-xs text-muted-foreground">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-            Os valores vêm do mesmo snapshot agregado que alimenta os cards das bases. A página apenas consulta dados e não altera a operação.
-          </p>
-        </>
+      {!!basesSelecionadas.length && (
+        <p className="flex items-start gap-2 text-xs text-muted-foreground">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+          Cada painel consulta o snapshot da própria base. Os valores não são consolidados nem somados entre bases.
+        </p>
       )}
     </div>
+  );
+}
+
+function RelatorioDaBase({
+  baseCodigo,
+  consulta,
+}: {
+  baseCodigo: string;
+  consulta: ReturnType<typeof useQueries>[number];
+}) {
+  const resultado = consulta.data as Relatorio30MinResult | undefined;
+  const dados = resultado?.status === "ok" ? resultado : null;
+
+  async function copiar() {
+    if (!dados) return;
+    await navigator.clipboard.writeText(montarTexto(dados));
+    toast.success(`Report de ${dados.base_codigo} copiado.`);
+  }
+
+  if (consulta.isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          Consolidando {baseCodigo}…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (consulta.isError || resultado?.status === "erro") {
+    return (
+      <Card className="border-destructive">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">{baseCodigo}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-2 p-4 pt-0 text-sm text-destructive">
+          <XCircle className="h-5 w-5 shrink-0" />
+          {resultado?.status === "erro"
+            ? resultado.erro
+            : "Não foi possível consultar o report desta base agora."}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!dados) return null;
+
+  return (
+    <section className="space-y-3 rounded-xl border border-primary/30 bg-card/40 p-3 md:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">{dados.base_codigo} · {dados.base_nome}</h2>
+          <p className="text-xs text-muted-foreground">
+            Data operacional {dataRelatorio(`${dados.data_operacional}T12:00:00-03:00`)}
+          </p>
+        </div>
+        <Button size="sm" onClick={copiar}>
+          <Copy className="mr-2 h-4 w-4" />
+          Copiar {dados.base_codigo}
+        </Button>
+      </div>
+
+      {dados.desatualizado && (
+        <Card className="border-destructive bg-destructive/5">
+          <CardContent className="flex items-start gap-3 p-3">
+            <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+            <div>
+              <p className="font-semibold text-destructive">Coleta desatualizada</p>
+              <p className="text-sm text-muted-foreground">
+                Último snapshot válido de {formatarDataHora(dados.atualizado_em)}.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Card className="border-primary/30">
+        <CardContent className="grid gap-1 p-3 text-xs text-muted-foreground sm:grid-cols-2 sm:gap-3 sm:text-right">
+          <span>
+            Última coleta: <strong className="text-foreground">{formatarDataHora(dados.atualizado_em)}</strong>
+          </span>
+          <span>
+            Próxima prevista: <strong className="text-foreground">{formatarDataHora(dados.proxima_atualizacao_em)}</strong>
+          </span>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-3">
+        <Metrica titulo="Rotas totais" valor={dados.relatorio.rotas_totais} icone={RouteIcon} />
+        <Metrica titulo="Em andamento" valor={dados.relatorio.rotas_em_andamento} icone={Clock3} cor="text-warning" />
+        <Metrica titulo="Pacotes" valor={dados.relatorio.pacotes} icone={Package} />
+        <Metrica titulo="Sacas" valor={dados.relatorio.sacas} icone={Package} />
+        <Metrica
+          titulo="Bem-sucedidos"
+          valor={dados.relatorio.bem_sucedidos}
+          detalhe={percentual(dados.relatorio.percentual_bem_sucedidos)}
+          icone={CheckCircle2}
+          cor="text-success"
+        />
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Composição das rotas</CardTitle></CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-3">
+            <MetricaInterna titulo="De entrega" valor={dados.relatorio.rotas_entrega} percentualValor={dados.relatorio.percentual_entrega} />
+            <MetricaInterna titulo="De coleta" valor={dados.relatorio.rotas_coleta} percentualValor={dados.relatorio.percentual_coleta} />
+            <MetricaInterna titulo="Mistas" valor={dados.relatorio.rotas_mistas} percentualValor={dados.relatorio.percentual_mistas} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Situação dos pacotes</CardTitle></CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-3">
+            <MetricaInterna titulo="Pendentes" valor={dados.relatorio.pendentes} percentualValor={dados.relatorio.percentual_pendentes} />
+            <MetricaInterna titulo="Com falhas" valor={dados.relatorio.com_falhas} percentualValor={dados.relatorio.percentual_falhas} cor="text-destructive" />
+            <MetricaInterna titulo="Bem-sucedidos" valor={dados.relatorio.bem_sucedidos} percentualValor={dados.relatorio.percentual_bem_sucedidos} cor="text-success" />
+          </CardContent>
+        </Card>
+      </div>
+    </section>
   );
 }
 
