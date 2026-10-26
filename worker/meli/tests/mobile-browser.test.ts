@@ -16,7 +16,7 @@ describe("navegador do iniciador", () => {
     const previous = { cookies: [{ name: "old-session", value: "old", domain: "envios.adminml.com", path: "/", expires: -1, httpOnly: true, secure: true, sameSite: "Lax" as const }], origins: [] };
     await salvarSessao(cfg.sessionFilePath, previous, key);
     const original = chromium.launch.bind(chromium);
-    let response = { status: 403, contentType: "application/json", body: '{"error":"denied"}' };
+    let response = { status: 403 };
     let inputValue = "";
     let oldCookieSent = false;
     let contextForTest!: BrowserContext;
@@ -51,11 +51,11 @@ describe("navegador do iniciador", () => {
       await expect(remote.action({ type: "click", x: -1, y: 0 })).rejects.toThrow();
       await remote.tick(); expect(remote.state).toBe("login");
       expect(oldCookieSent).toBe(false);
-      response = { status: 500, contentType: "application/json", body: '{"results":[]}' };
+      response = { status: 500 };
       await remote.tick(); expect(remote.state).toBe("login");
-      response = { status: 200, contentType: "text/html", body: "<html>login</html>" };
+      response = { status: 302 };
       await remote.tick(); expect(remote.state).toBe("login");
-      response = { status: 200, contentType: "application/json", body: '{"error":"login_required"}' };
+      response = { status: 401 };
       await remote.tick(); expect(remote.state).toBe("login");
       const unchanged = await carregarSessao(cfg.sessionFilePath, key);
       expect(unchanged.status).toBe("ok");
@@ -63,7 +63,7 @@ describe("navegador do iniciador", () => {
       // O SSO pode terminar numa página de erro do Mercado Livre. A sessão
       // deve ser reconhecida pela API operacional, não pela URL visível.
       await loginPage!.goto("https://www.mercadolivre.com.br/erro-pos-login");
-      response = { status: 200, contentType: "application/json", body: '{"results":[]}' };
+      response = { status: 404 };
       await remote.tick(); expect(remote.state).toBe("saved");
       expect(remote.savedAt).toBeGreaterThan(0);
       expect((await carregarSessao(cfg.sessionFilePath, key)).status).toBe("ok");
