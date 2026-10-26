@@ -54,9 +54,9 @@ export class MobileBrowser {
     // Usa o mesmo critério do login manual do worker. O endpoint de
     // listagem mudou com o Monitoramento Distribution e pode responder com
     // uma estrutura diferente mesmo após o login. O detalhe com routeId=0
-    // é usado somente como prova de autenticação: 401/403 significam sessão
-    // ausente; qualquer outra resposta confirma que o AdminML reconheceu a
-    // sessão, sem depender de haver rotas no momento.
+    // é usado somente como prova de autenticação: sucesso ou 404 de rota
+    // inexistente confirmam que o AdminML reconheceu a sessão. Redirecionamentos,
+    // 401/403 e falhas 5xx não são aceitos.
     const valid = await (async () => {
       try {
         const response = await this.page!.context().request.get(
@@ -67,7 +67,8 @@ export class MobileBrowser {
             timeout: 10_000,
           },
         );
-        return response.status() !== 401 && response.status() !== 403;
+        const status = response.status();
+        return (status >= 200 && status < 300) || status === 404;
       } catch { return false; }
     })();
     if (!valid) return;
