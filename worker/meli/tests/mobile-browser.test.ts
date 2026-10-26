@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { chromium } from "playwright";
+import { chromium, type BrowserContext } from "playwright";
 import { MobileBrowser } from "../src/mobile/browser";
 import { loadConfig } from "../src/config";
 import { carregarSessao, salvarSessao } from "../src/session/store";
@@ -19,11 +19,13 @@ describe("navegador do iniciador", () => {
     let response = { status: 403, contentType: "application/json", body: '{"error":"denied"}' };
     let inputValue = "";
     let oldCookieSent = false;
+    let contextForTest: BrowserContext | null = null;
     const launch = vi.spyOn(chromium, "launch").mockImplementation(async options => {
       const browser = await original(options);
       const originalContext = browser.newContext.bind(browser);
       vi.spyOn(browser, "newContext").mockImplementation(async opts => {
         const context = await originalContext(opts);
+        contextForTest = context;
         vi.spyOn(context.request, "post").mockImplementation(async () => ({
           ok: () => response.status >= 200 && response.status < 300,
           headers: () => ({ "content-type": response.contentType }),
@@ -42,6 +44,8 @@ describe("navegador do iniciador", () => {
     const remote = new MobileBrowser(cfg);
     try {
       await remote.exclusive(() => remote.start());
+      const loginPage = contextForTest?.pages()[0];
+      expect(loginPage?.url()).toContain("/logistics/monitoring-distribution");
       expect((await remote.screen()).length).toBeGreaterThan(100);
       await remote.action({ type: "click", x: 0.05, y: 0.05 });
       await remote.action({ type: "text", text: "test-user" });
@@ -58,6 +62,9 @@ describe("navegador do iniciador", () => {
       const unchanged = await carregarSessao(cfg.sessionFilePath, key);
       expect(unchanged.status).toBe("ok");
       if (unchanged.status === "ok") expect(unchanged.storageState).toEqual(previous);
+      // O SSO pode terminar numa página de erro do Mercado Livre. A sessão
+      // deve ser reconhecida pela API operacional, não pela URL visível.
+      await loginPage!.goto("https://www.mercadolivre.com.br/erro-pos-login");
       response = { status: 200, contentType: "application/json", body: '{"results":[]}' };
       await remote.tick(); expect(remote.state).toBe("saved");
       expect(remote.savedAt).toBeGreaterThan(0);
