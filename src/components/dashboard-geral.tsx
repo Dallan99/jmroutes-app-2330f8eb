@@ -342,9 +342,9 @@ export function DashboardGeral({
                   <MiniStat label="Pacotes" value={nf(b.total)} />
                   <MiniStat label="Entregues" value={nf(b.entregue)} className="text-success" />
                   <MiniStat
-                    label="Risco"
-                    value={nf(b.rotas_risco)}
-                    className={b.rotas_risco > 0 ? "text-destructive" : ""}
+                    label="Falhas"
+                    value={nf(b.insucesso)}
+                    className={b.insucesso > 0 ? "text-destructive" : ""}
                   />
                 </div>
 
