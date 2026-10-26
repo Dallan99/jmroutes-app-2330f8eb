@@ -19,6 +19,7 @@ describe("navegador do iniciador", () => {
     let response = { status: 403 };
     let inputValue = "";
     let oldCookieSent = false;
+    let loggedIn = false;
     let contextForTest!: BrowserContext;
     const launch = vi.spyOn(chromium, "launch").mockImplementation(async options => {
       const browser = await original(options);
@@ -31,7 +32,10 @@ describe("navegador do iniciador", () => {
         } as unknown as Awaited<ReturnType<typeof context.request.get>>));
         await context.route("**/*", async route => {
           oldCookieSent ||= (route.request().headers()["cookie"] ?? "").includes("old-session");
-          if (route.request().url().includes("get-routes-list")) await route.fulfill(response);
+          const url = new URL(route.request().url());
+          if (url.hostname === "envios.adminml.com" && url.pathname === "/logistics/monitoring" && !loggedIn) {
+            await route.fulfill({ status: 302, headers: { location: "https://login.example.invalid/sso" } });
+          } else if (route.request().url().includes("get-routes-list")) await route.fulfill(response);
           else await route.fulfill({ contentType: "text/html", body: '<html><input id="u" style="position:absolute;left:10px;top:10px;width:300px;height:60px"><script>document.querySelector("input").addEventListener("input",()=>fetch("/typed?value="+encodeURIComponent(document.querySelector("input").value)))</script></html>' });
           if (route.request().url().includes("/typed?")) inputValue = new URL(route.request().url()).searchParams.get("value") ?? "";
         });
@@ -40,6 +44,7 @@ describe("navegador do iniciador", () => {
       return browser;
     });
     const remote = new MobileBrowser(cfg);
+    remote.probeIntervalMs = 0;
     try {
       await remote.exclusive(() => remote.start());
       const loginPage = contextForTest.pages()[0];
@@ -57,13 +62,19 @@ describe("navegador do iniciador", () => {
       await remote.tick(); expect(remote.state).toBe("login");
       response = { status: 401 };
       await remote.tick(); expect(remote.state).toBe("login");
+      response = { status: 400 };
+      await remote.tick(); expect(remote.state).toBe("login");
+      // A aba da prova não substitui a tela do operador.
+      expect((await remote.screen()).length).toBeGreaterThan(100);
+      expect(contextForTest.pages()).toHaveLength(1);
       const unchanged = await carregarSessao(cfg.sessionFilePath, key);
       expect(unchanged.status).toBe("ok");
       if (unchanged.status === "ok") expect(unchanged.storageState).toEqual(previous);
       // O SSO pode terminar numa página de erro do Mercado Livre. A sessão
       // deve ser reconhecida pela API operacional, não pela URL visível.
       await loginPage!.goto("https://www.mercadolivre.com.br/erro-pos-login");
-      response = { status: 404 };
+      response = { status: 400 };
+      loggedIn = true;
       await remote.tick(); expect(remote.state).toBe("saved");
       expect(remote.savedAt).toBeGreaterThan(0);
       expect((await carregarSessao(cfg.sessionFilePath, key)).status).toBe("ok");

@@ -8,6 +8,10 @@ export class MobileBrowser {
   private page: Page | null = null;
   private busy = false;
   private deadline = 0;
+  private probing = false;
+  private lastProbe = 0;
+  /** Intervalo mínimo entre provas por navegação (ms). */
+  probeIntervalMs = 15_000;
   savedAt = 0;
   state: "idle" | "login" | "saved" | "expired" | "error" = "idle";
   constructor(private cfg: WorkerConfig) {}
@@ -30,7 +34,9 @@ export class MobileBrowser {
         viewport: { width: 1024, height: 768 }, acceptDownloads: false,
       });
       // O fluxo é de uma aba. Se o IdP abrir popup, ela passa a ser a tela ativa.
-      context.on("page", page => { this.page = page; });
+      // A aba da prova de sessão não substitui a tela do operador.
+      context.on("page", page => { if (!this.probing) this.page = page; });
+      this.lastProbe = 0;
       this.page = await context.newPage();
       await this.page.goto(`https://${ADMINML.HOST}/logistics/monitoring-distribution`, { waitUntil: "domcontentloaded", timeout: 30_000 });
     } catch {
@@ -71,12 +77,39 @@ export class MobileBrowser {
         return (status >= 200 && status < 300) || status === 404;
       } catch { return false; }
     })();
-    if (!valid) return;
+    // O endpoint de detalhe pode responder 400/5xx mesmo com sessão válida.
+    // Nesse caso usa a mesma prova do coletor (abrirSessaoAdminML): abrir o
+    // Monitoramento e permanecer no host do AdminML, sem ir para o login.
+    // A prova navega numa aba separada, então é espaçada para não bloquear a tela.
+    if (!valid) {
+      if (Date.now() - this.lastProbe < this.probeIntervalMs) return;
+      this.lastProbe = Date.now();
+      if (!await this.navigationProof()) return;
+      if (!this.page || this.state !== "login") return;
+    }
 
     await salvarSessao(this.cfg.sessionFilePath, await this.page.context().storageState(), this.cfg.sessionKeyBase64);
     this.savedAt = Date.now();
     this.state = "saved";
     await this.close();
+  }
+  private async navigationProof(): Promise<boolean> {
+    const context = this.page?.context();
+    if (!context) return false;
+    let probe: Page | null = null;
+    this.probing = true;
+    try {
+      probe = await context.newPage();
+      await probe.goto(`https://${ADMINML.HOST}/logistics/monitoring`, { waitUntil: "domcontentloaded", timeout: 15_000 });
+      // Redirecionamentos feitos por script após o carregamento também contam.
+      await probe.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => undefined);
+      const url = new URL(probe.url());
+      return url.hostname.toLowerCase() === ADMINML.HOST && url.pathname.startsWith("/logistics/");
+    } catch { return false; }
+    finally {
+      this.probing = false;
+      await probe?.close().catch(() => undefined);
+    }
   }
   private current(): Page {
     if (!this.page || this.state !== "login" || Date.now() > this.deadline) throw new Error("Abra o login novamente.");
