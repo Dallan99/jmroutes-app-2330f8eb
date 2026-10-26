@@ -13,17 +13,17 @@ export type LoginOpts = {
   timeoutMs?: number;
 };
 
-type CredenciaisAssistidas = { usuario: string; senha: string };
-type EstadoLoginAssistido = {
+export type CredenciaisAssistidas = { usuario: string; senha: string };
+export type EstadoLoginAssistido = {
   usuarioEnviado: boolean;
   senhaEnviada: boolean;
   metodoOktaSelecionado: boolean;
   pushSolicitado: boolean;
 };
 
-function credenciaisAssistidas(): CredenciaisAssistidas | null {
-  const usuario = (process.env["ADMINML_USERNAME"] ?? "").trim();
-  const senhaBase64 = (process.env["ADMINML_PASSWORD_BASE64"] ?? "").trim();
+export function credenciaisAssistidas(env: NodeJS.ProcessEnv = process.env): CredenciaisAssistidas | null {
+  const usuario = (env["ADMINML_USERNAME"] ?? "").trim();
+  const senhaBase64 = (env["ADMINML_PASSWORD_BASE64"] ?? "").trim();
   if (!usuario || !senhaBase64) return null;
   const senha = Buffer.from(senhaBase64, "base64").toString("utf8");
   return senha ? { usuario, senha } : null;
@@ -44,7 +44,7 @@ async function clicarPrimeiroVisivel(page: Page, nomes: RegExp[]): Promise<boole
  * Automatiza somente o preenchimento e o avanço das telas oficiais. A
  * aprovação do Okta Verify permanece obrigatoriamente com o operador.
  */
-async function avancarLoginAssistido(
+export async function avancarLoginAssistido(
   page: Page,
   credenciais: CredenciaisAssistidas,
   estado: EstadoLoginAssistido,
@@ -67,7 +67,11 @@ async function avancarLoginAssistido(
   }
 
   if (!estado.metodoOktaSelecionado) {
-    estado.metodoOktaSelecionado = await clicarPrimeiroVisivel(page, [/^Okta Verify$/i]);
+    estado.metodoOktaSelecionado = await clicarPrimeiroVisivel(page, [
+      /^Okta Verify$/i,
+      /^Select Okta Verify/i,
+      /^Selecionar Okta Verify/i,
+    ]);
     if (estado.metodoOktaSelecionado) return;
   }
 
@@ -75,6 +79,7 @@ async function avancarLoginAssistido(
   if (!estado.pushSolicitado) {
     estado.pushSolicitado = await clicarPrimeiroVisivel(page, [
       /Enviar.*push/i,
+      /^Send push/i,
       /Get a push notification/i,
       /Push notification/i,
     ]);
