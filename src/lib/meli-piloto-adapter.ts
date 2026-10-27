@@ -5,7 +5,7 @@
  * null para a tela exibir "não disponível".
  */
 import type { MeliDashboardResult, MeliDashboardRota, MeliDashboardBase } from "@/lib/meli-dashboard.functions";
-import { BASES_PILOTO, escolherDataEfetiva, montarPainel, type BaseInfo, type CicloRow, type PainelBase, type RotaRow } from "@/lib/meli-piloto-dashboard";
+import { BASES_PILOTO, escolherDataEfetiva, montarPainel, rotaDeColunasEnxutas, type BaseInfo, type CicloRow, type PainelBase, type RotaRow } from "@/lib/meli-piloto-dashboard";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = any;
@@ -31,14 +31,7 @@ const COLS_ROTA = [
 // (e checar RLS de) todo o histórico de ciclos a cada atualização do painel.
 const JANELA_CICLOS_MS = 36 * 3600_000;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function rotaDeColunasEnxutas(r: any): RotaRow {
-  const { p_route_name, p_routeName, p_name, p_cluster, p_contadores, ...resto } = r ?? {};
-  return {
-    ...resto,
-    payload: { route_name: p_route_name ?? null, routeName: p_routeName ?? null, name: p_name ?? null, cluster: p_cluster ?? null, contadores_logistics: p_contadores ?? null },
-  } as RotaRow;
-}
+
 
 export function painelParaResultado(painel: PainelBase[], data: string, f: FiltrosPiloto, ids: Map<string, string>): MeliDashboardResult {
   const mot = f.motorista?.toLowerCase();

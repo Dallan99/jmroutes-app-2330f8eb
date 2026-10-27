@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { comTimeout, ConsultaDemoradaError, mensagemDeErroConsulta } from "@/lib/consulta-com-timeout";
-import { lerRolesSalvas, limparRolesSalvas, salvarRoles } from "@/lib/roles-cache";
-import { rotaDeColunasEnxutas } from "@/lib/meli-piloto-adapter";
-import { contadorLogistics } from "@/lib/meli-piloto-adapter";
+import { comTimeout, ConsultaDemoradaError, mensagemDeErroConsulta } from "../src/lib/consulta-com-timeout";
+import { lerRolesSalvas, limparRolesSalvas, salvarRoles } from "../src/lib/roles-cache";
+import { rotaDeColunasEnxutas } from "../src/lib/meli-piloto-dashboard";
 
 class MemoriaStorage {
   private m = new Map<string, string>();
@@ -68,7 +67,7 @@ describe("leitura enxuta das rotas do piloto", () => {
       p_contadores: { notDelivered: 2, pending: 4 },
     });
     expect(r.payload?.route_name).toBe("VR3_AM1");
-    expect(contadorLogistics(r, "notDelivered")).toBe(2);
+    expect(r.payload?.contadores_logistics?.notDelivered).toBe(2);
     expect(r).not.toHaveProperty("p_contadores");
   });
 });

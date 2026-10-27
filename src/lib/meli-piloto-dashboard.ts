@@ -106,3 +106,13 @@ export function escolherDataEfetiva(pedida: string, manual: boolean, temDados: b
   if (manual || temDados || !maisRecente || maisRecente === pedida) return { data: pedida, fallback: false };
   return { data: maisRecente, fallback: true };
 }
+
+/** Remonta a linha de rota lida com colunas enxutas (payload->campo) no formato RotaRow. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function rotaDeColunasEnxutas(r: any): RotaRow {
+  const { p_route_name, p_routeName, p_name, p_cluster, p_contadores, ...resto } = r ?? {};
+  return {
+    ...resto,
+    payload: { route_name: p_route_name ?? null, routeName: p_routeName ?? null, name: p_name ?? null, cluster: p_cluster ?? null, contadores_logistics: p_contadores ?? null },
+  } as RotaRow;
+}
