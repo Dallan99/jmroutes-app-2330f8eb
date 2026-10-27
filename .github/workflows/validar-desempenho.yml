@@ -19,7 +19,11 @@ jobs:
           corepack prepare pnpm@10.18.3 --activate
           pnpm install --no-frozen-lockfile > install.txt 2>&1 || { tail -n 15 install.txt | sed 's/^/::warning title=install::/'; exit 1; }
       - name: Testes novos e do painel
-        run: pnpm exec vitest run tests/desempenho-producao.test.ts tests/meli-piloto-dashboard.test.ts tests/meli-dashboard-cache.test.ts 2>&1 | tee novos.txt
+        run: |
+          set -o pipefail
+          pnpm exec vitest run tests/desempenho-producao.test.ts tests/meli-piloto-dashboard.test.ts tests/meli-dashboard-cache.test.ts > novos.txt 2>&1 && ok=1 || ok=0
+          sed 's/\x1b\[[0-9;]*m//g' novos.txt | grep -E "Error|error|FAIL|✓|×|Tests  |Test Files|❯" | head -30 | cut -c1-250 | sed 's/^/::warning title=novos::/'
+          [ "$ok" = 1 ]
       - name: Suíte completa (resultado em anotação)
         if: always()
         run: |
@@ -33,4 +37,7 @@ jobs:
           echo "::warning title=tsc total::$(grep -c 'error TS' tsc.txt)"
           grep -E "src/(lib/(consulta-com-timeout|roles-cache|meli-piloto-adapter|recebimento\.functions)|components/(app-shell|aviso-consulta|meli-dashboard|dashboard-geral)|routes/(tv\.dashboard|_authenticated/(dashboard|painel-operacional)|api/public/meli/piloto/ingest)|router)" tsc.txt | head -20 | sed 's/^/::warning title=tsc::/'
       - name: Build
-        run: pnpm build 2>&1 | tail -n 30
+        if: always()
+        run: |
+          set -o pipefail
+          pnpm build > build.txt 2>&1 && echo "::warning title=build::OK" || { grep -iE "error" build.txt | head -15 | sed 's/^/::warning title=build-erro::/'; exit 1; }
