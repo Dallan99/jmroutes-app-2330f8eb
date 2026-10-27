@@ -20,7 +20,25 @@ const ND = null as unknown as number; // "não disponível" no layout
 
 export type FiltrosPiloto = { data?: string | null; manual?: boolean | null; base_id?: string | null; motorista?: string | null; rota?: string | null };
 
-const COLS_ROTA = "id, base_id, route_id, data_rota, ultimo_ciclo_id, motorista_nome, placa, total_pedidos, total_entregue, coletado_em, payload";
+// Lê só os campos do payload que o painel usa. O payload completo de cada rota
+// (resumo normalizado do Meli) é grande e era transferido inteiro a cada refetch.
+const COLS_ROTA = [
+  "id, base_id, route_id, data_rota, ultimo_ciclo_id, motorista_nome, placa, total_pedidos, total_entregue, coletado_em",
+  "p_route_name:payload->>route_name, p_routeName:payload->>routeName, p_name:payload->>name, p_cluster:payload->>cluster",
+  "p_contadores:payload->contadores_logistics",
+].join(", ");
+// Janela dos ciclos consultados: permite usar o índice por data e evita varrer
+// (e checar RLS de) todo o histórico de ciclos a cada atualização do painel.
+const JANELA_CICLOS_MS = 36 * 3600_000;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function rotaDeColunasEnxutas(r: any): RotaRow {
+  const { p_route_name, p_routeName, p_name, p_cluster, p_contadores, ...resto } = r ?? {};
+  return {
+    ...resto,
+    payload: { route_name: p_route_name ?? null, routeName: p_routeName ?? null, name: p_name ?? null, cluster: p_cluster ?? null, contadores_logistics: p_contadores ?? null },
+  } as RotaRow;
+}
 
 export function painelParaResultado(painel: PainelBase[], data: string, f: FiltrosPiloto, ids: Map<string, string>): MeliDashboardResult {
   const mot = f.motorista?.toLowerCase();
@@ -89,6 +107,7 @@ export async function carregarPilotoComoResultado(sb: Sb, f: FiltrosPiloto, hoje
     sb.from("meli_piloto_estacoes").select("base_id, confirmada, ativa_no_piloto"),
     sb.from("meli_piloto_ciclos")
       .select("id, base_id, base_codigo, status, iniciado_em, finalizado_em, rotas_esperadas, rotas_recebidas, pacotes_esperados, pacotes_recebidos, paginas_esperadas, paginas_lidas")
+      .gte("iniciado_em", new Date(Date.now() - JANELA_CICLOS_MS).toISOString())
       .order("iniciado_em", { ascending: false }).limit(500),
   ]);
   // Bases, estações e ciclos são auxiliares: uma falha nelas não pode apagar
@@ -118,7 +137,7 @@ export async function carregarPilotoComoResultado(sb: Sb, f: FiltrosPiloto, hoje
   const lerRotas = async (d: string) => {
     const r = await sb.from("meli_piloto_rotas").select(COLS_ROTA).eq("data_rota", d).limit(1000);
     if (r.error) throw new Error("Não foi possível ler os dados do piloto.");
-    return (r.data ?? []) as RotaRow[];
+    return (r.data ?? []).map(rotaDeColunasEnxutas);
   };
   let painel = montarPainel(bases, ciclos, await lerRotas(pedida), pedida);
   const temDados = painel.some((b) => b.situacao === "ativa");

@@ -1,10 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { dashboardData } from "@/lib/dashboard.functions";
 import { BipagemBasesPanel } from "@/components/bipagem-bases";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
   Line, LineChart, Legend,
@@ -13,6 +11,7 @@ import {
   Activity, AlertOctagon, CheckCircle2, Gauge, Package, PackageCheck,
   PackageSearch, Timer, TrendingUp, Truck, UserCog,
 } from "lucide-react";
+import { comTimeout } from "@/lib/consulta-com-timeout";
 
 export const Route = createFileRoute("/tv/dashboard")({
   head: () => ({ meta: [{ title: "TV — Operacional" }] }),
@@ -29,26 +28,15 @@ function fmtDuration(ms: number | null | undefined) {
 }
 
 function TvDashboard() {
-  const qc = useQueryClient();
   const fn = useServerFn(dashboardData);
   const q = useQuery({
     queryKey: ["tv-dashboard"],
-    queryFn: () => fn({ data: {} }),
-    refetchInterval: 10_000,
+    queryFn: () => comTimeout(fn({ data: {} })),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
   });
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("tv-dashboard-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "recebimentos" }, () =>
-        qc.invalidateQueries({ queryKey: ["tv-dashboard"] })
-      )
-      .on("postgres_changes", { event: "*", schema: "public", table: "rotas" }, () =>
-        qc.invalidateQueries({ queryKey: ["tv-dashboard"] })
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [qc]);
+  // Sem Realtime em "recebimentos"/"rotas" (ver dashboard.tsx): atualização periódica.
 
   const d = q.data;
   const now = new Date().toLocaleTimeString("pt-BR");

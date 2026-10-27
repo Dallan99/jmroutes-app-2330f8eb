@@ -25,6 +25,8 @@ import {
 import { ChevronLeft, Search } from "lucide-react";
 import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
 import { nomenclaturaRota } from "@/lib/rota-nomenclatura";
+import { comTimeout } from "@/lib/consulta-com-timeout";
+import { AvisoConsulta } from "@/components/aviso-consulta";
 
 const CORES = ["var(--info)", "var(--success)", "var(--warning)", "var(--destructive)"] as const;
 
@@ -94,8 +96,9 @@ export function DashboardGeral({
 
   const q = useQuery({
     queryKey: meliDashboardQueryKey(filtros),
-    queryFn: () => buscarDashboardComContingencia(() => fetchDados({ data: filtros }), filtros),
-    refetchInterval: 30_000,
+    queryFn: () => buscarDashboardComContingencia(() => comTimeout(fetchDados({ data: filtros })), filtros),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
     placeholderData: (prev) => prev,
   });
 
@@ -227,13 +230,14 @@ export function DashboardGeral({
           </div>
         )}
 
+        <div className="mt-4"><AvisoConsulta erro={q.error} temDados={bases.length > 0} /></div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {q.isLoading && (
             <div className="col-span-full text-sm text-muted-foreground py-6 text-center">
               Carregando dados da operação...
             </div>
           )}
-          {!q.isLoading && bases.length === 0 && (
+          {!q.isLoading && !q.isError && bases.length === 0 && (
             <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg bg-muted/30">
               <div className="text-lg font-semibold text-foreground mb-1">
                 Sem dados para {dataRef}

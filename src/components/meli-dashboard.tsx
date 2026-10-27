@@ -31,11 +31,13 @@ import {
   ShieldAlert, SlidersHorizontal, Timer, Truck, XCircle,
 } from "lucide-react";
 import { buscarDashboardComContingencia } from "@/lib/meli-dashboard-cache";
+import { comTimeout } from "@/lib/consulta-com-timeout";
+import { AvisoConsulta } from "@/components/aviso-consulta";
 
 
 
 const NONE = "__all";
-const REFETCH_MS = 30_000;
+const REFETCH_MS = 60_000;
 const SEM_SYNC_ALERTA_MS = 2 * 60_000;
 
 type Ordenacao = { coluna: keyof MeliDashboardRota | "nome_operacional"; dir: "asc" | "desc" } | null;
@@ -98,7 +100,7 @@ export function MeliDashboardSection({
 
   const q = useQuery({
     queryKey: meliDashboardQueryKey(filtros),
-    queryFn: () => buscarDashboardComContingencia(() => fetchDados({ data: filtros }), filtros),
+    queryFn: () => buscarDashboardComContingencia(() => comTimeout(fetchDados({ data: filtros })), filtros),
     refetchInterval: REFETCH_MS,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
@@ -301,6 +303,7 @@ export function MeliDashboardSection({
           </Button>
           {q.isFetching && <span className="text-xs text-muted-foreground">Atualizando…</span>}
         </div>
+        <AvisoConsulta erro={q.error} temDados={!!q.data} />
 
         {verFiltros && (
         <Card className="p-3">

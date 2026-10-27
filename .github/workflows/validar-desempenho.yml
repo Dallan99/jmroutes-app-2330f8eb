@@ -1,0 +1,33 @@
+name: Validar correções de desempenho
+on:
+  push:
+    branches: [fix/desempenho-producao]
+permissions:
+  contents: read
+jobs:
+  validar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependências
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+      - name: Testes novos e do painel
+        run: npx vitest run tests/desempenho-producao.test.ts tests/meli-piloto-dashboard.test.ts tests/meli-dashboard-cache.test.ts 2>&1 | tee novos.txt
+      - name: Suíte completa (resultado em anotação)
+        if: always()
+        run: |
+          npx vitest run > suite.txt 2>&1 || true
+          grep -E "Test Files|Tests  " suite.txt | sed 's/\x1b\[[0-9;]*m//g' | sed 's/^/::warning title=suite::/'
+          grep -E "FAIL " suite.txt | sed 's/\x1b\[[0-9;]*m//g' | sort -u | head -20 | sed 's/^/::warning title=falha::/'
+      - name: Tipos nos arquivos alterados
+        if: always()
+        run: |
+          npx tsc --noEmit -p tsconfig.json > tsc.txt 2>&1 || true
+          echo "::warning title=tsc total::$(grep -c 'error TS' tsc.txt)"
+          grep -E "src/(lib/(consulta-com-timeout|roles-cache|meli-piloto-adapter|recebimento\.functions)|components/(app-shell|aviso-consulta|meli-dashboard|dashboard-geral)|routes/(tv\.dashboard|_authenticated/(dashboard|painel-operacional)|api/public/meli/piloto/ingest)|router)" tsc.txt | head -20 | sed 's/^/::warning title=tsc::/'
+      - name: Build
+        run: npm run build 2>&1 | tail -n 30

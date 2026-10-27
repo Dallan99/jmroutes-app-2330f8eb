@@ -3,6 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { expandirDetalhes, lerCorpoAssinado, loteSchema, resposta } from "@/lib/meli-piloto.server";
 import { confirmarPublicacaoRecebimento } from "@/lib/meli-publicacao-confirmada";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function datasDoCiclo(sb: any, cicloId: string, doLote: string[]): Promise<string[]> {
+  const datas = new Set(doLote);
+  const { data, error } = await sb.from("meli_piloto_rotas").select("data_rota").eq("ultimo_ciclo_id", cicloId).limit(2000);
+  if (error) console.error("[meli-piloto] datas do ciclo", { code: error.code, message: error.message });
+  for (const linha of (data ?? []) as Array<{ data_rota: string | null }>) if (linha.data_rota) datas.add(linha.data_rota);
+  return [...datas];
+}
+
 export const Route = createFileRoute("/api/public/meli/piloto/ingest")({
   server: {
     handlers: {
@@ -22,7 +31,13 @@ export const Route = createFileRoute("/api/public/meli/piloto/ingest")({
 
         // Publica a carga esperada do piloto no Recebimento. A RPC é idempotente
         // e preserva recebido/triado em reprocessamentos do mesmo pacote.
-        const datas = [...new Set(lote.rotas.map((rota) => rota.data_rota))];
+        // Ela republica a base/dia inteira, então roda uma vez por ciclo (no lote
+        // de fechamento) e não a cada lote de 10 rotas: antes isso multiplicava
+        // as gravações em rotas/volumes e levava o banco a "statement timeout".
+        if (lote.ciclo.status === "em_andamento") {
+          return resposta(200, { ok: true, resultado: data, recebimento: [] });
+        }
+        const datas = await datasDoCiclo(supabaseAdmin, lote.ciclo.id, lote.rotas.map((rota) => rota.data_rota));
         const publicacao = await confirmarPublicacaoRecebimento(datas, async (dataOperacional) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const publicado = await (supabaseAdmin as any).rpc("meli_piloto_publicar_recebimento", {

@@ -1,5 +1,5 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,6 +10,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSkeleton,
   SidebarProvider,
   SidebarTrigger,
   SidebarFooter,
@@ -45,6 +46,8 @@ import { SeletorBaseDia } from "@/components/base-operacional-selector";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CollectorModeProvider, useCollectorMode } from "@/lib/collector-mode";
 import { isPwaStandalone } from "@/lib/pwa-install";
+import { comTimeout } from "@/lib/consulta-com-timeout";
+import { lerRolesSalvas, limparRolesSalvas, salvarRoles } from "@/lib/roles-cache";
 
 const ROTAS_APP_COLETOR = new Set(["/coletor", "/recebimento", "/triagem", "/expedicao", "/motorista", "/meli-devolucoes"]);
 
@@ -141,12 +144,41 @@ function AppShellContent() {
   const fetchPerfil = useServerFn(meuPerfil);
   const perfilQuery = useQuery({
     queryKey: ["meu-perfil"],
-    queryFn: () => fetchPerfil(),
+    queryFn: () => comTimeout(fetchPerfil(), 20_000),
     staleTime: 60_000,
-    refetchInterval: (query) => query.state.data?.indisponivelTemporariamente ? 5_000 : false,
+    retry: 2,
+    // Em erro ou serviço indisponível, tenta de novo a cada 10 s (sem martelar o banco).
+    refetchInterval: (query) =>
+      query.state.status === "error" || query.state.data?.indisponivelTemporariamente ? 10_000 : false,
   });
-  const rolesCarregadas = perfilQuery.isSuccess;
-  const roles = (perfilQuery.data?.roles ?? []) as Array<Role>;
+  // Usuário da sessão local (sem ir ao servidor), para achar as roles salvas.
+  const [userIdLocal, setUserIdLocal] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    supabase.auth.getSession()
+      .then(({ data }) => { if (vivo) setUserIdLocal(data.session?.user?.id ?? null); })
+      .catch(() => undefined);
+    return () => { vivo = false; };
+  }, []);
+  const perfilOk = perfilQuery.isSuccess && !perfilQuery.data?.indisponivelTemporariamente;
+  const rolesServidor = useMemo(
+    () => (perfilOk ? ((perfilQuery.data?.roles ?? []) as Array<Role>) : null),
+    [perfilOk, perfilQuery.data],
+  );
+  const perfilUserId = perfilQuery.data?.profile?.id ?? null;
+  useEffect(() => {
+    if (rolesServidor) salvarRoles(userIdLocal ?? perfilUserId, rolesServidor);
+  }, [rolesServidor, userIdLocal, perfilUserId]);
+  const rolesSalvas = useMemo(
+    () => (perfilOk ? null : (lerRolesSalvas(userIdLocal) as Array<Role> | null)),
+    [perfilOk, userIdLocal],
+  );
+  const roles = rolesServidor ?? rolesSalvas ?? [];
+  // O menu completo aparece com as roles do servidor ou, enquanto elas não
+  // chegam, com as do último login neste navegador.
+  const rolesCarregadas = perfilOk || rolesSalvas !== null;
+  const falhaPermissoes =
+    perfilQuery.isError || (perfilQuery.isSuccess && !!perfilQuery.data?.indisponivelTemporariamente);
   const { modoColetor, sairModoColetor } = useCollectorMode();
   const modoColetorAtivo = ROTAS_APP_COLETOR.has(pathname) && (appColetorInstalado || modoColetor);
   useInactivityLogout();
@@ -175,7 +207,7 @@ function AppShellContent() {
     <BaseOperacionalProvider>
       <SidebarProvider>
         <div className="min-h-screen flex w-full bg-background">
-          <AppSidebar roles={roles} rolesCarregadas={rolesCarregadas} modoColetor={modoColetorAtivo} />
+          <AppSidebar roles={roles} rolesCarregadas={rolesCarregadas} falhaPermissoes={falhaPermissoes} modoColetor={modoColetorAtivo} />
           <div className="flex-1 flex flex-col min-w-0">
             <TopBar nome={perfilQuery.data?.profile?.nome ?? null} roles={roles} rolesCarregadas={rolesCarregadas} modoColetor={modoColetorAtivo} appColetorInstalado={appColetorInstalado} />
             <main className={`flex-1 min-w-0 ${modoColetorAtivo ? "pb-20" : ""}`}>
@@ -189,7 +221,7 @@ function AppShellContent() {
   );
 }
 
-function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role>; rolesCarregadas: boolean; modoColetor: boolean }) {
+function AppSidebar({ roles, rolesCarregadas, falhaPermissoes, modoColetor }: { roles: Array<Role>; rolesCarregadas: boolean; falhaPermissoes: boolean; modoColetor: boolean }) {
 
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
@@ -206,7 +238,10 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
 
   const renderGroup = (label: string, items: NavItem[]) => {
     const visible = items.filter(allow);
-    if (!visible.length) return null;
+    // Enquanto as permissões não chegam, os itens restritos viram "esqueleto"
+    // em vez de sumir (antes o menu mostrava só a seção Operação).
+    const pendentes = rolesCarregadas ? 0 : items.filter((item) => item.roles).length;
+    if (!visible.length && !pendentes) return null;
     return (
       <SidebarGroup>
         {!collapsed && <SidebarGroupLabel className="text-sidebar-foreground/50 uppercase tracking-[0.14em] text-[10px]">{label}</SidebarGroupLabel>}
@@ -247,6 +282,11 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
                 </SidebarMenuItem>
               );
             })}
+            {Array.from({ length: pendentes }, (_, i) => (
+              <SidebarMenuItem key={`carregando-${i}`} aria-hidden>
+                <SidebarMenuSkeleton showIcon />
+              </SidebarMenuItem>
+            ))}
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
@@ -261,6 +301,11 @@ function AppSidebar({ roles, rolesCarregadas, modoColetor }: { roles: Array<Role
         </Link>
       </SidebarHeader>
       <SidebarContent>
+        {falhaPermissoes && !collapsed && (
+          <div role="status" className="mx-2 mt-2 rounded-md bg-amber-500/15 px-2 py-1.5 text-[11px] leading-snug text-amber-200">
+            Não foi possível carregar suas permissões, tentando novamente...
+          </div>
+        )}
         {usarMenuColetor ? renderGroup("Coletor", NAV_COLETOR) : (
           <>
             {NAV_SECTIONS.map(({ label, items }) => (
@@ -300,6 +345,7 @@ function TopBar({ nome, roles, rolesCarregadas, modoColetor, appColetorInstalado
     }
     await qc.cancelQueries();
     qc.clear();
+    limparRolesSalvas();
     await supabase.auth.signOut();
     toast.success("Sessão encerrada.");
     navigate({ to: "/auth", replace: true });

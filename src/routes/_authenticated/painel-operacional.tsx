@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { hojeOperacional } from "@/lib/dia-operacional";
+import { comTimeout } from "@/lib/consulta-com-timeout";
+import { AvisoConsulta } from "@/components/aviso-consulta";
 
 export const Route = createFileRoute("/_authenticated/painel-operacional")({
   head: () => ({
@@ -43,13 +45,15 @@ function PainelOperacionalPage() {
   const fetchProdutividade = useServerFn(dashboardData);
   const q = useQuery({
     queryKey: ["painel-operacional-rotas", dia],
-    queryFn: () => fetchRotas({ data: { data: dia } }),
-    refetchInterval: 30_000,
+    queryFn: () => comTimeout(fetchRotas({ data: { data: dia } })),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
   });
   const produtividade = useQuery({
     queryKey: ["painel-operacional-produtividade", dia, baseSel],
-    queryFn: () => fetchProdutividade({ data: { date: dia, base_id: baseSel } }),
-    refetchInterval: 30_000,
+    queryFn: () => comTimeout(fetchProdutividade({ data: { date: dia, base_id: baseSel } })),
+    refetchInterval: 60_000,
+    staleTime: 45_000,
   });
 
 
@@ -86,6 +90,7 @@ function PainelOperacionalPage() {
           </Button>
         </div>
       </header>
+      <AvisoConsulta erro={q.error ?? produtividade.error} temDados={!!q.data || !!produtividade.data} />
 
       <BipagemBasesPanel data={dia} />
 

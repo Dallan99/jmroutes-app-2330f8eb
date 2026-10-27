@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { dashboardData, dashboardFiltrosOpcoes, type DashboardFilters } from "@/lib/dashboard.functions";
@@ -17,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
   Line, LineChart, Pie, PieChart, Cell, Legend,
@@ -26,6 +25,7 @@ import {
   Activity, AlertOctagon, AlertTriangle, CheckCircle2, Clock, Gauge,
   Package, PackageCheck, PackageSearch, RadioTower, RefreshCcw, Timer, TrendingUp, Truck, Tv, UserCog,
 } from "lucide-react";
+import { comTimeout } from "@/lib/consulta-com-timeout";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — JM Transportes" }] }),
@@ -69,31 +69,24 @@ export function DashboardPage() {
 
   const opcoesQuery = useQuery({
     queryKey: ["dashboard-opcoes"],
-    queryFn: () => fetchOpcoes(),
+    queryFn: () => comTimeout(fetchOpcoes()),
     staleTime: 5 * 60_000,
   });
   const dadosQuery = useQuery({
     queryKey: ["dashboard", cleanFilters],
-    queryFn: () => fetchDados({ data: cleanFilters }),
-    refetchInterval: 10_000,
-    staleTime: 10_000,
+    queryFn: () => comTimeout(fetchDados({ data: cleanFilters })),
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    staleTime: 30_000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     placeholderData: (previous) => previous,
   });
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("dashboard-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "recebimentos" }, () => {
-        qc.invalidateQueries({ queryKey: ["dashboard"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "rotas" }, () => {
-        qc.invalidateQueries({ queryKey: ["dashboard"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [qc]);
+  // Sem Realtime em "recebimentos"/"rotas": o coletor do Meli grava milhares de
+  // linhas nessas tabelas a cada ciclo, e cada mudança disparava uma checagem de
+  // RLS no banco e um refetch completo do painel em todos os navegadores abertos.
+  // A atualização periódica (60 s, só com a aba visível) cobre o mesmo uso.
 
   const d = dadosQuery.data;
   const op = opcoesQuery.data;
