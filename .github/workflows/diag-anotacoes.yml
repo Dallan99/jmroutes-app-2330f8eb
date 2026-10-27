@@ -45,6 +45,8 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           flyctl logs -a jmroutes-meli-worker-esp16 --no-tail > logs.txt || true
+          grep -c . logs.txt | sed 's/^/::warning title=linhas::/'
+          sed 's/\x1b\[[0-9;]*m//g' logs.txt | grep -vE '"ts"' | grep -iE "error|erro|warn|exit|timeout|fatal" | tail -n 15 | cut -c1-300 | sed 's/^/::warning title=raw::/'
           python3 - <<'PY'
           import json,re
           for line in open('logs.txt',errors='replace'):
@@ -54,7 +56,8 @@ jobs:
               except Exception: continue
               meta=o.get('meta') or {}
               txt=json.dumps(meta,ensure_ascii=False)
-              if not any(b in txt for b in ('ESP16','SSP06','SSP37','SSP23','ESP18')) and o.get('nivel')!='error': continue
-              keep={k:v for k,v in meta.items() if not isinstance(v,(dict,list))}
+              n=globals().setdefault('n',0)
+              keep={k:v for k,v in meta.items() if not isinstance(v,(dict,list)) and k not in ('ciclo_id',)}
+              globals()['n']+=1
               print("::warning title=%s %s::%s" % (o.get('ts','')[11:19], o.get('msg','')[:60], json.dumps(keep,ensure_ascii=False)[:600]))
           PY
