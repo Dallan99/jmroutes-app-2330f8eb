@@ -62,6 +62,7 @@ export type Relatorio30MinResult =
 
 type RotaLogistics = {
   id?: unknown;
+  routeId?: unknown;
   facilityId?: unknown;
   status?: unknown;
   isDeliveryRoute?: unknown;
@@ -78,7 +79,7 @@ type RotaLogistics = {
 
 type PaginaStaging = {
   coletado_em?: unknown;
-  payload?: { routes?: unknown } | null;
+  payload?: { rotas?: unknown; routes?: unknown } | null;
 };
 
 function numero(valor: unknown): number {
@@ -113,10 +114,14 @@ export function consolidarPaginasLogistics(
   const unicas = new Map<string, RotaLogistics>();
 
   for (const pagina of paginas) {
-    const routes = pagina.payload?.routes;
+    // O worker persiste a resposta normalizada em `rotas` e mantém o ID
+    // AdminML como `routeId`. Os aliases antigos seguem aceitos para snapshots
+    // gravados por versões anteriores do coletor.
+    const routes = pagina.payload?.rotas ?? pagina.payload?.routes;
     if (!Array.isArray(routes)) continue;
     for (const rota of routes as RotaLogistics[]) {
-      const id = typeof rota.id === "string" || typeof rota.id === "number" ? String(rota.id) : "";
+      const identificador = rota.routeId ?? rota.id;
+      const id = typeof identificador === "string" || typeof identificador === "number" ? String(identificador) : "";
       const facility = typeof rota.facilityId === "string" ? rota.facilityId.trim().toUpperCase() : "";
       if (!id || (facility && !aliases.has(facility))) continue;
       unicas.set(id, rota);
