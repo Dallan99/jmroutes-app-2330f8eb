@@ -3,7 +3,8 @@ import { randomBytes } from "node:crypto";
 import { MobileAccess, mobileOrigin } from "./security.js";
 import { MobileBrowser } from "./browser.js";
 import { mobilePage } from "./page.js";
-import { collectionConfirmed, readReceipt } from "./receipt.js";
+import { collectionConfirmed, readReceipt, readSessionStatus } from "./receipt.js";
+import { stat } from "node:fs/promises";
 import type { WorkerConfig } from "../config.js";
 
 async function jsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -74,7 +75,21 @@ export function createMobileServer(cfg: WorkerConfig, env = process.env, remote 
         };
         const message = cfg.pilotWrite ? `Piloto isolado: atualiza apenas dados do piloto. ${messages[remote.state]}`
           : cfg.dryRun ? `Modo de teste: não publica dados no JM Routes. ${messages[remote.state]}` : messages[remote.state];
-        reply(res, 200, { state: remote.state, mode: cfg.pilotWrite ? "piloto" : "operacional", message, bases }); return;
+        // Quando a sessão foi salva: no login desta execução ou, após reinício,
+        // pela data do arquivo de sessão cifrado.
+        const arquivo = (await stat(cfg.sessionFilePath).catch(() => null))?.mtimeMs ?? 0;
+        const sessaoSalvaEm = remote.savedAt || arquivo || 0;
+        const coletor = await readSessionStatus(receiptPrefix);
+        const basesAposLogin = bases.map(b => ({
+          ...b,
+          aposLogin: !!b.last && sessaoSalvaEm > 0 && String(b.last.status).startsWith("sucesso")
+            && Date.parse(b.last.finalizado_em) >= sessaoSalvaEm,
+        }));
+        reply(res, 200, {
+          state: remote.state, mode: cfg.pilotWrite ? "piloto" : "operacional", message,
+          sessaoSalvaEm: sessaoSalvaEm ? new Date(sessaoSalvaEm).toISOString() : null,
+          coletor, bases: basesAposLogin,
+        }); return;
       }
       if (req.method === "GET" && req.url === "/screen") {
         const screen = await remote.exclusive(() => remote.screen());

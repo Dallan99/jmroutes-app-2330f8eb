@@ -28,3 +28,18 @@ export function collectionConfirmed(receipt: Receipt | null, savedAt: number, no
     && Date.parse(receipt.finalizado_em) <= now
     && now - Date.parse(receipt.finalizado_em) < 5 * 60_000;
 }
+
+/** Estado da sessão do Meli visto pelo coletor (para a página avisar quando expira). */
+export type SessionStatus = { estado: "valida" | "expirada" | "ausente"; em: string; motivo?: string };
+export function sessionStatusPath(prefix: string): string { return `${prefix}.sessao.json`; }
+export async function writeSessionStatus(prefix: string, status: SessionStatus): Promise<void> {
+  const path = sessionStatusPath(prefix);
+  await mkdir(dirname(path), { recursive: true });
+  const temporary = `${path}.${randomUUID()}.tmp`;
+  await writeFile(temporary, JSON.stringify(status), { mode: 0o600 });
+  await rename(temporary, path);
+}
+export async function readSessionStatus(prefix: string): Promise<SessionStatus | null> {
+  try { return JSON.parse(await readFile(sessionStatusPath(prefix), "utf8")); }
+  catch { return null; }
+}

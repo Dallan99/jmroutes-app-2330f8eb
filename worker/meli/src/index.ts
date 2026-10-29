@@ -16,6 +16,8 @@ import { enviarRiscoRostering } from "./pipeline/risk.js";
 import { CircuitBreaker } from "./state/breaker.js";
 import { registrarExecucao, type Execucao } from "./telemetry/report.js";
 import { enviarHeartbeat, executarCicloPiloto, instanciaPadrao } from "./pipeline/piloto.js";
+import { writeSessionStatus, type SessionStatus } from "./mobile/receipt.js";
+import { stat } from "node:fs/promises";
 import { descobrirIndicadoresMonitoramento } from "./meli/monitoring-discovery.js";
 
 let encerrando = false;
@@ -264,6 +266,24 @@ async function main() {
   logger.info("Worker Meli local encerrado.");
 }
 
+/** Registra para o iniciador móvel se a sessão do Meli está válida ou expirou. */
+async function registrarSessao(estado: SessionStatus["estado"], motivo?: string): Promise<void> {
+  const prefixo = process.env["MOBILE_RECEIPT_PATH"];
+  if (!prefixo) return;
+  await writeSessionStatus(prefixo, { estado, em: new Date().toISOString(), ...(motivo ? { motivo } : {}) }).catch(() => undefined);
+}
+
+/** Espera até `ms`, mas volta assim que um login novo regravar o arquivo de sessão. */
+async function aguardarSessaoNova(arquivo: string, ms: number): Promise<void> {
+  const versao = async () => (await stat(arquivo).catch(() => null))?.mtimeMs ?? 0;
+  const inicial = await versao();
+  const limite = Date.now() + ms;
+  while (!encerrando && Date.now() < limite) {
+    await sleep(Math.min(5_000, limite - Date.now()));
+    if ((await versao()) !== inicial) return;
+  }
+}
+
 /** Loop do piloto isolado: só AdminML -> /api/public/meli/piloto/*. */
 async function loopPiloto(cfg: WorkerConfig) {
   const instancia = instanciaPadrao();
@@ -280,7 +300,8 @@ async function loopPiloto(cfg: WorkerConfig) {
     if (sessao.status !== "ok") {
       await enviarHeartbeat(cfg, { instancia, sessao: "ausente", detalhe: { motivo: sessao.motivo } });
       logger.warn("Piloto aguardando sessão AdminML válida em SESSION_FILE_PATH.", { motivo: sessao.motivo, arquivo: cfg.sessionFilePath });
-      await sleep(Math.max(cfg.syncIntervalSeconds, 300) * 1000);
+      await registrarSessao(sessao.motivo?.includes("expirada") ? "expirada" : "ausente", sessao.motivo);
+      await aguardarSessaoNova(cfg.sessionFilePath, Math.max(cfg.syncIntervalSeconds, 300) * 1000);
       continue;
     }
     await enviarHeartbeat(cfg, { instancia, sessao: "valida" });
@@ -291,12 +312,14 @@ async function loopPiloto(cfg: WorkerConfig) {
         const r = await executarCicloPiloto({ cfg: configParaBase(cfg, base), transport: sessao.transport, instancia });
         logger.info("Ciclo do piloto concluído.", { ...r });
         await enviarHeartbeat(cfg, { instancia, sessao: r.sessao_expirada ? "expirada" : "valida", ultimoCicloId: r.ciclo_id });
-        if (r.sessao_expirada) { expirou = true; break; }
+        if (r.sessao_expirada) { expirou = true; await registrarSessao("expirada", "sessao_expirada"); break; }
+        await registrarSessao("valida");
       }
     } finally {
       await sessao.fechar();
     }
-    await sleep((expirou ? Math.max(cfg.syncIntervalSeconds, 300) : cfg.syncIntervalSeconds) * 1000);
+    if (expirou) await aguardarSessaoNova(cfg.sessionFilePath, Math.max(cfg.syncIntervalSeconds, 300) * 1000);
+    else await sleep(cfg.syncIntervalSeconds * 1000);
   }
 }
 
