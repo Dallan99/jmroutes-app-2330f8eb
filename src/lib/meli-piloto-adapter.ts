@@ -5,7 +5,7 @@
  * null para a tela exibir "não disponível".
  */
 import type { MeliDashboardResult, MeliDashboardRota, MeliDashboardBase } from "@/lib/meli-dashboard.functions";
-import { BASES_PILOTO, escolherDataEfetiva, montarPainel, rotaDeColunasEnxutas, type BaseInfo, type CicloRow, type PainelBase, type RotaRow } from "@/lib/meli-piloto-dashboard";
+import { BASES_EXIBIDAS_PILOTO, escolherDataEfetiva, montarPainel, rotaDeColunasEnxutas, type BaseInfo, type CicloRow, type PainelBase, type RotaRow } from "@/lib/meli-piloto-dashboard";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sb = any;
@@ -96,7 +96,7 @@ export function painelParaResultado(painel: PainelBase[], data: string, f: Filtr
 export async function carregarPilotoComoResultado(sb: Sb, f: FiltrosPiloto, hoje: string): Promise<(MeliDashboardResult & { data_pedida?: string; fallback_data?: boolean }) | null> {
   const pedida = f.data ?? hoje;
   const [bRes, eRes, cRes] = await Promise.all([
-    sb.from("bases").select("id, codigo, nome").in("codigo", [...BASES_PILOTO]),
+    sb.from("bases").select("id, codigo, nome").in("codigo", [...BASES_EXIBIDAS_PILOTO]),
     sb.from("meli_piloto_estacoes").select("base_id, confirmada, ativa_no_piloto"),
     sb.from("meli_piloto_ciclos")
       .select("id, base_id, base_codigo, status, iniciado_em, finalizado_em, rotas_esperadas, rotas_recebidas, pacotes_esperados, pacotes_recebidos, paginas_esperadas, paginas_lidas")
@@ -118,7 +118,7 @@ export async function carregarPilotoComoResultado(sb: Sb, f: FiltrosPiloto, hoje
     porId.set(b.id, { id: b.id, codigo: b.codigo, nome: b.nome, ativa_no_piloto: !!est.get(b.id)?.ativa_no_piloto, estacao_confirmada: !!est.get(b.id)?.confirmada });
   }
   for (const c of (cRes.data ?? []) as CicloRow[]) {
-    if (!BASES_PILOTO.includes(c.base_codigo as (typeof BASES_PILOTO)[number])) continue;
+    if (!BASES_EXIBIDAS_PILOTO.includes(c.base_codigo)) continue;
     if (!porId.has(c.base_id)) {
       porId.set(c.base_id, { id: c.base_id, codigo: c.base_codigo, nome: c.base_codigo, ativa_no_piloto: true, estacao_confirmada: true });
     }

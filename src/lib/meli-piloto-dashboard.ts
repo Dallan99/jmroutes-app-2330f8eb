@@ -116,3 +116,9 @@ export function rotaDeColunasEnxutas(r: any): RotaRow {
     payload: { route_name: p_route_name ?? null, routeName: p_routeName ?? null, name: p_name ?? null, cluster: p_cluster ?? null, contadores_logistics: p_contadores ?? null },
   } as RotaRow;
 }
+
+/**
+ * Bases exibidas no painel do piloto. Reduzido às 4 XPT (ESP) para caber no
+ * plano Free do Supabase; para voltar às 13, use BASES_PILOTO aqui.
+ */
+export const BASES_EXIBIDAS_PILOTO: readonly string[] = ["ESP15", "ESP16", "ESP17", "ESP18"];
