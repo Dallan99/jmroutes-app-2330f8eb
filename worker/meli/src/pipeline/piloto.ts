@@ -45,6 +45,9 @@ export function instanciaPadrao(env: Record<string, string | undefined> = proces
   return env["FLY_MACHINE_ID"] ? `fly:${env["FLY_APP_NAME"] ?? "app"}:${env["FLY_MACHINE_ID"]}` : `local:${hostname()}`;
 }
 
+/** Tempo máximo de cada envio ao JM Routes (ms). */
+const ENVIO_TIMEOUT_MS = 90_000;
+
 async function enviar(cfg: WorkerConfig, caminho: "ingest" | "heartbeat", corpo: unknown, f: FetchLike) {
   const json = JSON.stringify(corpo);
   const ts = String(Date.now());
@@ -54,6 +57,8 @@ async function enviar(cfg: WorkerConfig, caminho: "ingest" | "heartbeat", corpo:
         method: "POST",
         headers: { "content-type": "application/json", "user-agent": `jmroutes-meli-worker/${WORKER_VERSAO}`, "x-jm-timestamp": ts, "x-jm-signature": assinar(cfg.pilotSecret, ts, json) },
         body: json,
+        // Sem limite, um servidor travado prendia o coletor por muito tempo.
+        signal: AbortSignal.timeout(ENVIO_TIMEOUT_MS),
       });
       if (res.ok) return { ok: true as const };
       const texto = mensagemSegura(await res.text().catch(() => ""));
