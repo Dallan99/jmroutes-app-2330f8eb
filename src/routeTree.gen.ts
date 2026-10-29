@@ -40,6 +40,7 @@ import { Route as AuthenticatedMotoristaRouteImport } from './routes/_authentica
 import { Route as AuthenticatedMotoristasRouteImport } from './routes/_authenticated/motoristas'
 import { Route as AuthenticatedPainelOperacionalRouteImport } from './routes/_authenticated/painel-operacional'
 import { Route as AuthenticatedRecebimentoRouteImport } from './routes/_authenticated/recebimento'
+import { Route as AuthenticatedRelatorio30minRouteImport } from './routes/_authenticated/relatorio-30min'
 import { Route as AuthenticatedTransferenciasRouteImport } from './routes/_authenticated/transferencias'
 import { Route as AuthenticatedTransferenciasLoteRouteImport } from './routes/_authenticated/transferencias-lote'
 import { Route as AuthenticatedTriagemRouteImport } from './routes/_authenticated/triagem'
@@ -223,6 +224,12 @@ const AuthenticatedRecebimentoRoute =
     path: '/recebimento',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedRelatorio30minRoute =
+  AuthenticatedRelatorio30minRouteImport.update({
+    id: '/relatorio-30min',
+    path: '/relatorio-30min',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTransferenciasRoute =
   AuthenticatedTransferenciasRouteImport.update({
     id: '/transferencias',
@@ -355,6 +362,7 @@ export interface FileRoutesByFullPath {
   '/motoristas': typeof AuthenticatedMotoristasRoute
   '/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
   '/recebimento': typeof AuthenticatedRecebimentoRoute
+  '/relatorio-30min': typeof AuthenticatedRelatorio30minRoute
   '/transferencias': typeof AuthenticatedTransferenciasRoute
   '/transferencias-lote': typeof AuthenticatedTransferenciasLoteRoute
   '/triagem': typeof AuthenticatedTriagemRoute
@@ -405,6 +413,7 @@ export interface FileRoutesByTo {
   '/motoristas': typeof AuthenticatedMotoristasRoute
   '/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
   '/recebimento': typeof AuthenticatedRecebimentoRoute
+  '/relatorio-30min': typeof AuthenticatedRelatorio30minRoute
   '/transferencias': typeof AuthenticatedTransferenciasRoute
   '/transferencias-lote': typeof AuthenticatedTransferenciasLoteRoute
   '/triagem': typeof AuthenticatedTriagemRoute
@@ -457,6 +466,7 @@ export interface FileRoutesById {
   '/_authenticated/motoristas': typeof AuthenticatedMotoristasRoute
   '/_authenticated/painel-operacional': typeof AuthenticatedPainelOperacionalRoute
   '/_authenticated/recebimento': typeof AuthenticatedRecebimentoRoute
+  '/_authenticated/relatorio-30min': typeof AuthenticatedRelatorio30minRoute
   '/_authenticated/transferencias': typeof AuthenticatedTransferenciasRoute
   '/_authenticated/transferencias-lote': typeof AuthenticatedTransferenciasLoteRoute
   '/_authenticated/triagem': typeof AuthenticatedTriagemRoute
@@ -509,6 +519,7 @@ export interface FileRouteTypes {
     | '/motoristas'
     | '/painel-operacional'
     | '/recebimento'
+    | '/relatorio-30min'
     | '/transferencias'
     | '/transferencias-lote'
     | '/triagem'
@@ -559,6 +570,7 @@ export interface FileRouteTypes {
     | '/motoristas'
     | '/painel-operacional'
     | '/recebimento'
+    | '/relatorio-30min'
     | '/transferencias'
     | '/transferencias-lote'
     | '/triagem'
@@ -610,6 +622,7 @@ export interface FileRouteTypes {
     | '/_authenticated/motoristas'
     | '/_authenticated/painel-operacional'
     | '/_authenticated/recebimento'
+    | '/_authenticated/relatorio-30min'
     | '/_authenticated/transferencias'
     | '/_authenticated/transferencias-lote'
     | '/_authenticated/triagem'
@@ -872,6 +885,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRecebimentoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/relatorio-30min': {
+      id: '/_authenticated/relatorio-30min'
+      path: '/relatorio-30min'
+      fullPath: '/relatorio-30min'
+      preLoaderRoute: typeof AuthenticatedRelatorio30minRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/transferencias': {
       id: '/_authenticated/transferencias'
       path: '/transferencias'
@@ -1024,6 +1044,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMotoristasRoute: typeof AuthenticatedMotoristasRoute
   AuthenticatedPainelOperacionalRoute: typeof AuthenticatedPainelOperacionalRoute
   AuthenticatedRecebimentoRoute: typeof AuthenticatedRecebimentoRoute
+  AuthenticatedRelatorio30minRoute: typeof AuthenticatedRelatorio30minRoute
   AuthenticatedTransferenciasRoute: typeof AuthenticatedTransferenciasRoute
   AuthenticatedTransferenciasLoteRoute: typeof AuthenticatedTransferenciasLoteRoute
   AuthenticatedTriagemRoute: typeof AuthenticatedTriagemRoute
@@ -1054,6 +1075,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMotoristasRoute: AuthenticatedMotoristasRoute,
   AuthenticatedPainelOperacionalRoute: AuthenticatedPainelOperacionalRoute,
   AuthenticatedRecebimentoRoute: AuthenticatedRecebimentoRoute,
+  AuthenticatedRelatorio30minRoute: AuthenticatedRelatorio30minRoute,
   AuthenticatedTransferenciasRoute: AuthenticatedTransferenciasRoute,
   AuthenticatedTransferenciasLoteRoute: AuthenticatedTransferenciasLoteRoute,
   AuthenticatedTriagemRoute: AuthenticatedTriagemRoute,
