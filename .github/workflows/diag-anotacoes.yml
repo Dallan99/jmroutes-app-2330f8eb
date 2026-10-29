@@ -46,7 +46,7 @@ jobs:
         run: |
           flyctl logs -a jmroutes-meli-worker-esp16 --no-tail > logs.txt || true
           grep -c . logs.txt | sed 's/^/::warning title=linhas::/'
-          sed 's/\x1b\[[0-9;]*m//g' logs.txt | grep -vE '"ts"' | grep -iE "error|erro|warn|exit|timeout|fatal" | tail -n 15 | cut -c1-300 | sed 's/^/::warning title=raw::/'
+          sed 's/\x1b\[[0-9;]*m//g' logs.txt | tail -n 30 | cut -c1-330 | sed 's/^/::warning title=raw::/'
           python3 - <<'PY'
           import json,re
           for line in open('logs.txt',errors='replace'):
@@ -63,3 +63,4 @@ jobs:
           PY
 # rodada 2026-10-29T14:57:31Z
 # rodada 2026-10-29T15:32:55Z
+# rodada 2026-10-29T15:33:32Z
