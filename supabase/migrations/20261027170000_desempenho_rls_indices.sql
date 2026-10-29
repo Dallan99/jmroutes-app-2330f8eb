@@ -70,14 +70,14 @@ BEGIN
       AND policyname = tablename || '_leitura_base'
   LOOP
     EXECUTE format('DROP POLICY %I ON public.%I', r.policyname, r.tablename);
-    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (base_id = ANY ((SELECT public.bases_permitidas_atual())))', r.policyname, r.tablename);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (base_id = ANY ((SELECT public.bases_permitidas_atual())::uuid[]))', r.policyname, r.tablename);
   END LOOP;
 
   -- rotas
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='rotas' AND policyname='base access rotas select') THEN
     SELECT array_to_string(roles, ', ') INTO alvo FROM pg_policies WHERE schemaname='public' AND tablename='rotas' AND policyname='base access rotas select';
     DROP POLICY "base access rotas select" ON public.rotas;
-    EXECUTE format('CREATE POLICY "base access rotas select" ON public.rotas FOR SELECT TO %s USING (base_id = ANY ((SELECT public.bases_permitidas_atual())))', alvo);
+    EXECUTE format('CREATE POLICY "base access rotas select" ON public.rotas FOR SELECT TO %s USING (base_id = ANY ((SELECT public.bases_permitidas_atual())::uuid[]))', alvo);
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='rotas' AND policyname='staff read rotas') THEN
     SELECT array_to_string(roles, ', ') INTO alvo FROM pg_policies WHERE schemaname='public' AND tablename='rotas' AND policyname='staff read rotas';
@@ -96,7 +96,7 @@ BEGIN
     SELECT array_to_string(roles, ', ') INTO alvo FROM pg_policies WHERE schemaname='public' AND tablename='volumes' AND policyname='base access volumes select';
     DROP POLICY "base access volumes select" ON public.volumes;
     EXECUTE format($q$CREATE POLICY "base access volumes select" ON public.volumes FOR SELECT TO %s USING (
-      EXISTS (SELECT 1 FROM public.rotas r WHERE r.id = volumes.rota_id AND r.base_id = ANY ((SELECT public.bases_permitidas_atual())))
+      rota_id IN (SELECT r.id FROM public.rotas r WHERE r.base_id = ANY ((SELECT public.bases_permitidas_atual())::uuid[]))
     )$q$, alvo);
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='volumes' AND policyname='staff read volumes in own base') THEN
@@ -106,11 +106,10 @@ BEGIN
       (SELECT public.has_role((SELECT auth.uid()), 'admin'::app_role))
       OR (SELECT public.has_role((SELECT auth.uid()), 'supervisor'::app_role))
       OR (SELECT public.has_role((SELECT auth.uid()), 'gerente'::app_role))
-      OR EXISTS (
-        SELECT 1 FROM public.rotas r
-        WHERE r.id = volumes.rota_id
-          AND (r.base_id = (SELECT p.base_id FROM public.profiles p WHERE p.id = (SELECT auth.uid()))
-            OR r.base_origem_id = (SELECT p.base_id FROM public.profiles p WHERE p.id = (SELECT auth.uid())))
+      OR rota_id IN (
+        SELECT r.id FROM public.rotas r
+        WHERE r.base_id = (SELECT p.base_id FROM public.profiles p WHERE p.id = (SELECT auth.uid()))
+           OR r.base_origem_id = (SELECT p.base_id FROM public.profiles p WHERE p.id = (SELECT auth.uid()))
       )
     )$q$, alvo);
   END IF;
@@ -120,7 +119,7 @@ BEGIN
     SELECT array_to_string(roles, ', ') INTO alvo FROM pg_policies WHERE schemaname='public' AND tablename='recebimentos' AND policyname='base access recebimentos select';
     DROP POLICY "base access recebimentos select" ON public.recebimentos;
     EXECUTE format($q$CREATE POLICY "base access recebimentos select" ON public.recebimentos FOR SELECT TO %s USING (
-      operador_id = (SELECT auth.uid()) OR base_id = ANY ((SELECT public.bases_permitidas_atual()))
+      operador_id = (SELECT auth.uid()) OR base_id = ANY ((SELECT public.bases_permitidas_atual())::uuid[])
     )$q$, alvo);
   END IF;
   IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='recebimentos' AND policyname='operador le proprio') THEN
