@@ -136,14 +136,18 @@ END
 $pol$;
 
 -- 3) Índices das consultas do dashboard, painel operacional e piloto.
-CREATE INDEX IF NOT EXISTS meli_piloto_ciclos_iniciado_idx ON public.meli_piloto_ciclos (iniciado_em DESC);
-CREATE INDEX IF NOT EXISTS meli_piloto_rotas_data_idx ON public.meli_piloto_rotas (data_rota);
-CREATE INDEX IF NOT EXISTS rotas_data_expedicao_idx ON public.rotas (data_expedicao);
-CREATE INDEX IF NOT EXISTS rotas_base_id_idx ON public.rotas (base_id);
-CREATE INDEX IF NOT EXISTS recebimentos_base_created_idx ON public.recebimentos (base_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS user_roles_user_role_idx ON public.user_roles (user_id, role);
-CREATE INDEX IF NOT EXISTS user_bases_user_base_idx ON public.user_bases (user_id, base_id);
-CREATE INDEX IF NOT EXISTS profiles_base_id_idx ON public.profiles (base_id);
+DO $idx$
+BEGIN
+  IF to_regclass('public.meli_piloto_ciclos') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS meli_piloto_ciclos_iniciado_idx ON public.meli_piloto_ciclos (iniciado_em DESC)'; END IF;
+  IF to_regclass('public.meli_piloto_rotas') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS meli_piloto_rotas_data_idx ON public.meli_piloto_rotas (data_rota)'; END IF;
+  IF to_regclass('public.rotas') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS rotas_data_expedicao_idx ON public.rotas (data_expedicao)'; END IF;
+  IF to_regclass('public.rotas') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS rotas_base_id_idx ON public.rotas (base_id)'; END IF;
+  IF to_regclass('public.recebimentos') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS recebimentos_base_created_idx ON public.recebimentos (base_id, created_at DESC)'; END IF;
+  IF to_regclass('public.user_roles') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS user_roles_user_role_idx ON public.user_roles (user_id, role)'; END IF;
+  IF to_regclass('public.user_bases') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS user_bases_user_base_idx ON public.user_bases (user_id, base_id)'; END IF;
+  IF to_regclass('public.profiles') IS NOT NULL THEN EXECUTE 'CREATE INDEX IF NOT EXISTS profiles_base_id_idx ON public.profiles (base_id)'; END IF;
+END
+$idx$;
 
 -- 4) Realtime: o coletor grava milhares de linhas em rotas/recebimentos por
 --    ciclo; o app não assina mais essas tabelas.
@@ -158,8 +162,11 @@ BEGIN
 END
 $rt$;
 
-ANALYZE public.meli_piloto_ciclos;
-ANALYZE public.meli_piloto_rotas;
-ANALYZE public.rotas;
-ANALYZE public.volumes;
-ANALYZE public.recebimentos;
+DO $ana$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['meli_piloto_ciclos','meli_piloto_rotas','rotas','volumes','recebimentos'] LOOP
+    IF to_regclass('public.' || t) IS NOT NULL THEN EXECUTE format('ANALYZE public.%I', t); END IF;
+  END LOOP;
+END
+$ana$;
