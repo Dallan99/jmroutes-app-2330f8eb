@@ -701,15 +701,25 @@ function BaseDetalheDialog({
                         {nf(r.insucesso)}
                       </td>
                       <td className="py-2 pr-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-[var(--info)]"
-                              style={{ width: pct(r.perc_entrega) }}
-                            />
+                        {base?.codigo?.trim().toUpperCase() === "ESP18" ? (
+                          <div className="flex items-center gap-2" aria-label={`Rota ${nomenclaturaRota(r)}: ${pct(r.perc_entrega)}, ${r.entregue} de ${r.total} entregues`}>
+                            <svg viewBox="0 0 52 52" className="h-12 w-12 shrink-0" aria-hidden="true">
+                              <circle cx="26" cy="26" r="20" fill="none" stroke="currentColor" strokeOpacity="0.14" strokeWidth="5" />
+                              <circle cx="26" cy="26" r="20" fill="none" stroke="var(--info)" strokeWidth="5" strokeLinecap="round"
+                                strokeDasharray={`${Math.max(0, Math.min(100, r.perc_entrega)) * 1.25664} 125.664`}
+                                transform="rotate(-90 26 26)" />
+                              <text x="26" y="29" textAnchor="middle" fontSize="11" fontWeight="700" fill="currentColor">{pct(r.perc_entrega)}</text>
+                            </svg>
+                            <span className="whitespace-nowrap text-[10px] text-muted-foreground">{nf(r.entregue)}/{nf(r.total)}</span>
                           </div>
-                          <span className="text-xs tabular-nums">{pct(r.perc_entrega)}</span>
-                        </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+                              <div className="h-full rounded-full bg-[var(--info)]" style={{ width: pct(r.perc_entrega) }} />
+                            </div>
+                            <span className="text-xs tabular-nums">{pct(r.perc_entrega)}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-2 text-xs text-muted-foreground">
                         {r.last_synced_at
@@ -775,6 +785,15 @@ function BaseDetalheDialog({
                 onClick={() => setSituacaoSel("insucesso")}
               />
             </div>
+            {base?.codigo?.trim().toUpperCase() === "ESP18" && (
+              <div className="rounded-md border p-3 text-xs space-y-1" role="status">
+                <p className="font-semibold">Monitoramento da primeira entrega — piloto ESP18</p>
+                <p>Progresso: {pct(rotaSel.perc_entrega)} · {nf(rotaSel.entregue)} de {nf(rotaSel.total)} pacotes entregues</p>
+                <p>Saída do XPT: não informada pela integração atual.</p>
+                <p>Primeira entrega: horário ainda não disponível.</p>
+                <p className="text-muted-foreground">Relógio e alerta de 60 minutos aguardam horários reais. Última sincronização: {rotaSel.last_synced_at ? new Date(rotaSel.last_synced_at).toLocaleString("pt-BR") : "—"}.</p>
+              </div>
+            )}
             <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
                 {situacaoSel === "total"
