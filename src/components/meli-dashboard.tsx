@@ -763,7 +763,20 @@ function TabelaRotas({
               <td className="p-2 tabular-nums">{r.insucesso}</td>
               <td className="p-2 tabular-nums">{r.cancelado}</td>
               <td className="p-2 tabular-nums">{r.pacotes_risco}</td>
-              <td className="p-2 tabular-nums">{r.perc_entrega}%</td>
+              <td className="p-2 tabular-nums">
+                 {r.base_codigo?.toUpperCase() === "ESP18" ? (
+                   <div className="flex items-center gap-2" aria-label={`Progresso da rota: ${r.perc_entrega}% concluído, ${r.entregue} de ${r.total} entregues`}>
+                     <svg viewBox="0 0 48 48" className="h-11 w-11 shrink-0" aria-hidden="true">
+                       <circle cx="24" cy="24" r="19" fill="none" stroke="currentColor" strokeOpacity="0.14" strokeWidth="5" />
+                       <circle cx="24" cy="24" r="19" fill="none" stroke="var(--brand-navy)" strokeWidth="5"
+                         strokeLinecap="round" strokeDasharray={`${Math.min(100, Math.max(0, r.perc_entrega)) * 1.1938} 119.38`}
+                         transform="rotate(-90 24 24)" />
+                       <text x="24" y="27" textAnchor="middle" fontSize="11" fontWeight="700" fill="currentColor">{r.perc_entrega}%</text>
+                     </svg>
+                     <span className="text-[10px] text-muted-foreground whitespace-nowrap">{r.entregue}/{r.total}</span>
+                   </div>
+                 ) : `${r.perc_entrega}%`}
+               </td>
               <td className="p-2">{hhmmss(r.last_synced_at)}</td>
             </tr>
           ))}
