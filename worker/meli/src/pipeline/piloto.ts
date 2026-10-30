@@ -9,6 +9,7 @@ import { logger, mensagemSegura } from "../logger.js";
 import { obterDetalheRota } from "../meli/detail.js";
 import { executarComRetry, extrairRotasDaLista, jitter, sleep, type MeliTransport, type RotaLista } from "../meli/list.js";
 import { filtrarRotasDaUnidade } from "./cycle.js";
+import { writeReceipt } from "../mobile/receipt.js";
 
 type FetchLike = typeof fetch;
 export type PilotoDeps = {
@@ -44,6 +45,9 @@ export function instanciaPadrao(env: Record<string, string | undefined> = proces
   return env["FLY_MACHINE_ID"] ? `fly:${env["FLY_APP_NAME"] ?? "app"}:${env["FLY_MACHINE_ID"]}` : `local:${hostname()}`;
 }
 
+/** Tempo máximo de cada envio ao JM Routes (ms). */
+const ENVIO_TIMEOUT_MS = 90_000;
+
 async function enviar(cfg: WorkerConfig, caminho: "ingest" | "heartbeat", corpo: unknown, f: FetchLike) {
   const json = JSON.stringify(corpo);
   const ts = String(Date.now());
@@ -53,6 +57,8 @@ async function enviar(cfg: WorkerConfig, caminho: "ingest" | "heartbeat", corpo:
         method: "POST",
         headers: { "content-type": "application/json", "user-agent": `jmroutes-meli-worker/${WORKER_VERSAO}`, "x-jm-timestamp": ts, "x-jm-signature": assinar(cfg.pilotSecret, ts, json) },
         body: json,
+        // Sem limite, um servidor travado prendia o coletor por muito tempo.
+        signal: AbortSignal.timeout(ENVIO_TIMEOUT_MS),
       });
       if (res.ok) return { ok: true as const };
       const texto = mensagemSegura(await res.text().catch(() => ""));
@@ -205,6 +211,13 @@ export async function executarCicloPiloto(deps: PilotoDeps): Promise<PilotoResum
       erro: resumo.sessao_expirada ? "sessão AdminML expirada" : !fimNatural ? "limite de páginas atingido" : undefined },
     erros: errosDetalhe.slice(0, 200),
   }, f);
-  if (!fim.ok) erroEnvio(fim.mensagem);
+  if (!fim.ok) { erroEnvio(fim.mensagem); resumo.status = "parcial"; }
+  const receiptPath = process.env["MOBILE_RECEIPT_PATH"];
+  if (fim.ok && receiptPath) await writeReceipt(receiptPath, {
+    mode: "piloto", base_code: cfg.baseCode, iniciado_em: iniciado,
+    finalizado_em: new Date().toISOString(), status: resumo.status === "concluido" ? "sucesso" : "sucesso_parcial",
+    rotas_processadas: resumo.detalhes_enviados, pacotes_enviados: 0,
+  }).catch(() => undefined);
   return resumo;
 }
+

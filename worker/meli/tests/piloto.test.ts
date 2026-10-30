@@ -67,8 +67,10 @@ describe("piloto Meli", () => {
   });
 });
 
-describe("ESP18 sem estação confirmada", () => {
-  it("recusa ESP18 em BASE_CODES", () => {
-    expect(() => loadConfig({ ...ENV, BASE_CODES: "ESP16,ESP18" })).toThrow(/ESP18/);
+describe("ESP18 com estação confirmada", () => {
+  it("aceita a estação SSP25 confirmada na configuração atual", () => {
+    const cfg = loadConfig({ ...ENV, BASE_CODES: "ESP16,ESP18" });
+    expect(cfg.bases.find(base => base.baseCode === "ESP18")?.serviceCenterId).toBe("SSP25");
   });
 });
+
