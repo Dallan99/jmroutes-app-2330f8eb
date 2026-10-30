@@ -127,6 +127,7 @@ export function MeliDashboardSection({
   const d = q.data?.status === "ok" ? q.data : undefined;
   const cards = d?.cards;
   const rotas = d?.rotas ?? [];
+  const rotaSelecionada = rotaAberta ? rotas.find((r) => r.rota_id === rotaAberta) : undefined;
   const areaRisco = d?.area_risco;
 
   // Alerta de sincronização atrasada — sem duplicar a cada refetch.
@@ -578,6 +579,28 @@ export function MeliDashboardSection({
                   : "Pacotes da rota"}
               </DialogTitle>
             </DialogHeader>
+            {rotaSelecionada?.base_codigo?.toUpperCase() === "ESP18" && (
+              <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-[auto_1fr] sm:items-center" aria-label="Monitoramento da rota ESP18">
+                <div className="flex items-center gap-3">
+                  <svg viewBox="0 0 64 64" className="h-16 w-16 shrink-0" role="img" aria-label={`Progresso: ${rotaSelecionada.perc_entrega}% das entregas`}>
+                    <circle cx="32" cy="32" r="25" fill="none" stroke="currentColor" strokeOpacity="0.14" strokeWidth="6" />
+                    <circle cx="32" cy="32" r="25" fill="none" stroke="var(--brand-navy)" strokeWidth="6" strokeLinecap="round"
+                      strokeDasharray={`${Math.min(100, Math.max(0, rotaSelecionada.perc_entrega)) * 1.5708} 157.08`}
+                      transform="rotate(-90 32 32)" />
+                    <text x="32" y="36" textAnchor="middle" fontSize="14" fontWeight="700" fill="currentColor">{rotaSelecionada.perc_entrega}%</text>
+                  </svg>
+                  <div className="text-sm">
+                    <div className="font-semibold">Progresso da rota</div>
+                    <div className="text-muted-foreground">{rotaSelecionada.entregue} de {rotaSelecionada.total} entregues</div>
+                  </div>
+                </div>
+                <div className="space-y-1 text-xs">
+                  <div><span className="font-semibold">Saída do XPT:</span> Não informada pelo coletor</div>
+                  <div><span className="font-semibold">Primeira entrega:</span> Horário não disponível</div>
+                  <div className="text-muted-foreground">Alerta de 60 minutos indisponível até a integração dos horários reais. Última sincronização: {hhmmss(rotaSelecionada.last_synced_at)}.</div>
+                </div>
+              </div>
+            )}
             {pacotesQuery.data?.rota?.dia_anterior && (
               <p className="rounded border border-[var(--warning)]/40 bg-[var(--warning)]/10 p-2 text-sm">
                 Rota de dia anterior — atualizada hoje. Não entra nos indicadores do dia atual.
