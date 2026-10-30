@@ -14,7 +14,7 @@ kill_timeout = "30s"
   JMR_SESSION_FILE_PATH = "/data/jmr-session.enc"
   MOBILE_RECEIPT_PATH = "/data/mobile-receipt"
   ADMINML_LOGIN_MODE = "mobile"
-  SYNC_INTERVAL_SECONDS = "180"
+  SYNC_INTERVAL_SECONDS = "60"
   # Preserva o modo publicado: escrita somente no piloto isolado.
   # DRY_RUN=true + PILOT_WRITE=true NÃO significa ausência de gravação:
   # grava em meli_piloto_*, sem promover para a operação.
