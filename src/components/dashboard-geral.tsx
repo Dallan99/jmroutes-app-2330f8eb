@@ -701,7 +701,7 @@ function BaseDetalheDialog({
                         {nf(r.insucesso)}
                       </td>
                       <td className="py-2 pr-2">
-                        {base?.codigo?.trim().toUpperCase() === "ESP18" ? (
+                        {["ESP17", "ESP18", "ESP15", "ESP16"].includes(base?.codigo?.trim().toUpperCase() ?? "") ? (
                           <div className="flex items-center gap-2" aria-label={`Rota ${nomenclaturaRota(r)}: ${pct(r.perc_entrega)}, ${r.entregue} de ${r.total} entregues`}>
                             <svg viewBox="0 0 52 52" className="h-12 w-12 shrink-0" aria-hidden="true">
                               <circle cx="26" cy="26" r="20" fill="none" stroke="currentColor" strokeOpacity="0.14" strokeWidth="5" />
@@ -785,9 +785,9 @@ function BaseDetalheDialog({
                 onClick={() => setSituacaoSel("insucesso")}
               />
             </div>
-            {base?.codigo?.trim().toUpperCase() === "ESP18" && (
+            {["ESP17", "ESP18", "ESP15", "ESP16"].includes(base?.codigo?.trim().toUpperCase() ?? "") && (
               <div className="rounded-md border p-3 text-xs space-y-1" role="status">
-                <p className="font-semibold">Monitoramento da primeira entrega — piloto ESP18</p>
+                <p className="font-semibold">Monitoramento da primeira entrega — bases XPT</p>
                 <p>Progresso: {pct(rotaSel.perc_entrega)} · {nf(rotaSel.entregue)} de {nf(rotaSel.total)} pacotes entregues</p>
                 <p>Saída do XPT: não informada pela integração atual.</p>
                 <p>Primeira entrega: horário ainda não disponível.</p>
