@@ -4,7 +4,7 @@ const TABELAS_IMPLANTADAS = new Set([
   "audit_logs", "bases", "bases_operacionais", "contagens", "contagens_rotas_lock",
   "devolucoes", "escalas", "importacoes_escala", "meli_piloto_ciclos", "meli_piloto_erros",
   "meli_piloto_estacoes", "meli_piloto_heartbeat", "meli_piloto_pacotes", "meli_piloto_paginas",
-  "meli_piloto_rotas", "meli_piloto_staging", "motoristas", "motoristas_safe", "profiles",
+  "meli_piloto_rotas", "meli_piloto_staging", "meli_rotas", "motoristas", "motoristas_safe", "profiles",
   "recebimentos", "rotas", "shipments", "user_bases", "user_roles", "volumes",
 ]);
 const RPCS_IMPLANTADAS = new Set([
