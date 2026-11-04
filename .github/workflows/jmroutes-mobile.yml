@@ -1,0 +1,138 @@
+name: Publicar iniciador móvel JM Routes
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Validar ou publicar na Fly
+        required: true
+        type: choice
+        default: validar
+        options: [validar, publicar]
+      source_ref:
+        description: Branch ou commit revisado do iniciador
+        required: true
+        default: codex/iniciador-movel-workers
+        type: string
+      confirm_app:
+        description: Para publicar e habilitar HTTPS, digite jmroutes-meli-worker-esp16
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fly-jmroutes-mobile
+  cancel-in-progress: false
+
+jobs:
+  validar:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      source_sha: ${{ steps.source.outputs.sha }}
+    defaults:
+      run:
+        working-directory: worker/meli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Fixar o commit que será publicado
+        id: source
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Instalar dependências reproduzíveis
+        run: npm ci --no-audit --no-fund
+      - name: Instalar navegador dos testes
+        run: npx playwright install --with-deps chromium
+      - name: Verificar tipos, testes e build
+        run: |
+          npm run typecheck
+          npm test
+          npm run build
+      - name: Conferir destino, piloto e volume
+        run: |
+          python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          cfg = tomllib.loads(Path("fly.mobile.example.toml").read_text())
+          assert cfg["app"] == "jmroutes-meli-worker-esp16"
+          assert cfg["env"]["DRY_RUN"] == "true"
+          assert cfg["env"]["PILOT_WRITE"] == "true"
+          assert cfg["env"]["SUPABASE_URL"] == "https://zfmwojloamwggahjxlyt.supabase.co"
+          assert cfg["env"]["MOBILE_PUBLIC_ORIGIN"] == "https://jmroutes-meli-worker-esp16.fly.dev"
+          assert cfg["mounts"] == [{"source": "meli_session", "destination": "/data"}]
+          assert cfg["http_service"]["force_https"] is True
+          assert cfg["vm"][0]["size"] == "shared-cpu-1x"
+          assert cfg["vm"][0]["memory"] == "1gb"
+          assert Path("Dockerfile.mobile").is_file()
+          PY
+
+  publicar:
+    needs: validar
+    if: inputs.operation == 'publicar' && inputs.confirm_app == 'jmroutes-meli-worker-esp16'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: worker/meli
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.validar.outputs.source_sha }}
+          persist-credentials: false
+      - name: Verificar segredos sem exibir valores
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          MOBILE_ACCESS_KEY: ${{ secrets.MOBILE_ACCESS_KEY }}
+        run: |
+          test -n "$FLY_API_TOKEN" || { echo "::error::Cadastre FLY_API_TOKEN nos secrets do repositório"; exit 1; }
+          test "${#MOBILE_ACCESS_KEY}" -ge 32 || { echo "::error::MOBILE_ACCESS_KEY deve ter pelo menos 32 caracteres aleatórios"; exit 1; }
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+        with:
+          version: '0.4.118'
+      - name: Configurar chave do iniciador para o próximo deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          MOBILE_ACCESS_KEY: ${{ secrets.MOBILE_ACCESS_KEY }}
+        run: flyctl secrets set --stage -a jmroutes-meli-worker-esp16 "MOBILE_ACCESS_KEY=$MOBILE_ACCESS_KEY"
+      - name: Publicar no app existente preservando o piloto e o volume
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --ha=false --yes --config fly.mobile.example.toml -a jmroutes-meli-worker-esp16
+      - name: Verificar HTTPS e bloqueio de acesso anônimo
+        run: |
+          python - <<'PY'
+          import time, urllib.request, urllib.error
+          origin = "https://jmroutes-meli-worker-esp16.fly.dev"
+          def status(path):
+              try:
+                  with urllib.request.urlopen(origin + path, timeout=15) as response:
+                      return response.status
+              except urllib.error.HTTPError as error:
+                  return error.code
+          for attempt in range(12):
+              try:
+                  if status("/health") == 200:
+                      break
+              except (OSError, TimeoutError):
+                  pass
+              time.sleep(5)
+          else:
+              raise SystemExit("O serviço ainda não respondeu ao health check.")
+          assert status("/") == 200
+          assert status("/screen") == 401
+          assert status("/status") == 401
+          PY
+      - name: Registrar resultado da publicação
+        run: |
+          echo "### Iniciador publicado" >> "$GITHUB_STEP_SUMMARY"
+          echo "Endereço: https://jmroutes-meli-worker-esp16.fly.dev" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: ${{ needs.validar.outputs.source_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Piloto preservado. Falta testar login real Meli/Okta e a coleta do piloto pelo celular." >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,12 @@
+# Serviço opcional. O Dockerfile e o fly.toml existentes continuam independentes.
+FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY tsconfig.json tsconfig.build.json ./
+COPY src ./src
+RUN npm run build && npm prune --omit=dev
+ENV NODE_ENV=production PORT=8080 SESSION_FILE_PATH=/data/adminml-session.enc JMR_SESSION_FILE_PATH=/data/jmr-session.enc
+VOLUME ["/data"]
+EXPOSE 8080
+CMD ["node", "dist/mobile/main.js"]

@@ -2,6 +2,7 @@
 // Bearer do usuário técnico. Nunca envia cookies, tokens, senhas ou payloads.
 import { WORKER_VERSAO, type WorkerConfig } from "../config.js";
 import { logger, mensagemSegura } from "../logger.js";
+import { writeReceipt } from "../mobile/receipt.js";
 
 export type CicloStatus =
   | "sucesso"
@@ -90,8 +91,13 @@ export async function registrarExecucao(
       }),
     });
     if (!res.ok) return { ok: false, motivo: `http_${res.status}` };
+    // Confirmação local apenas depois de a telemetria ter sido aceita. Não
+    // contém credenciais nem payloads; falha desse painel não interrompe coleta.
+    const receiptPath = process.env["MOBILE_RECEIPT_PATH"];
+    if (receiptPath) await writeReceipt(receiptPath, execucao).catch(() => undefined);
     return { ok: true };
   } catch (err) {
     return { ok: false, motivo: mensagemSegura(String((err as Error)?.message ?? err)) };
   }
 }
+
