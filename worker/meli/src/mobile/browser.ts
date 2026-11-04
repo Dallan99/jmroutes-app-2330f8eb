@@ -135,7 +135,18 @@ export class MobileBrowser {
       && body.x >= 0 && body.x <= 1 && body.y >= 0 && body.y <= 1) {
       await page.mouse.click(body.x * 1024, body.y * 768);
     } else if (body.type === "text" && typeof body.text === "string" && body.text.length <= 2048) {
+      // Se o operador não tocou num campo antes, usa o primeiro campo visível
+      // (ex.: código do Okta). Sem isso o texto não ia para lugar nenhum.
+      const temFoco = await page.evaluate(() => {
+        const ativo = document.activeElement as HTMLElement | null;
+        return !!ativo && (ativo.tagName === "INPUT" || ativo.tagName === "TEXTAREA" || ativo.isContentEditable);
+      }).catch(() => false);
+      if (!temFoco) {
+        await page.locator('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):visible, textarea:visible')
+          .first().click({ timeout: 3000 }).catch(() => undefined);
+      }
       await page.keyboard.insertText(body.text);
+      if (body.enter === true) await page.keyboard.press("Enter");
     } else if (body.type === "key" && ["Enter", "Tab", "Backspace", "Control+A"].includes(String(body.key))) {
       await page.keyboard.press(String(body.key));
     } else if (body.type === "scroll" && (body.direction === 1 || body.direction === -1)) {
