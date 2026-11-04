@@ -137,10 +137,9 @@ export class MobileBrowser {
     } else if (body.type === "text" && typeof body.text === "string" && body.text.length <= 2048) {
       // Se o operador não tocou num campo antes, usa o primeiro campo visível
       // (ex.: código do Okta). Sem isso o texto não ia para lugar nenhum.
-      const temFoco = await page.evaluate(() => {
-        const ativo = document.activeElement as HTMLElement | null;
-        return !!ativo && (ativo.tagName === "INPUT" || ativo.tagName === "TEXTAREA" || ativo.isContentEditable);
-      }).catch(() => false);
+      const temFoco = await page.evaluate<boolean>(
+        "(() => { const a = document.activeElement; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable); })()",
+      ).catch(() => false);
       if (!temFoco) {
         await page.locator('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):visible, textarea:visible')
           .first().click({ timeout: 3000 }).catch(() => undefined);
