@@ -695,8 +695,39 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
     for (const l of linhas) {
       const chave = rotaEfetivaTriagem(l);
       if (!chave || nomePorRota.has(chave)) continue;
-      const nome = nomeOperacionalRota({ nro_rota: l.nro_rota, route_id: chave });
+      const nome = nomeOperacionalRota({
+        nro_rota: l.nro_rota,
+        otimizada: l.otimizada,
+        planejada: l.planejada,
+        route_id: chave,
+      });
       nomePorRota.set(chave, nome);
+    }
+
+    // A escala nem sempre traz o cluster/nome operacional. Nesses casos,
+    // complementamos pelo cadastro sincronizado do Meli, mantendo a rota
+    // numérica como chave técnica da triagem.
+    const rotasTecnicas = Array.from(nomePorRota.keys());
+    if (rotasTecnicas.length > 0) {
+      const { data: rotasMeli, error: rotasMeliErro } = await supabaseAdmin
+        .from("meli_rotas")
+        .select("route_id, cluster")
+        .eq("base_id", data.baseId)
+        .eq("data_rota", data.dataOperacional)
+        .in("route_id", rotasTecnicas);
+
+      if (rotasMeliErro) {
+        console.error("Falha ao carregar nomes operacionais das rotas:", rotasMeliErro.message);
+      } else {
+        for (const rota of rotasMeli ?? []) {
+          const routeId = String(rota.route_id ?? "").trim();
+          if (!routeId) continue;
+          nomePorRota.set(
+            routeId,
+            nomeOperacionalRota({ cluster: rota.cluster, route_id: routeId }),
+          );
+        }
+      }
     }
 
     const resumo = (resumirRotasTriagem(linhas) as RotaTriagemDia[]).map((r) => ({
