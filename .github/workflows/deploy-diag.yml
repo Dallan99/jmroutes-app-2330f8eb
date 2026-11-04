@@ -23,7 +23,7 @@ jobs:
         working-directory: worker/meli
         run: |
           set -o pipefail
-          if flyctl deploy --remote-only --ha=false --yes --config fly.mobile.example.toml -a jmroutes-meli-worker-esp16 > deploy.txt 2>&1; then
+          if flyctl deploy --local-only --ha=false --yes --config fly.mobile.example.toml -a jmroutes-meli-worker-esp16 > deploy.txt 2>&1; then
             echo "::warning title=deploy::OK $(git rev-parse --short HEAD)"
           else
             sed 's/\x1b\[[0-9;]*m//g' deploy.txt | grep -v '^\s*$' | tail -n 25 | cut -c1-300 | sed 's/^/::warning title=deploy-erro::/'
