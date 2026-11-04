@@ -730,6 +730,41 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
           );
         }
       }
+
+      // As quatro bases XPT usam atualmente as tabelas do piloto. Nelas, o
+      // nome operacional fica no payload da rota (a mesma fonte do Dashboard).
+      // Esta consulta enxuta evita carregar o payload completo.
+      const { data: rotasPiloto, error: rotasPilotoErro } = await supabaseAdmin
+        .from("meli_piloto_rotas")
+        .select([
+          "route_id",
+          "p_route_name:payload->>route_name",
+          "p_routeName:payload->>routeName",
+          "p_name:payload->>name",
+          "p_cluster:payload->>cluster",
+        ].join(", "))
+        .eq("base_id", data.baseId)
+        .eq("data_rota", data.dataOperacional)
+        .in("route_id", rotasTecnicas);
+
+      if (rotasPilotoErro) {
+        console.error("Falha ao carregar nomes das rotas do piloto:", rotasPilotoErro.message);
+      } else {
+        for (const rota of rotasPiloto ?? []) {
+          const registro = rota as unknown as Record<string, string | null>;
+          const routeId = String(registro.route_id ?? "").trim();
+          if (!routeId) continue;
+          const nome = nomeOperacionalRota({
+            cluster:
+              registro.p_route_name ??
+              registro.p_routeName ??
+              registro.p_name ??
+              registro.p_cluster,
+            route_id: routeId,
+          });
+          if (nome !== routeId) nomePorRota.set(routeId, nome);
+        }
+      }
     }
 
     const resumo = (resumirRotasTriagem(linhas) as RotaTriagemDia[]).map((r) => ({
