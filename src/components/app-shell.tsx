@@ -90,6 +90,7 @@ const NAV_OPERACIONAL: NavItem[] = [
   { title: "Modo coletor", to: "/coletor", icon: Smartphone },
   { title: "Bases", to: "/bases", icon: Boxes },
   { title: "Dashboard", to: "/dashboard", icon: TrendingUp, roles: ["admin", "supervisor", "gerente"] },
+  { title: "Monitoramento de Rotas", to: "/monitoramento-rotas", icon: Activity, roles: ["admin", "supervisor", "gerente"] },
   { title: "Painel Operacional", to: "/painel-operacional", icon: TrendingUp },
   { title: "Recebimento", to: "/triagem", icon: PackageSearch },
   { title: "Expedição", to: "/expedicao", icon: Truck },

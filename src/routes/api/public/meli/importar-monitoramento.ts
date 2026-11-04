@@ -3,6 +3,13 @@ import { z } from "zod";
 import { clienteDoUsuario, extrairBearer, json, MAX_BODY_BYTES } from "@/lib/meli-api-http";
 
 const contador = z.number().int().nonnegative().max(10_000_000);
+const rotaSchema = z.object({
+  route_id: z.string().trim().min(1).max(80), nome_rota: z.string().trim().max(120).nullable(),
+  motorista: z.string().trim().max(160).nullable(), placa: z.string().trim().max(30).nullable(),
+  status: z.string().trim().max(80).nullable(), substatus: z.string().trim().max(120).nullable(),
+  total: contador, entregues: contador, falhas: contador, pendentes: contador, sacas: contador,
+  saida_xpt_em: z.string().datetime().nullable(), primeira_entrega_em: z.string().datetime().nullable(),
+});
 const schema = z.object({
   base_codigo: z.string().trim().toUpperCase().regex(/^(ESP|SSP|SSC)\d+$/),
   facility_id: z.string().trim().toUpperCase().regex(/^(ESP|SSP|SSC)\d+$/),
@@ -12,6 +19,7 @@ const schema = z.object({
   sacas: contador, pendentes: contador, com_falhas: contador, bem_sucedidos: contador,
   coletado_em: z.string().datetime(),
   escopo_rotas: z.enum(["AM"]).optional(),
+  rotas: z.array(rotaSchema).max(500).default([]),
 }).refine((v) => v.base_codigo === v.facility_id, { message: "facility_divergente" })
   .refine((v) => v.rotas_totais > 0 || v.pacotes > 0, {
     message: "snapshot_vazio",
@@ -47,6 +55,13 @@ export const Route = createFileRoute("/api/public/meli/importar-monitoramento")(
       p_snapshot: { ...d, data_operacional: dataOperacional },
     });
     if (error) return json({ ok:false,codigo:"falha_persistencia" },500,origin);
+    if (d.rotas.length > 0) {
+      const { error: rotasError } = await (supabaseAdmin as any).rpc("meli_monitoramento_rotas_upsert", {
+        p_data_operacional: dataOperacional, p_base_codigo: d.base_codigo,
+        p_service_center_id: d.service_center_id, p_coletado_em: d.coletado_em, p_rotas: d.rotas,
+      });
+      if (rotasError) return json({ ok:false,codigo:"falha_persistencia_rotas" },500,origin);
+    }
     return json({ ok:true,base_codigo:d.base_codigo },200,origin);
   } } },
 });

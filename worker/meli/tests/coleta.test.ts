@@ -190,6 +190,7 @@ describe("resumo do Monitoramento Last Mile", () => {
       com_falhas: 0,
       bem_sucedidos: 0,
       coletado_em: "2026-09-08T12:00:00.000Z",
+      rotas: [],
     };
 
     const ehValidoParaPersistencia = (resumo: MonitoramentoResumo) =>

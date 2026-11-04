@@ -107,6 +107,10 @@ export type RotaLista = {
   routeId: string;
   /** Nome operacional exibido pelo AdminML (ex.: VR3_AM1). */
   routeName?: string | null;
+  driverName?: string | null;
+  vehicleLicense?: string | null;
+  departedAt?: string | null;
+  firstDeliveryAt?: string | null;
   status?: string | null;
   substatus?: string | null;
   facilityId?: string | null;
@@ -123,6 +127,30 @@ export type RotaLista = {
     totalBags: number;
   };
 };
+
+function textoCandidato(obj: Record<string, unknown>, chaves: string[]): string | null {
+  for (const chave of chaves) {
+    const valor = obj[chave];
+    if ((typeof valor === "string" || typeof valor === "number") && String(valor).trim()) return String(valor).trim();
+  }
+  return null;
+}
+
+function objetoCandidato(obj: Record<string, unknown>, chave: string): Record<string, unknown> {
+  const valor = obj[chave];
+  return valor && typeof valor === "object" && !Array.isArray(valor) ? valor as Record<string, unknown> : {};
+}
+
+function dataCandidata(obj: Record<string, unknown>, chaves: string[]): string | null {
+  for (const chave of chaves) {
+    const bruto = obj[chave];
+    if (bruto === null || bruto === undefined || bruto === "") continue;
+    const numerico = typeof bruto === "number" ? bruto : /^\d{10,13}$/.test(String(bruto)) ? Number(bruto) : null;
+    const data = new Date(numerico === null ? String(bruto) : numerico < 1e12 ? numerico * 1000 : numerico);
+    if (!Number.isNaN(data.getTime())) return data.toISOString();
+  }
+  return null;
+}
 
 function numeroSeguro(valor: unknown): number {
   const numero = Number(valor ?? 0);
@@ -154,6 +182,8 @@ export function extrairRotasDaLista(body: unknown): RotaLista[] {
       const key = String(id);
       if (/^\d+$/.test(key) && !vistos.has(key)) {
         vistos.add(key);
+        const motorista = objetoCandidato(obj, "driver");
+        const veiculo = objetoCandidato(obj, "vehicle");
         encontrados.push({
           routeId: key,
           routeName:
@@ -166,6 +196,10 @@ export function extrairRotasDaLista(body: unknown): RotaLista[] {
                   : typeof obj["cluster"] === "string"
                     ? obj["cluster"]
                     : null,
+          driverName: textoCandidato(obj, ["driverName", "driver_name"]) ?? textoCandidato(motorista, ["name", "fullName", "full_name"]),
+          vehicleLicense: textoCandidato(obj, ["vehicleLicense", "vehicle_license", "licensePlate", "license_plate"]) ?? textoCandidato(veiculo, ["licensePlate", "license_plate", "plate"]),
+          departedAt: dataCandidata(obj, ["departedAt", "departed_at", "departureDate", "departure_date", "startDate", "startedAt", "initDate"]),
+          firstDeliveryAt: dataCandidata(obj, ["firstDeliveryAt", "first_delivery_at", "firstDeliveredAt", "first_delivered_at"]),
           status: typeof obj["status"] === "string" ? (obj["status"] as string) : null,
           substatus: typeof obj["substatus"] === "string" ? (obj["substatus"] as string) : null,
           facilityId:

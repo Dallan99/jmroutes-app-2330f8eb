@@ -24,6 +24,14 @@ export type MonitoramentoResumo = {
   coletado_em: string;
   /** Versão semântica usada para substituir snapshots antigos que incluíam PM. */
   escopo_rotas?: "AM";
+  rotas: MonitoramentoRotaResumo[];
+};
+
+export type MonitoramentoRotaResumo = {
+  route_id: string; nome_rota: string | null; motorista: string | null; placa: string | null;
+  status: string | null; substatus: string | null; total: number; entregues: number;
+  falhas: number; pendentes: number; sacas: number; saida_xpt_em: string | null;
+  primeira_entrega_em: string | null;
 };
 
 export function resumirMonitoramento(
@@ -54,6 +62,7 @@ export function resumirMonitoramento(
     bem_sucedidos: 0,
     coletado_em: coletadoEm,
     ...(BASES_SOMENTE_AM.has(codigo) ? { escopo_rotas: "AM" as const } : {}),
+    rotas: [],
   };
   for (const rota of filtradas) {
     if (rota.isDeliveryPickupRoute) resumo.rotas_mistas += 1;
@@ -65,6 +74,14 @@ export function resumirMonitoramento(
     resumo.pendentes += rota.counters?.pending ?? 0;
     resumo.com_falhas += rota.counters?.notDelivered ?? 0;
     resumo.bem_sucedidos += rota.counters?.delivered ?? 0;
+    resumo.rotas.push({
+      route_id: rota.routeId, nome_rota: rota.routeName ?? null, motorista: rota.driverName ?? null,
+      placa: rota.vehicleLicense ?? null, status: rota.status ?? null, substatus: rota.substatus ?? null,
+      total: rota.counters?.total ?? 0, entregues: rota.counters?.delivered ?? 0,
+      falhas: rota.counters?.notDelivered ?? 0, pendentes: rota.counters?.pending ?? 0,
+      sacas: rota.counters?.totalBags ?? 0, saida_xpt_em: rota.departedAt ?? null,
+      primeira_entrega_em: rota.firstDeliveryAt ?? null,
+    });
   }
   return resumo;
 }

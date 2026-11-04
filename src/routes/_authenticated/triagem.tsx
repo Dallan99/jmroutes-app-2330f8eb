@@ -868,7 +868,14 @@ function TriagemPage() {
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">
                   Rota em operação
                 </div>
-                <h1 className="font-mono text-2xl md:text-3xl font-bold">{rotaSelecionada}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold">
+                  {rotaAtual?.nome_operacional ?? rotaSelecionada}
+                </h1>
+                {rotaAtual?.nome_operacional && rotaAtual.nome_operacional !== rotaSelecionada && (
+                  <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+                    #{rotaSelecionada}
+                  </div>
+                )}
               </div>
             </div>
             <Badge
@@ -1057,9 +1064,9 @@ function TriagemPage() {
                   autoComplete="off"
                   placeholder={
                     rotaConcluidaRessalva
-                      ? `Rota ${rotaSelecionada} — concluída com ressalva`
+                      ? `Rota ${rotaAtual?.nome_operacional ?? rotaSelecionada} — concluída com ressalva`
                       : rotaSelecionada
-                        ? `Rota ${rotaSelecionada} — aguardando leitura…`
+                        ? `Rota ${rotaAtual?.nome_operacional ?? rotaSelecionada} — aguardando leitura…`
                         : "Selecione uma rota para começar…"
                   }
                   className="h-20 md:h-24 text-3xl md:text-4xl font-mono tracking-widest text-center"
@@ -1090,7 +1097,7 @@ function TriagemPage() {
           <Card className="p-4 md:p-6">
             <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
               <h2 className="font-display text-sm uppercase tracking-wider text-muted-foreground">
-                Conferência da rota {rotaSelecionada}
+                Conferência da rota {rotaAtual?.nome_operacional ?? rotaSelecionada}
               </h2>
               <span className="text-xs text-muted-foreground">
                 {rotaOperacaoQuery.isFetching ? "Atualizando…" : "Atualização automática"}
