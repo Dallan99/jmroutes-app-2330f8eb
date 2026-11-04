@@ -69,6 +69,7 @@ import { useBaseOperacional } from "@/lib/base-operacional-context";
 import { ErroBloqueioOverlay } from "@/components/erro-bloqueio-overlay";
 import { leituraQrMeliCompleta, normalizarCodigoTriagem } from "@/lib/triagem-domain";
 import { useCollectorMode } from "@/lib/collector-mode";
+import { nomenclaturaRota } from "@/lib/rota-nomenclatura";
 
 export const Route = createFileRoute("/_authenticated/triagem")({
   head: () => ({ meta: [{ title: "Recebimento — JM Transportes" }] }),
@@ -290,6 +291,10 @@ function TriagemPage() {
   });
 
   const rotaAtual = (rotas.data ?? []).find((r) => r.rota === rotaSelecionada) ?? null;
+  const nomeRotaAtual = nomenclaturaRota({
+    nome_operacional: rotaAtual?.nome_operacional,
+    route_id: rotaSelecionada ?? "",
+  });
   const rotaConcluidaRessalva = rotaAtual?.status === "concluida_ressalva";
 
   const agendarAtualizacoes = useCallback(() => {
@@ -868,7 +873,10 @@ function TriagemPage() {
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">
                   Rota em operação
                 </div>
-                <h1 className="font-mono text-2xl md:text-3xl font-bold">{rotaSelecionada}</h1>
+                <h1 className="text-2xl md:text-3xl font-bold break-words">{nomeRotaAtual}</h1>
+                <p className="font-mono text-xs text-muted-foreground mt-1">
+                  ID da rota: {rotaSelecionada}
+                </p>
               </div>
             </div>
             <Badge
@@ -1583,7 +1591,7 @@ function RotasSelector({
               >
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="font-mono font-bold text-sm truncate" title={r.rota}>
-                    {r.nome_operacional ?? r.rota}
+                    {nomenclaturaRota({ nome_operacional: r.nome_operacional, route_id: r.rota })}
                   </span>
                   <div className="flex items-center gap-1">
                     <Badge
