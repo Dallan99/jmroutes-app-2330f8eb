@@ -1588,10 +1588,17 @@ function RotasSelector({
                         : "border-destructive/50 bg-destructive/10 hover:bg-destructive/15"
                 }`}
               >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="font-mono font-bold text-sm truncate" title={r.rota}>
-                    {r.nome_operacional ?? r.rota}
-                  </span>
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0">
+                    <div className="font-mono font-bold text-sm truncate" title={r.nome_operacional ?? r.rota}>
+                      {r.nome_operacional ?? r.rota}
+                    </div>
+                    {r.nome_operacional && r.nome_operacional !== r.rota && (
+                      <div className="font-mono text-[10px] text-muted-foreground truncate" title={r.rota}>
+                        #{r.rota}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     <Badge
                       className={`text-[10px] px-1.5 py-0 ${
