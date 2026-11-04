@@ -1537,6 +1537,7 @@ export type Database = {
       }
     }
     Functions: {
+      bases_permitidas_atual: { Args: never; Returns: string[] }
       get_allowed_bases: { Args: { _user_id: string }; Returns: string[] }
       has_base_access: {
         Args: { _base_id: string; _user_id: string }
@@ -1549,6 +1550,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      limpeza_diaria_retencao: { Args: never; Returns: Json }
       meli_piloto_ingerir_lote: { Args: { p: Json }; Returns: Json }
       meli_piloto_publicar_recebimento: {
         Args: { p_base_codigo: string; p_data: string }
