@@ -215,7 +215,7 @@ function RelatorioDaBase({
   consulta,
 }: {
   baseCodigo: string;
-  consulta: ReturnType<typeof useQueries>[number];
+  consulta: { data?: unknown; isLoading?: boolean; isError?: boolean; isFetching?: boolean; error?: unknown; refetch?: () => unknown };
 }) {
   const resultado = consulta.data as Relatorio30MinResult | undefined;
   const dados = resultado?.status === "ok" ? resultado : null;
