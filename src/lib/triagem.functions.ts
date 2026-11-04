@@ -658,6 +658,7 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
       planejada: string | null;
       otimizada: string | null;
       nro_rota: string | null;
+      cluster: string | null;
       triado: boolean | null;
     }> = [];
 
@@ -668,7 +669,7 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
       // apenas para leitura agregada em memória, sem alterar dados ou schema.
       const { data: pagina, error: paginaErro } = await supabaseAdmin
         .from("escalas")
-        .select("shipment, planejada, otimizada, nro_rota, triado")
+        .select("shipment, planejada, otimizada, nro_rota, cluster, triado")
         .eq("importacao_id", impAtiva.id)
         .not("shipment", "is", null)
         .neq("shipment", "")
@@ -696,6 +697,7 @@ export const triagemRotasDoDia = createServerFn({ method: "GET" })
       const chave = rotaEfetivaTriagem(l);
       if (!chave || nomePorRota.has(chave)) continue;
       const nome = nomeOperacionalRota({
+        cluster: l.cluster,
         nro_rota: l.nro_rota,
         otimizada: l.otimizada,
         planejada: l.planejada,
